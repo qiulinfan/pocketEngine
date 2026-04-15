@@ -49,7 +49,6 @@ osx_build_derived_data
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
-**.html
 **.pdf
 **.fbx
 

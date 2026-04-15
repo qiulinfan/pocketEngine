@@ -61,6 +61,12 @@
 },
 {
   "directory": "/home/qiulin/Documents/game_engine_rynnefan/build/unix-makefiles-debug",
+  "command": "/usr/bin/g++-13  -I/home/qiulin/Documents/game_engine_rynnefan/include -I/home/qiulin/Documents/game_engine_rynnefan/include/engine -isystem /home/qiulin/Documents/game_engine_rynnefan/thirdparty -isystem /home/qiulin/Documents/game_engine_rynnefan/thirdparty/Lua -g -std=c++17 -Wall -Wextra -Wno-deprecated-declarations -o CMakeFiles/engine_runtime.dir/src/engine/rendering/SpriteRenderer.cpp.o -c /home/qiulin/Documents/game_engine_rynnefan/src/engine/rendering/SpriteRenderer.cpp",
+  "file": "/home/qiulin/Documents/game_engine_rynnefan/src/engine/rendering/SpriteRenderer.cpp",
+  "output": "CMakeFiles/engine_runtime.dir/src/engine/rendering/SpriteRenderer.cpp.o"
+},
+{
+  "directory": "/home/qiulin/Documents/game_engine_rynnefan/build/unix-makefiles-debug",
   "command": "/usr/bin/g++-13  -I/home/qiulin/Documents/game_engine_rynnefan/include -I/home/qiulin/Documents/game_engine_rynnefan/include/engine -isystem /home/qiulin/Documents/game_engine_rynnefan/thirdparty -isystem /home/qiulin/Documents/game_engine_rynnefan/thirdparty/Lua -g -std=c++17 -Wall -Wextra -Wno-deprecated-declarations -o CMakeFiles/engine_runtime.dir/src/engine/scene/Actor.cpp.o -c /home/qiulin/Documents/game_engine_rynnefan/src/engine/scene/Actor.cpp",
   "file": "/home/qiulin/Documents/game_engine_rynnefan/src/engine/scene/Actor.cpp",
   "output": "CMakeFiles/engine_runtime.dir/src/engine/scene/Actor.cpp.o"
@@ -214,6 +220,12 @@
   "command": "/usr/bin/g++-13  -I/home/qiulin/Documents/game_engine_rynnefan/include -I/home/qiulin/Documents/game_engine_rynnefan/include/engine -I/home/qiulin/Documents/game_engine_rynnefan/thirdparty/imgui -I/home/qiulin/Documents/game_engine_rynnefan/thirdparty/imgui/backends -I/home/qiulin/Documents/game_engine_rynnefan/thirdparty/imguizmo -isystem /home/qiulin/Documents/game_engine_rynnefan/thirdparty -isystem /home/qiulin/Documents/game_engine_rynnefan/thirdparty/Lua -isystem /usr/include/SDL2 -isystem /usr/include/libpng16 -isystem /usr/include/webp -isystem /usr/include/glib-2.0 -isystem /usr/lib/x86_64-linux-gnu/glib-2.0/include -isystem /usr/include/opus -isystem /usr/include/pipewire-0.3 -isystem /usr/include/spa-0.2 -isystem /usr/include/dbus-1.0 -isystem /usr/lib/x86_64-linux-gnu/dbus-1.0/include -isystem /usr/include/libinstpatch-2 -isystem /usr/include/harfbuzz -isystem /usr/include/freetype2 -g -std=c++17 -Wall -Wextra -Wno-deprecated-declarations -D_REENTRANT -pthread -D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -o CMakeFiles/editor_core.dir/src/editor/panels/ScenePanel.cpp.o -c /home/qiulin/Documents/game_engine_rynnefan/src/editor/panels/ScenePanel.cpp",
   "file": "/home/qiulin/Documents/game_engine_rynnefan/src/editor/panels/ScenePanel.cpp",
   "output": "CMakeFiles/editor_core.dir/src/editor/panels/ScenePanel.cpp.o"
+},
+{
+  "directory": "/home/qiulin/Documents/game_engine_rynnefan/build/unix-makefiles-debug",
+  "command": "/usr/bin/g++-13  -I/home/qiulin/Documents/game_engine_rynnefan/include -I/home/qiulin/Documents/game_engine_rynnefan/include/engine -I/home/qiulin/Documents/game_engine_rynnefan/thirdparty/imgui -I/home/qiulin/Documents/game_engine_rynnefan/thirdparty/imgui/backends -I/home/qiulin/Documents/game_engine_rynnefan/thirdparty/imguizmo -isystem /home/qiulin/Documents/game_engine_rynnefan/thirdparty -isystem /home/qiulin/Documents/game_engine_rynnefan/thirdparty/Lua -isystem /usr/include/SDL2 -isystem /usr/include/libpng16 -isystem /usr/include/webp -isystem /usr/include/glib-2.0 -isystem /usr/lib/x86_64-linux-gnu/glib-2.0/include -isystem /usr/include/opus -isystem /usr/include/pipewire-0.3 -isystem /usr/include/spa-0.2 -isystem /usr/include/dbus-1.0 -isystem /usr/lib/x86_64-linux-gnu/dbus-1.0/include -isystem /usr/include/libinstpatch-2 -isystem /usr/include/harfbuzz -isystem /usr/include/freetype2 -g -std=c++17 -Wall -Wextra -Wno-deprecated-declarations -D_REENTRANT -pthread -D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -o CMakeFiles/editor_core.dir/src/editor/panels/StatusPanel.cpp.o -c /home/qiulin/Documents/game_engine_rynnefan/src/editor/panels/StatusPanel.cpp",
+  "file": "/home/qiulin/Documents/game_engine_rynnefan/src/editor/panels/StatusPanel.cpp",
+  "output": "CMakeFiles/editor_core.dir/src/editor/panels/StatusPanel.cpp.o"
 },
 {
   "directory": "/home/qiulin/Documents/game_engine_rynnefan/build/unix-makefiles-debug",
@@ -688,12 +700,6 @@
   "command": "/usr/bin/g++-13  -I/home/qiulin/Documents/game_engine_rynnefan/thirdparty/imgui -I/home/qiulin/Documents/game_engine_rynnefan/thirdparty/imgui/backends -isystem /home/qiulin/Documents/game_engine_rynnefan/thirdparty -isystem /usr/include/SDL2 -isystem /usr/include/libpng16 -isystem /usr/include/webp -isystem /usr/include/glib-2.0 -isystem /usr/lib/x86_64-linux-gnu/glib-2.0/include -isystem /usr/include/opus -isystem /usr/include/pipewire-0.3 -isystem /usr/include/spa-0.2 -isystem /usr/include/dbus-1.0 -isystem /usr/lib/x86_64-linux-gnu/dbus-1.0/include -isystem /usr/include/libinstpatch-2 -isystem /usr/include/harfbuzz -isystem /usr/include/freetype2 -g -std=c++17 -D_REENTRANT -pthread -D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -o CMakeFiles/imgui_runtime.dir/imgui/imgui.cpp.o -c /home/qiulin/Documents/game_engine_rynnefan/thirdparty/imgui/imgui.cpp",
   "file": "/home/qiulin/Documents/game_engine_rynnefan/thirdparty/imgui/imgui.cpp",
   "output": "thirdparty/CMakeFiles/imgui_runtime.dir/imgui/imgui.cpp.o"
-},
-{
-  "directory": "/home/qiulin/Documents/game_engine_rynnefan/build/unix-makefiles-debug/thirdparty",
-  "command": "/usr/bin/g++-13  -I/home/qiulin/Documents/game_engine_rynnefan/thirdparty/imgui -I/home/qiulin/Documents/game_engine_rynnefan/thirdparty/imgui/backends -isystem /home/qiulin/Documents/game_engine_rynnefan/thirdparty -isystem /usr/include/SDL2 -isystem /usr/include/libpng16 -isystem /usr/include/webp -isystem /usr/include/glib-2.0 -isystem /usr/lib/x86_64-linux-gnu/glib-2.0/include -isystem /usr/include/opus -isystem /usr/include/pipewire-0.3 -isystem /usr/include/spa-0.2 -isystem /usr/include/dbus-1.0 -isystem /usr/lib/x86_64-linux-gnu/dbus-1.0/include -isystem /usr/include/libinstpatch-2 -isystem /usr/include/harfbuzz -isystem /usr/include/freetype2 -g -std=c++17 -D_REENTRANT -pthread -D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -o CMakeFiles/imgui_runtime.dir/imgui/imgui_demo.cpp.o -c /home/qiulin/Documents/game_engine_rynnefan/thirdparty/imgui/imgui_demo.cpp",
-  "file": "/home/qiulin/Documents/game_engine_rynnefan/thirdparty/imgui/imgui_demo.cpp",
-  "output": "thirdparty/CMakeFiles/imgui_runtime.dir/imgui/imgui_demo.cpp.o"
 },
 {
   "directory": "/home/qiulin/Documents/game_engine_rynnefan/build/unix-makefiles-debug/thirdparty",
