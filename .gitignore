@@ -29,6 +29,7 @@ osx_build_derived_data
 **.BMP
 **.gif
 **.GIF
+!docs/show.gif
 
 # **.wav
 **.mp3
@@ -36,6 +37,7 @@ osx_build_derived_data
 **.raw
 **.mp4
 **.mov
+!docs/show.mp4
 
 # Visual Studio / MSBuild build artifacts
 # User-specific files
