@@ -18,7 +18,15 @@ The game has a Unity-like editor layout and runtime integration with:
 - actor parenting with local/world `Transform` and physics hierarchy inspection
 - play-mode live editing and automatic scene-backed actor UID persistence
 
-## Repository Layout
+## Build
+### Linux Release
+
+```bash
+cmake --preset unix-makefiles-release
+cmake --build --preset unix-makefiles-release -j4
+```
+
+## Repository Layout and Architecture
 
 - `src/app/runtime`, `src/app/editor`: executable hosts
 - `src/engine/*`: runtime systems
@@ -29,16 +37,14 @@ The game has a Unity-like editor layout and runtime integration with:
 - `.engine/*`: editor-facing config, state, fonts, and icons
 - `thirdparty/*`: dependencies
 
-## Build
-### Linux Release
-
-```bash
-cmake --preset unix-makefiles-release
-cmake --build --preset unix-makefiles-release -j4
-```
-
 All files under `docs/architecture/` are diagram-only for explaining the architecture.
 - [Frame Pipeline](docs/architecture/frame-pipeline.md)
 - [Asset Pipeline](docs/architecture/asset-pipeline.md)
 - [Module Dependency](docs/architecture/module-dependency.md)
 - [Editor Workflow](docs/architecture/editor-workflow.md)
+
+## License
+
+PocketEngine is released under [MIT License](/home/qiulin/Documents/game_engine_rynnefan/LICENSE).
+
+Third-party libraries under `thirdparty/` keep their own upstream licenses.
