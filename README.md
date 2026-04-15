@@ -1,4 +1,4 @@
-# PocketEngine
+# <img src="docs/icon.png" alt="PocketEngine icon" width="10%"> PocketEngine 
 
 PocketEngine is a cross-platform 2D runtime + editor game engine, written in C++17 on top of
 SDL2, Lua, Box2D, Dear ImGui, and JSON scene assets. It hosts Lua for game logic scripting.

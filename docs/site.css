@@ -44,7 +44,7 @@ img {
 
 .hero {
     display: grid;
-    grid-template-columns: 1.2fr 1fr;
+    grid-template-columns: 0.8fr 1.2fr;
     gap: 24px;
     align-items: center;
     margin-bottom: 28px;
@@ -60,24 +60,24 @@ img {
 }
 
 .hero-copy {
-    padding: 28px;
+    padding: 22px;
 }
 
 .brand-row {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
+    gap: 10px;
+    margin-bottom: 8px;
 }
 
 .hero-logo {
-    width: 56px;
-    height: 56px;
-    border-radius: 14px;
+    width: 9px;
+    height: 9px;
+    border-radius: 4px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(255, 255, 255, 0.04);
-    padding: 6px;
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+    padding: 1px;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.18);
 }
 
 .eyebrow {
@@ -99,15 +99,16 @@ p {
 }
 
 h1 {
-    font-size: clamp(34px, 5vw, 56px);
+    font-size: clamp(17px, 2.5vw, 28px);
     line-height: 1.02;
-    margin-bottom: 16px;
+    margin-bottom: 10px;
 }
 
 .hero-copy p,
 .section-card p {
     color: var(--muted);
-    line-height: 1.65;
+    line-height: 1.55;
+    font-size: 14px;
 }
 
 .hero-actions {
