@@ -1,104 +1,44 @@
 # PocketEngine
 
-PocketEngine is a 2D game engine and editor built in C++17 on SDL2, Lua,
-Box2D, Dear ImGui, and JSON assets loaded directly from `resources/`.
+PocketEngine is a cross-platform 2D runtime + editor game engine, written in C++17 on top of
+SDL2, Lua, Box2D, Dear ImGui, and JSON scene assets. It hosts Lua for game logic scripting.
 
-[Chinese / 中文版](README.zh-CN.md)
+It is a variant of the A2 Engine: https://a2engine.org/. For basic usage, check the documentation of A2 engine for the APIs. 
 
-## Overview
+Documentation for unique APIs of PocketEngine: //TODO
 
-The repository ships two hosts:
+![PocketEngine Demo](docs/show.gif)
 
-- `game_engine`: standalone runtime player
-- `game_editor`: docked GUI editor with an embedded runtime viewport
-
-The current editor workflow is document-first:
-
-- GUI edits mutate a `SceneDocument` owned by `EditorSceneSession`
-- In edit mode, the runtime preview is refreshed from the document at frame
-  boundaries
-- In play mode, the session snapshots the authoring document into a temporary
-  play sandbox document
-- Play-mode GUI edits mutate the sandbox document and are also applied to the
-  live runtime through `SceneEditCommand` / `SceneMutation`
-- Stopping play discards the sandbox and restores the authoring preview
-
-## Editor Highlights
-
-- Docked Dear ImGui shell with menu bar, status panels, and embedded viewport
-- `Project` panel for browsing `resources/`, opening `.scene` files, and
-  launching configured external editors
-- `Hierarchy` panel for actor selection, creation, duplication, deletion, and
-  rename
-- `Inspector` panel for component add/remove/rename, type changes, and scalar
-  property editing
-- `Viewport` panel with floating play / pause / stop controls and runtime input
-  routing
-- Live runtime scene editing in play mode through scene mutations
+The game has a Unity-like editor layout and runtime integration with:
+- independent `SceneView` panel with actor-picking and drag&drop editing;
+- embedded `Viewport` panel for pure runtime output;
+- `Project` browser rooted at `resources/` with scene opening and asset drag&drop support;
+- `Hierarchy` tree with create, duplicate, delete, rename, actor reparenting;
+- `Inspector` for component add/remove/rename and property editing
+- actor parenting with local/world `Transform` and physics hierarchy inspection
+- play-mode live editing and automatic scene-backed actor UID persistence
 
 ## Repository Layout
 
-- `src/app/runtime` and `src/app/editor`: executable hosts
+- `src/app/runtime`, `src/app/editor`: executable hosts
 - `src/engine/*`: runtime systems
-- `src/editor/*`: editor shell, scene session, documents, and panels
-- `src/shared/*`: config, resource helpers, scene-format, and mutation types
-- `resources/*`: scenes, templates, Lua component types, images, fonts, audio,
-  and configs
-- `docs/*`: architecture and editor workflow notes
+- `src/editor/*`: editor shell, documents, panels
+- `src/shared/*`: config, scene format, resource helpers
+- `include/*`: public headers for the same layers
+- `resources/*`: project-facing assets
+- `.engine/*`: editor-facing config, state, fonts, and icons
+- `thirdparty/*`: dependencies
 
 ## Build
-
-CMake presets are the primary build entry point.
-
-### Linux
+### Linux Release
 
 ```bash
-cmake --preset unix-makefiles-debug
-cmake --build --preset unix-makefiles-debug -j4
-./build/unix-makefiles-debug/game_engine_linux
-./build/unix-makefiles-debug/game_editor_linux
+cmake --preset unix-makefiles-release
+cmake --build --preset unix-makefiles-release -j4
 ```
 
-### Windows
-
-```bash
-cmake --preset vs2022-x64
-cmake --build --preset vs2022-debug
-cmake --build --preset vs2022-release
-```
-
-### macOS
-
-```bash
-cmake --preset xcode
-cmake --build --preset xcode-debug
-cmake --build --preset xcode-release
-```
-
-`build_commands.txt` contains a short copy/paste list for common local flows.
-
-## Scene + Runtime Model
-
-- `.scene` files are parsed by `shared/scene_format`
-- `SceneDocument` is the editor-side mutable cache for one scene
-- `EditorSceneSession` owns the authoritative authoring document and, when play
-  mode is active, a temporary play document
-- `SceneMutation` and `SceneEditCommand` are the shared edit contract between
-  editor panels, the document layer, and play-mode runtime sync
-- Runtime actors carry editor-side stable actor UIDs so play-mode mutations can
-  target the correct live actor
-
-## Save Behavior
-
-- Scene edits stay in memory inside the authoring document until save
-- The scene file is written on explicit save, scene switch, or editor shutdown
-- Play-mode sandbox edits are never written back to the authoring document or
-  `.scene` file
-
-## Documentation
-
-- [Editor Overview](docs/editor-overview.md)
-- [Editor Overview (Chinese)](docs/editor-overview.zh-CN.md)
+All files under `docs/architecture/` are diagram-only for explaining the architecture.
 - [Frame Pipeline](docs/architecture/frame-pipeline.md)
 - [Asset Pipeline](docs/architecture/asset-pipeline.md)
 - [Module Dependency](docs/architecture/module-dependency.md)
+- [Editor Workflow](docs/architecture/editor-workflow.md)
