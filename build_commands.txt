@@ -1,0 +1,35 @@
+# PocketEngine build/test commands
+
+Linux configure/build:
+cmake --preset unix-makefiles-debug
+cmake --build --preset unix-makefiles-debug -j4
+
+Linux release:
+cmake --preset unix-makefiles-release
+cmake --build --preset unix-makefiles-release -j4
+
+Linux run runtime:
+./build/unix-makefiles-debug/game_engine_linux
+
+Linux run editor:
+./game_editor_linux
+# fallback (build tree location):
+./build/unix-makefiles-debug/game_editor_linux
+
+Linux refresh root compile_commands.json:
+cp build/unix-makefiles-debug/compile_commands.json ./compile_commands.json
+./scripts/refresh_compile_commands.sh unix-makefiles-debug
+
+Ninja configure/build:
+cmake --preset ninja-debug
+cmake --build --preset ninja-debug -j4
+
+Windows Visual Studio generate/build:
+cmake --preset vs2022-x64
+cmake --build --preset vs2022-debug
+cmake --build --preset vs2022-release
+
+macOS Xcode generate/build:
+cmake --preset xcode
+cmake --build --preset xcode-debug
+cmake --build --preset xcode-release

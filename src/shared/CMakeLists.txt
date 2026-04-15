@@ -1,0 +1,9 @@
+target_sources(
+    engine_runtime
+    PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/config/GameConfig.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/scene_format/SceneFormat.cpp"
+        "${PROJECT_SOURCE_DIR}/include/shared/config/GameConfig.h"
+        "${PROJECT_SOURCE_DIR}/include/shared/resources/ResourcePath.h"
+        "${PROJECT_SOURCE_DIR}/include/shared/scene_format/SceneFormat.h"
+)

@@ -1,0 +1,16 @@
+target_sources(
+    editor_core
+    PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/HierarchyPanel.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/InspectorPanel.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/ProjectPanel.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/ScenePanel.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/StatusPanel.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/ViewportPanel.cpp"
+        "${PROJECT_SOURCE_DIR}/include/editor/panels/HierarchyPanel.h"
+        "${PROJECT_SOURCE_DIR}/include/editor/panels/InspectorPanel.h"
+        "${PROJECT_SOURCE_DIR}/include/editor/panels/ProjectPanel.h"
+        "${PROJECT_SOURCE_DIR}/include/editor/panels/ScenePanel.h"
+        "${PROJECT_SOURCE_DIR}/include/editor/panels/StatusPanel.h"
+        "${PROJECT_SOURCE_DIR}/include/editor/panels/ViewportPanel.h"
+)

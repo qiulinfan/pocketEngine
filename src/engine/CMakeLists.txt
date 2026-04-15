@@ -1,0 +1,8 @@
+add_subdirectory(audio)
+add_subdirectory(core)
+add_subdirectory(input)
+add_subdirectory(particles)
+add_subdirectory(physics)
+add_subdirectory(rendering)
+add_subdirectory(scene)
+add_subdirectory(scripting)
