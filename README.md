@@ -13,7 +13,7 @@ Documentation for unique APIs of PocketEngine: //TODO
 ![PocketEngine Demo](docs/show.gif)
 
 The game has a Unity-like editor layout and runtime integration with:
-- independent `SceneView` panel with actor-picking and drag&drop editing;
+- `SceneView` panel with actor-picking and drag&drop editing;
 - embedded `Viewport` panel for pure runtime output;
 - `Project` browser rooted at `resources/` with scene opening and asset drag&drop support;
 - `Hierarchy` tree with create, duplicate, delete, rename, actor reparenting;

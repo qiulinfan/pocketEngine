@@ -15,22 +15,6 @@
       }
     },
     {
-      "name": "ninja-debug",
-      "inherits": "base",
-      "generator": "Ninja",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
-      }
-    },
-    {
-      "name": "ninja-release",
-      "inherits": "base",
-      "generator": "Ninja",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
-      }
-    },
-    {
       "name": "unix-makefiles-debug",
       "inherits": "base",
       "generator": "Unix Makefiles",
@@ -63,14 +47,6 @@
   ],
   "buildPresets": [
     {
-      "name": "ninja-debug",
-      "configurePreset": "ninja-debug"
-    },
-    {
-      "name": "ninja-release",
-      "configurePreset": "ninja-release"
-    },
-    {
       "name": "unix-makefiles-debug",
       "configurePreset": "unix-makefiles-debug"
     },
@@ -79,12 +55,12 @@
       "configurePreset": "unix-makefiles-release"
     },
     {
-      "name": "vs2022-debug",
+      "name": "vs-debug",
       "configurePreset": "vs2022-x64",
       "configuration": "Debug"
     },
     {
-      "name": "vs2022-release",
+      "name": "vs-release",
       "configurePreset": "vs2022-x64",
       "configuration": "Release"
     },
