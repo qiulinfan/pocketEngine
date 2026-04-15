@@ -1,6 +1,8 @@
 #include "app/editor/EditorApp.h"
 #include "input/SDLEventHelper.h"
 #include "SDL2/SDL.h"
+#include "SDL2_image/SDL_image.h"
+#include "shared/resources/ResourcePath.h"
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
@@ -179,6 +181,31 @@ bool OpenExternalEditor(const EditorConfigData &editor_config,
     if (IsBlankCommand(configured_command)) return false;
     return RunExternalCommand(configured_command, normalized_file,
                               normalized_resources);
+}
+
+void ApplyEditorWindowIcon(SDL_Window *window) {
+    if (window == nullptr) return;
+
+    const std::filesystem::path primary_icon_path =
+        ResourcePath::EngineSystemIconPath();
+    const std::filesystem::path fallback_icon_path = "docs/icon.png";
+    const std::filesystem::path icon_path =
+        std::filesystem::exists(primary_icon_path)
+            ? primary_icon_path
+            : fallback_icon_path;
+
+    if (!std::filesystem::exists(icon_path)) return;
+
+    SDL_Surface *icon_surface = IMG_Load(icon_path.string().c_str());
+    if (icon_surface == nullptr) {
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                    "EditorApp: failed to load icon from %s: %s",
+                    icon_path.string().c_str(), IMG_GetError());
+        return;
+    }
+
+    SDL_SetWindowIcon(window, icon_surface);
+    SDL_FreeSurface(icon_surface);
 }
 
 bool AreEditorConfigsEqualForConfirmation(const EditorConfigData &lhs,
@@ -366,6 +393,7 @@ void EditorApp::Run() {
 
     // start engine runtime
     engine_.InitializeRuntime();
+    ApplyEditorWindowIcon(engine_.GetWindow());
     ApplyEditorWindowSettings();
     engine_.SetRenderRuntimeToTexture(true);
     scene_session_.LoadInitialScene(engine_);

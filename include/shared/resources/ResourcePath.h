@@ -20,6 +20,10 @@ inline std::filesystem::path EngineSystemImagesRoot() {
     return EngineRootPath() / "system" / "images";
 }
 
+inline std::filesystem::path EngineSystemIconPath() {
+    return EngineRootPath() / "system" / "icon.png";
+}
+
 inline std::filesystem::path EngineSystemFontsRoot() {
     return EngineRootPath() / "system" / "fonts";
 }
