@@ -63,22 +63,35 @@ img {
     padding: 22px;
 }
 
-.brand-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 10px;
+.hero-copy-layout {
+    display: block;
+}
+
+.hero-icon-panel {
+    float: left;
+    width: 180px;
+    margin: 0 22px 14px 0;
 }
 
 .hero-logo {
-    width: 30px;
-    height: 30px;
-    flex: 0 0 30px;
-    border-radius: 8px;
+    width: 180px;
+    height: 180px;
+    flex: 0 0 180px;
+    border-radius: 22px;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(255, 255, 255, 0.04);
-    padding: 3px;
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.18);
+    background: linear-gradient(180deg, rgba(125, 196, 255, 0.10), rgba(255, 255, 255, 0.03));
+    padding: 12px;
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);
+}
+
+.hero-copy-text > :last-child {
+    margin-bottom: 0;
+}
+
+.hero-copy-text::after {
+    content: "";
+    display: block;
+    clear: both;
 }
 
 .eyebrow {
@@ -109,7 +122,7 @@ h1 {
 .section-card p {
     color: var(--muted);
     line-height: 1.55;
-    font-size: 14px;
+    font-size: 16px;
 }
 
 .hero-actions {
@@ -198,5 +211,14 @@ h1 {
     .hero,
     .section-grid {
         grid-template-columns: 1fr;
+    }
+
+    .hero-copy-layout {
+        display: block;
+    }
+
+    .hero-icon-panel {
+        float: none;
+        margin: 0 0 16px;
     }
 }
