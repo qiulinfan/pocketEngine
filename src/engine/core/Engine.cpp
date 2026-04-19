@@ -35,7 +35,8 @@ bool CanBuiltinRuntimeComponentPatchInPlace(const std::string &type_name) {
 
 void RotateClockwise(float x, float y, float rotation_degrees, float &out_x,
                      float &out_y) {
-                         const float radians = rotation_degrees * (3.14159265358979323846f / 180.0f);
+    const float radians =
+        rotation_degrees * (3.14159265358979323846f / 180.0f);
     const float cos_theta = std::cos(radians);
     const float sin_theta = std::sin(radians);
     out_x = cos_theta * x + sin_theta * y;
@@ -44,7 +45,8 @@ void RotateClockwise(float x, float y, float rotation_degrees, float &out_x,
 
 std::string BuildUniqueRuntimeActorName(const std::deque<Actor> &actors,
                                         const std::string &base_name) {
-                                            const std::string safe_base_name = base_name.empty() ? "New Actor" : base_name;
+    const std::string safe_base_name =
+        base_name.empty() ? "New Actor" : base_name;
     std::unordered_set<std::string> used_names;
     used_names.reserve(actors.size());
     for (const Actor &actor : actors) {
@@ -373,7 +375,8 @@ rebound, so instantiate/duplicate can stay O(1) during play.
 std::uint64_t Engine::AllocateRuntimeGeneratedActorUID() {
     if (next_runtime_generated_actor_uid_ <
         Actor::kRuntimeGeneratedEditorActorUIDStart) {
-            next_runtime_generated_actor_uid_ = Actor::kRuntimeGeneratedEditorActorUIDStart;
+        next_runtime_generated_actor_uid_ =
+            Actor::kRuntimeGeneratedEditorActorUIDStart;
     }
     return next_runtime_generated_actor_uid_++;
 }
@@ -391,7 +394,8 @@ bool Engine::DuplicateRuntimeActorByID(int actor_id, int *out_new_actor_id) {
     const std::string duplicate_base_name =
         source_actor->actor_name.empty() ? "New Actor"
                                          : source_actor->actor_name + " (copy)";
-                                         duplicated_actor.actor_name = BuildUniqueRuntimeActorName(actors, duplicate_base_name);
+    duplicated_actor.actor_name =
+        BuildUniqueRuntimeActorName(actors, duplicate_base_name);
     duplicated_actor.id = Scene::AllocateActorID();
     duplicated_actor.editor_actor_uid = AllocateRuntimeGeneratedActorUID();
     duplicated_actor.scene_backed = false;
@@ -784,20 +788,32 @@ void Engine::rebuildRuntimePhysicsHierarchyCache() const {
                 return;
             }
 
+            /*
+            First read the actor's own Rigidbody request from live component
+            state, then layer ancestry-derived ownership rules on top.
+            */
             PhysicsHierarchy::State state = BuildRuntimeActorPhysicsSelfState(
                 actor.id, ComponentManager::GetRuntimeComponentSpecs(actor.id));
 
-                std::uint64_t nearest_dynamic_ancestor_uid = PhysicsHierarchy::kInvalidActorUID;
+            std::uint64_t nearest_dynamic_ancestor_uid =
+                PhysicsHierarchy::kInvalidActorUID;
             if (actor.parent_id >= 0 && actor.parent_id != actor.id) {
                 auto parent_it = runtime_actor_by_id.find(actor.parent_id);
                 if (parent_it != runtime_actor_by_id.end() &&
                     parent_it->second != nullptr) {
+                    /*
+                    Resolve parents first so each child can inherit nearest
+                    dynamic ancestor / physics-root state in one pass.
+                    */
                     resolve_actor_state(*parent_it->second);
-                    const PhysicsHierarchy::State &parent_state = state_by_actor_id[parent_it->second->id];
+                    const PhysicsHierarchy::State &parent_state =
+                        state_by_actor_id[parent_it->second->id];
                     if (parent_state.has_dynamic_rigidbody_self) {
-                        nearest_dynamic_ancestor_uid = parent_it->second->editor_actor_uid;
+                        nearest_dynamic_ancestor_uid =
+                            parent_it->second->editor_actor_uid;
                     } else {
-                        nearest_dynamic_ancestor_uid = parent_state.nearest_dynamic_body_ancestor_uid;
+                        nearest_dynamic_ancestor_uid =
+                            parent_state.nearest_dynamic_body_ancestor_uid;
                     }
                 }
             }
@@ -813,6 +829,11 @@ void Engine::rebuildRuntimePhysicsHierarchyCache() const {
             if (state.rigidbody_enabled_self &&
                 state.requested_body_type == "dynamic" &&
                 state.is_under_dynamic_hierarchy) {
+                /*
+                The authored component still requests dynamic, but runtime
+                consumes the derived kinematic override so a subtree has only
+                one dynamic owner.
+                */
                 state.effective_body_type = "kinematic";
             }
 
@@ -848,6 +869,10 @@ void Engine::rebuildRuntimeActorUIDMap() {
         max_existing_uid = std::max(max_existing_uid, actor.editor_actor_uid);
         runtime_actor_by_editor_uid_[actor.editor_actor_uid] = &actor;
     }
+    /*
+    Runtime-only actors allocate from a monotonic cursor after the highest live
+    UID so instantiate/duplicate stay O(1) during play mode.
+    */
     next_runtime_generated_actor_uid_ =
         std::max<std::uint64_t>(Actor::kRuntimeGeneratedEditorActorUIDStart,
                                 max_existing_uid + 1);
@@ -1034,6 +1059,10 @@ bool Engine::applySetActorParentMutation( const SceneFormat::SetActorParentMutat
         if (parent_actor == nullptr) return false;
         if (parent_actor->id == actor->id) return false;
 
+        /*
+        Runtime parenting still rejects cycles even though actors live in a
+        flat deque. We validate by walking the proposed parent's ancestors.
+        */
         std::unordered_set<int> visited_actor_ids;
         const Actor *ancestor_actor = parent_actor;
         while (ancestor_actor != nullptr) {
@@ -1084,6 +1113,10 @@ bool Engine::applySetActorParentMutation( const SceneFormat::SetActorParentMutat
     rebuildRuntimeParentLinks();
 
     if (has_transform) {
+        /*
+        Preserve the actor's visible pose by converting the old world pose into
+        a new local Transform under the just-updated parent chain.
+        */
         float local_x = actor_world_x;
         float local_y = actor_world_y;
         float local_rotation = actor_world_rotation;

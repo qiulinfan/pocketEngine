@@ -86,7 +86,8 @@ bool TryCastRuntimeTransform(ComponentRecord *component, Transform *&out_transfo
 
 void RotateClockwiseLocal(float x, float y, float rotation_degrees,
                           float &out_x, float &out_y) {
-                              const float radians = rotation_degrees * (3.14159265358979323846f / 180.0f);
+    const float radians =
+        rotation_degrees * (3.14159265358979323846f / 180.0f);
     const float cos_theta = std::cos(radians);
     const float sin_theta = std::sin(radians);
     out_x = cos_theta * x + sin_theta * y;
@@ -204,6 +205,11 @@ void ComponentManager::ApplyEffectiveRigidbodyBodyTypes() {
             physics_state.has_rigidbody_self
                 ? physics_state.effective_body_type
                 : rigidbody->body_type;
+        /*
+        Runtime rigidbodies keep both authored and effective body types. This
+        bridge copies the hierarchy-derived decision into the live instance
+        before OnStart / physics step consume it.
+        */
         rigidbody->SetEffectiveBodyType(effective_body_type);
     }
 }
@@ -315,6 +321,10 @@ void ComponentManager::StepPhysics() {
                 continue;
             }
 
+            /*
+            Non-dynamic rigidbodies follow hierarchy/world-transform state into
+            Box2D, rather than competing with physics as a second motion owner.
+            */
             rigidbody->SetPosition(b2Vec2(transform->world_x,
                                           transform->world_y));
             rigidbody->SetRotation(transform->world_rotation);
@@ -359,6 +369,11 @@ void ComponentManager::StepPhysics() {
         float local_x = position.x;
         float local_y = position.y;
         float local_rotation = rotation;
+        /*
+        Dynamic roots run in the opposite direction: physics owns the world
+        pose, so we convert that world pose back into local Transform under the
+        current parent chain after the Box2D step.
+        */
         ResolveLocalTransformFromWorld(actor, position.x, position.y, rotation,
                                        local_x, local_y, local_rotation);
         transform_component->instance_table["x"] = local_x;
@@ -404,6 +419,10 @@ void ComponentManager::FinalizePrePhysicsDestructions() {
                 RunComponentOnDestroyIfNeeded(*component_ptr, actor_id);
             }
 
+            /*
+            Component teardown is batched here so physics, lifecycle dispatch,
+            and lookup indices all see one stable runtime view during update.
+            */
             components.erase(
                 std::remove_if(
                     components.begin(), components.end(),

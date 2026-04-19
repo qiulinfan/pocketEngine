@@ -41,6 +41,11 @@ void ResolveRuntimeLocalTransformFromWorld(
     Actor *actor = actor_it->second;
     if (actor->parent_id < 0 || actor->parent_id == actor_id) return;
 
+    /*
+    Runtime transform editing speaks in world space for some call sites. If the
+    actor has a parent, convert the requested world pose back into local space
+    before writing into the built-in Transform component.
+    */
     float parent_world_x = 0.0f;
     float parent_world_y = 0.0f;
     float parent_world_rotation = 0.0f;
@@ -67,6 +72,11 @@ void SyncTransformAndRigidbodyAfterPropertyEdit(
     }
 
     if (edited_component.type == "Transform") {
+        /*
+        Transform edits must immediately push a matching pose into Rigidbody so
+        rendering and physics do not disagree for one frame in editor/runtime
+        inspection paths.
+        */
         ComponentRecord *rigidbody_component = FindPrimaryComponentByType(actor_id, "Rigidbody");
         if (rigidbody_component == nullptr) return;
 
@@ -97,6 +107,11 @@ void SyncTransformAndRigidbodyAfterPropertyEdit(
 
     if (edited_component.type != "Rigidbody") return;
 
+    /*
+    The reverse direction matters too: when Rigidbody properties are edited
+    directly, keep the built-in Transform aligned so hierarchy/world resolve
+    continues to see one coherent pose.
+    */
     ComponentRecord *transform_component = FindPrimaryComponentByType(actor_id, "Transform");
     if (transform_component == nullptr) return;
 
@@ -394,6 +409,11 @@ bool ComponentManager::SetRuntimeComponentPropertyValue(
         return true;
     }
 
+    /*
+    Some built-ins rebuild internal runtime state from their serialized spec.
+    For those, mutate the authored spec first, then destroy/recreate the live
+    component so the instance is reconstructed from the updated data.
+    */
     const luabridge::LuaRef component_ref =
         ComponentManager::GetComponentByKey(actor_id, component_key);
     if (component_ref.isNil()) return false;
@@ -434,6 +454,11 @@ luabridge::LuaRef ComponentManager::InstantiateActor( const std::string &templat
 
     g_runtime.scene_actors->emplace_back(std::move(actor));
     Actor *actor_ptr = &g_runtime.scene_actors->back();
+    /*
+    Instantiated actors are inserted into runtime lookup tables immediately so
+    Lua can Find/SetParent them in the same frame, even though lifecycle
+    callbacks still begin on the next frame boundary.
+    */
     g_runtime.actor_by_id[actor_ptr->id] = actor_ptr;
     g_runtime.actors_by_name[actor_ptr->actor_name].push_back(actor_ptr);
     g_runtime.actor_order_by_id[actor_ptr->id] = g_runtime.scene_actors->empty() ? 0 : (g_runtime.scene_actors->size() - 1);
