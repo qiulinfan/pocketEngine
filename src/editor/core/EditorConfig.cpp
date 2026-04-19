@@ -311,8 +311,7 @@ EditorConfig::ExternalEditorFileTypes() {
 }
 
 // Return a short display label for one external editor file type.
-const char *EditorConfig::ExternalEditorDisplayLabel(
-    EditorExternalFileType type) {
+const char *EditorConfig::ExternalEditorDisplayLabel( EditorExternalFileType type) {
     return GetExternalEditorDisplayLabel(type);
 }
 
@@ -328,7 +327,6 @@ std::string &EditorConfig::ExternalEditorCommand(EditorConfigData &config,
 }
 
 // Mutable / immutable accessors to command string for one file type.
-const std::string &EditorConfig::ExternalEditorCommand(
-    const EditorConfigData &config, EditorExternalFileType type) {
+const std::string &EditorConfig::ExternalEditorCommand( const EditorConfigData &config, EditorExternalFileType type) {
     return *GetExternalEditorCommandPtr(config, type);
 }

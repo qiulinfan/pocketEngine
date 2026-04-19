@@ -634,8 +634,7 @@ EditorOverlayResult EditorOverlay::Render(Engine &engine,
     } else if (selected_actor_index_ >= 0 &&
                selected_actor_index_ <
                    static_cast<int>(scene_document.GetActorCount())) {
-        const SceneDocument::ActorUID selected_actor_uid = scene_document.GetActorUID(
-            static_cast<std::size_t>(selected_actor_index_));
+        const SceneDocument::ActorUID selected_actor_uid = scene_document.GetActorUID( static_cast<std::size_t>(selected_actor_index_));
         const Actor *selected_runtime_actor =
             engine.GetRuntimeActorByID(selected_runtime_actor_id_);
         if (selected_runtime_actor == nullptr ||
@@ -721,8 +720,7 @@ void EditorOverlay::RenderEditorSettingsWindow(Engine &engine,
         return;
     }
 
-    ImGui::TextUnformatted(
-        "These values control the editor window and overlay only.");
+    ImGui::TextUnformatted( "These values control the editor window and overlay only.");
     ImGui::TextDisabled(
         "Window moves are auto-accepted. Fullscreen/layout changes still need Apply/Revert.");
     ImGui::Separator();
@@ -816,10 +814,8 @@ void EditorOverlay::RenderProjectConfigWindows() {
 
     if (show_game_config_window_) {
         if (ImGui::Begin("Game Config", &show_game_config_window_)) {
-            ImGui::TextUnformatted(
-                "These values write to resources/game.config immediately.");
-            ImGui::TextDisabled(
-                "Current runtime/editor session keeps its already-loaded config.");
+            ImGui::TextUnformatted( "These values write to resources/game.config immediately.");
+            ImGui::TextDisabled( "Current runtime/editor session keeps its already-loaded config.");
             if (ImGui::Button("Reload from Disk")) {
                 project_config_cache_ = GameConfig::Read();
             }
@@ -864,10 +860,8 @@ void EditorOverlay::RenderProjectConfigWindows() {
 
     if (show_rendering_config_window_) {
         if (ImGui::Begin("Rendering Config", &show_rendering_config_window_)) {
-            ImGui::TextUnformatted(
-                "These values write to resources/rendering.config immediately.");
-            ImGui::TextDisabled(
-                "Current runtime/editor session keeps its already-loaded config.");
+            ImGui::TextUnformatted( "These values write to resources/rendering.config immediately.");
+            ImGui::TextDisabled( "Current runtime/editor session keeps its already-loaded config.");
             if (ImGui::Button("Reload from Disk")) {
                 project_config_cache_ = GameConfig::Read();
             }
@@ -923,8 +917,7 @@ void EditorOverlay::RenderProjectConfigWindows() {
     }
 }
 
-void EditorOverlay::RenderEditorConfigConfirmationWindow(
-    bool editor_config_confirmation_pending, EditorOverlayResult &result) {
+void EditorOverlay::RenderEditorConfigConfirmationWindow( bool editor_config_confirmation_pending, EditorOverlayResult &result) {
     if (!editor_config_confirmation_pending) return;
 
     ImGuiViewport *viewport = ImGui::GetMainViewport();
@@ -942,10 +935,8 @@ void EditorOverlay::RenderEditorConfigConfirmationWindow(
                                    ImGuiWindowFlags_NoSavedSettings |
                                    ImGuiWindowFlags_NoDocking;
     if (ImGui::Begin("Confirm Overlay Change", nullptr, flags)) {
-        ImGui::TextUnformatted(
-            "Editor overlay/window changes are pending confirmation.");
-        ImGui::TextDisabled(
-            "You can keep editing. Apply will persist the latest layout/settings.");
+        ImGui::TextUnformatted( "Editor overlay/window changes are pending confirmation.");
+        ImGui::TextDisabled( "You can keep editing. Apply will persist the latest layout/settings.");
         ImGui::Spacing();
         if (ImGui::Button("Apply Overlay", ImVec2(150.0f, 0.0f))) {
             result.editor_config_apply_requested = true;

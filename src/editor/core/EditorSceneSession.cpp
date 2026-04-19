@@ -22,8 +22,7 @@ void EditorSceneSession::LoadInitialScene(const Engine &engine) {
     runtime_scene_dirty_ = authoring_scene_document_loaded_;
 }
 
-bool EditorSceneSession::OpenSceneFromPath(
-    const std::filesystem::path &scene_path, Engine &engine) {
+bool EditorSceneSession::OpenSceneFromPath( const std::filesystem::path &scene_path, Engine &engine) {
     if (scene_path.empty()) {
         return false;
     }
@@ -146,8 +145,7 @@ bool EditorSceneSession::TogglePlayPause() {
     return true;
 }
 
-void EditorSceneSession::HandleSceneEditCommand(
-    const SceneFormat::SceneEditCommand &command, Engine &engine) {
+void EditorSceneSession::HandleSceneEditCommand( const SceneFormat::SceneEditCommand &command, Engine &engine) {
     if (command.empty()) return;
 
     /*

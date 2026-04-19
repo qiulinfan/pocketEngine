@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 class SceneDocument {
@@ -53,8 +54,7 @@ public:
     std::vector<std::size_t> GetChildActorIndices(std::size_t actor_index) const;
     std::vector<std::size_t> GetRootActorIndices() const;
     // Return cached read-only physics ancestry info for one actor.
-    PhysicsHierarchy::State GetPhysicsHierarchyState(
-        std::size_t actor_index) const;
+    PhysicsHierarchy::State GetPhysicsHierarchyState(std::size_t actor_index) const;
 
     // Build a merged actor view that includes template inheritance.
     Actor BuildEffectiveActor(std::size_t actor_index) const;
@@ -82,10 +82,8 @@ public:
     bool ApplyMutation(const SceneFormat::SceneMutation &mutation);
     bool ApplyEditCommand(const SceneFormat::SceneEditCommand &command);
     bool SetActorName(std::size_t actor_index, const std::string &name, SceneFormat::SceneEditCommand *out_command = nullptr);
-    bool SetActorParent(
-        std::size_t actor_index,
-        std::optional<std::size_t> parent_actor_index,
-        SceneFormat::SceneEditCommand *out_command = nullptr);
+    bool SetActorParent(std::size_t actor_index, std::optional<std::size_t> parent_actor_index,
+                        SceneFormat::SceneEditCommand *out_command = nullptr);
     bool DeleteActor(std::size_t actor_index, SceneFormat::SceneEditCommand *out_command = nullptr);
     bool DuplicateActor(std::size_t actor_index, std::size_t &out_actor_index, SceneFormat::SceneEditCommand *out_command = nullptr);
     bool SetComponentType(std::size_t actor_index, const std::string &component_key,
@@ -121,6 +119,10 @@ public:
     bool IsTemplateBackedComponent(std::size_t actor_index, const std::string &component_key) const;
 
 private:
+    // Scene-backed actor UIDs belong to the authoring document. Runtime-only
+    // actors use a separate allocator owned by Engine.
+    ActorUID AllocateNextSceneBackedActorUID(const std::unordered_set<ActorUID> &used_uids);
+    void ResetSceneBackedUIDAllocator();
     // Allocate one new-actor display name from this document-owned session
     // counter. Play-mode copies inherit the current value, but unsaved edits
     // never leak back into the persisted private state file.
@@ -144,8 +146,7 @@ private:
     bool ApplyCreateActorMutation(const SceneFormat::CreateActorMutation &mutation);
     bool ApplyDeleteActorMutation(const SceneFormat::DeleteActorMutation &mutation);
     bool ApplySetActorNameMutation(const SceneFormat::SetActorNameMutation &mutation);
-    bool ApplySetActorParentMutation(
-        const SceneFormat::SetActorParentMutation &mutation);
+    bool ApplySetActorParentMutation(const SceneFormat::SetActorParentMutation &mutation);
     bool ApplyAddComponentMutation(const SceneFormat::AddComponentMutation &mutation);
     bool ApplyDeleteComponentMutation(const SceneFormat::DeleteComponentMutation &mutation);
     bool ApplyRenameComponentMutation(const SceneFormat::RenameComponentMutation &mutation);
@@ -169,6 +170,7 @@ private:
     mutable std::vector<PhysicsHierarchy::State>
         physics_hierarchy_states_by_actor_index_;
     bool dirty_ = false;
+    ActorUID next_scene_backed_uid_ = 1;
     int last_allocated_new_actor_ordinal_ = 0;
     bool new_actor_counter_dirty_ = false;
 };

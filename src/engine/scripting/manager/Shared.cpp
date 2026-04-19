@@ -120,8 +120,7 @@ bool CompareLifecycleComponentRef(const LifecycleComponentRef &a,
 
 // Lifecycle lists are cached globally so frame updates do not need to scan all
 // components every tick.
-void RebuildLifecycleListsForDirtyActors(
-    const std::unordered_set<int> &dirty_actor_ids) {
+void RebuildLifecycleListsForDirtyActors( const std::unordered_set<int> &dirty_actor_ids) {
     if (dirty_actor_ids.empty()) return;
 
     auto is_dirty_actor = [&](const LifecycleComponentRef &entry) {
@@ -387,8 +386,7 @@ void ComponentManager::ResolveTransformHierarchy() {
                     } else {
                         resolve_actor_world_transform(actor->parent_id);
                         ManagerDetail::ComponentRecord *parent_transform_component =
-                            ManagerDetail::FindPrimaryComponentByType(
-                                actor->parent_id, "Transform");
+                            ManagerDetail::FindPrimaryComponentByType( actor->parent_id, "Transform");
                         Transform *parent_transform =
                             (parent_transform_component != nullptr)
                                 ? parent_transform_component->instance_table

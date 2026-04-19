@@ -53,6 +53,8 @@ private:
     SDL_Texture *scene_preview_render_target_ = nullptr;
     int scene_preview_render_target_width_ = 0;
     int scene_preview_render_target_height_ = 0;
+    std::uint64_t next_runtime_generated_actor_uid_ =
+        Actor::kRuntimeGeneratedEditorActorUIDStart;
     std::unordered_map<std::uint64_t, Actor *> runtime_actor_by_editor_uid_;
     mutable bool runtime_physics_hierarchy_cache_dirty_ = true;
     mutable std::unordered_map<std::uint64_t, PhysicsHierarchy::State>
@@ -82,24 +84,15 @@ private:
     Actor *findRuntimeActorByEditorUID(std::uint64_t actor_uid);
     const Actor *findRuntimeActorByEditorUID(std::uint64_t actor_uid) const;
     bool applySceneMutation(const SceneFormat::SceneMutation &mutation);
-    bool applyCreateActorMutation(
-        const SceneFormat::CreateActorMutation &mutation);
-    bool applyDeleteActorMutation(
-        const SceneFormat::DeleteActorMutation &mutation);
-    bool applySetActorNameMutation(
-        const SceneFormat::SetActorNameMutation &mutation);
-    bool applySetActorParentMutation(
-        const SceneFormat::SetActorParentMutation &mutation);
-    bool applyAddComponentMutation(
-        const SceneFormat::AddComponentMutation &mutation);
-    bool applyDeleteComponentMutation(
-        const SceneFormat::DeleteComponentMutation &mutation);
-    bool applyRenameComponentMutation(
-        const SceneFormat::RenameComponentMutation &mutation);
-    bool applySetComponentTypeMutation(
-        const SceneFormat::SetComponentTypeMutation &mutation);
-    bool applySetComponentPropertyMutation(
-        const SceneFormat::SetComponentPropertyMutation &mutation);
+    bool applyCreateActorMutation( const SceneFormat::CreateActorMutation &mutation);
+    bool applyDeleteActorMutation( const SceneFormat::DeleteActorMutation &mutation);
+    bool applySetActorNameMutation( const SceneFormat::SetActorNameMutation &mutation);
+    bool applySetActorParentMutation( const SceneFormat::SetActorParentMutation &mutation);
+    bool applyAddComponentMutation( const SceneFormat::AddComponentMutation &mutation);
+    bool applyDeleteComponentMutation( const SceneFormat::DeleteComponentMutation &mutation);
+    bool applyRenameComponentMutation( const SceneFormat::RenameComponentMutation &mutation);
+    bool applySetComponentTypeMutation( const SceneFormat::SetComponentTypeMutation &mutation);
+    bool applySetComponentPropertyMutation( const SceneFormat::SetComponentPropertyMutation &mutation);
     bool rebuildRuntimeComponentFromSpec(Actor &actor,
                                          const std::string &component_key);
     void ResetPerformanceCounters();
@@ -157,14 +150,15 @@ public:
     // Look up one live runtime actor by runtime id / stable editor uid.
     const Actor *GetRuntimeActorByID(int actor_id) const;
     const Actor *GetRuntimeActorByEditorUID(std::uint64_t actor_uid) const;
-    PhysicsHierarchy::State GetRuntimePhysicsHierarchyStateByID(
-        int actor_id) const;
-    PhysicsHierarchy::State GetRuntimePhysicsHierarchyStateByEditorUID(
-        std::uint64_t actor_uid) const;
+    PhysicsHierarchy::State GetRuntimePhysicsHierarchyStateByID(int actor_id) const;
+    PhysicsHierarchy::State GetRuntimePhysicsHierarchyStateByEditorUID(std::uint64_t actor_uid) const;
     // Duplicate/delete one live runtime actor without touching on-disk scene files.
     bool DuplicateRuntimeActorByID(int actor_id, int *out_new_actor_id = nullptr);
     bool DeleteRuntimeActorByID(int actor_id);
     bool SetRuntimeActorParentByID(int actor_id, int parent_actor_id);
+    // Runtime-only actors receive transient stable UIDs from a dedicated
+    // allocator so they never depend on SceneDocument's authoring counter.
+    std::uint64_t AllocateRuntimeGeneratedActorUID();
     // Reload the runtime from a shared scene asset snapshot.
     // 使用共享场景资源快照重新装载运行时.
     void LoadSceneAsset(const SceneFormat::SceneAsset &scene_asset);

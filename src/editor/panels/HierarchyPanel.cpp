@@ -194,8 +194,7 @@ bool RenderHierarchyTemplateDropTarget(
             if (template_name != nullptr && template_name[0] != '\0') {
                 std::size_t new_actor_index = 0;
                 SceneFormat::SceneEditCommand command;
-                if (scene_document.AppendActorFromTemplate(
-                        template_name, new_actor_index, &command)) {
+                if (scene_document.AppendActorFromTemplate( template_name, new_actor_index, &command)) {
                     selected_actor_index = static_cast<int>(new_actor_index);
                     scene_changed = true;
                     if (out_edit_commands != nullptr) {
@@ -370,8 +369,7 @@ RuntimeHierarchyTree BuildRuntimeHierarchyTree(const Engine &engine) {
             tree.root_actors.emplace_back(&runtime_actor);
             continue;
         }
-        tree.children_by_parent_id[runtime_actor.parent_id].emplace_back(
-            &runtime_actor);
+        tree.children_by_parent_id[runtime_actor.parent_id].emplace_back( &runtime_actor);
     }
 
     return tree;
@@ -491,8 +489,7 @@ bool RenderHierarchyPanel(Engine &engine, SceneDocument &scene_document,
         ImGui::TextDisabled("Play mode: Hierarchy reflects the live runtime actor list.");
     }
     if (runtime_only_actor_selected) {
-        ImGui::TextDisabled(
-            "Runtime-spawned actor selected. Duplicate/Delete affect only the live runtime.");
+        ImGui::TextDisabled( "Runtime-spawned actor selected. Duplicate/Delete affect only the live runtime.");
     }
 
     // Actor creation entrypoint. The popup provides both empty actor and

@@ -58,8 +58,7 @@ ActorTemplateAsset LoadActorTemplateAsset(const std::string &template_name, cons
 void SortComponentSpecs(std::vector<Actor::ComponentSpec> &component_specs);
 bool HasComponentType(const std::vector<Actor::ComponentSpec> &component_specs,
                       const std::string &type_name);
-void EnsureBuiltinTransformComponent(
-    std::vector<Actor::ComponentSpec> &component_specs);
+void EnsureBuiltinTransformComponent( std::vector<Actor::ComponentSpec> &component_specs);
 Actor::ComponentSpec *FindComponentSpec(std::vector<Actor::ComponentSpec> &component_specs, const std::string &component_key);
 const Actor::ComponentSpec *FindComponentSpec(const std::vector<Actor::ComponentSpec> &component_specs, const std::string &component_key);
 Actor::ComponentSpec &FindOrCreateComponentSpec(std::vector<Actor::ComponentSpec> &component_specs, const std::string &component_key);

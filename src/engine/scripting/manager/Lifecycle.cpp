@@ -604,8 +604,7 @@ void ComponentManager::FinalizeFrameMutations() {
                 g_runtime.pending_on_start.begin(),
                 g_runtime.pending_on_start.end(),
                 [](const PendingOnStartRecord &pending) {
-                    return g_runtime.pending_destroy_actor_ids.find(
-                               pending.actor_id) !=
+                    return g_runtime.pending_destroy_actor_ids.find( pending.actor_id) !=
                            g_runtime.pending_destroy_actor_ids.end();
                 }),
             g_runtime.pending_on_start.end());

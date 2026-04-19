@@ -85,8 +85,7 @@ private:
                                     EditorOverlayResult &result);
     // Render the centered non-modal confirmation window for pending overlay
     // layout/settings changes.
-    void RenderEditorConfigConfirmationWindow(
-        bool editor_config_confirmation_pending, EditorOverlayResult &result);
+    void RenderEditorConfigConfirmationWindow( bool editor_config_confirmation_pending, EditorOverlayResult &result);
     // Render non-blocking top-right notifications for editor actions.
     void RenderTransientNotifications();
 

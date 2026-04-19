@@ -164,8 +164,7 @@ void RebuildComponentIndexForActor(int actor_id);
 void RebuildTypeIndexForActor(int actor_id);
 bool CompareLifecycleComponentRef(const LifecycleComponentRef &a,
                                   const LifecycleComponentRef &b);
-void RebuildLifecycleListsForDirtyActors(
-    const std::unordered_set<int> &dirty_actor_ids);
+void RebuildLifecycleListsForDirtyActors( const std::unordered_set<int> &dirty_actor_ids);
 bool IsComponentEnabled(const ComponentRecord &component);
 void SyncBuiltinParticleSystemState(ComponentRecord &component);
 // Keep component order deterministic for all key-based lifecycle rules.

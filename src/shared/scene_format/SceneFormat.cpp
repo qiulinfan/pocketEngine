@@ -334,8 +334,7 @@ bool HasComponentType(const std::vector<Actor::ComponentSpec> &component_specs,
 }
 
 // Shared component-spec helpers used by both runtime and editor code paths.
-void EnsureBuiltinTransformComponent(
-    std::vector<Actor::ComponentSpec> &component_specs) {
+void EnsureBuiltinTransformComponent( std::vector<Actor::ComponentSpec> &component_specs) {
     if (HasComponentType(component_specs, "Transform")) return;
 
     std::unordered_set<std::string> used_component_keys;

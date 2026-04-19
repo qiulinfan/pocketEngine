@@ -254,8 +254,7 @@ void ResetSceneDragState() {
 
 std::optional<ActorDragTarget> BuildActorDragTarget(
     const std::vector<Actor::ComponentSpec> &component_specs,
-    const std::function<std::vector<Actor::ComponentProperty>(
-        const std::string &component_key)> &property_lookup,
+    const std::function<std::vector<Actor::ComponentProperty>( const std::string &component_key)> &property_lookup,
     std::size_t actor_index, int runtime_actor_id,
     std::uint64_t editor_actor_uid) {
     ActorDragTarget target;
@@ -328,13 +327,11 @@ ActorScreenBounds BuildTransformAnchorBounds(
     bounds.editor_actor_uid = editor_actor_uid;
     bounds.circular = true;
 
-    const ImVec2 panel_center = WorldToScenePanelPosition(
-        engine, scene_camera, image_min, image_size, world_x, world_y);
+    const ImVec2 panel_center = WorldToScenePanelPosition( engine, scene_camera, image_min, image_size, world_x, world_y);
 
     bounds.center_x = panel_center.x;
     bounds.center_y = panel_center.y;
-    bounds.half_width = WorldUnitsToScenePanelPixels(
-        engine, scene_camera, image_size, kFallbackSelectionHalfExtentUnits);
+    bounds.half_width = WorldUnitsToScenePanelPixels( engine, scene_camera, image_size, kFallbackSelectionHalfExtentUnits);
     bounds.half_height = bounds.half_width;
     return bounds;
 }
@@ -342,8 +339,7 @@ ActorScreenBounds BuildTransformAnchorBounds(
 std::optional<ActorScreenBounds> BuildActorScreenBounds(
     const Engine &engine, const SceneViewCameraState &scene_camera,
     const std::vector<Actor::ComponentSpec> &component_specs,
-    const std::function<std::vector<Actor::ComponentProperty>(
-        const std::string &component_key)> &property_lookup,
+    const std::function<std::vector<Actor::ComponentProperty>( const std::string &component_key)> &property_lookup,
     std::size_t actor_index, int runtime_actor_id,
     std::uint64_t editor_actor_uid, const ImVec2 &image_min,
     const ImVec2 &image_size) {
@@ -393,21 +389,17 @@ std::optional<ActorScreenBounds> BuildActorScreenBounds(
         }
 
         bounds.circular = (shape_type == "circle");
-        const ImVec2 panel_center = WorldToScenePanelPosition(
-            engine, scene_camera, image_min, image_size, x, y);
+        const ImVec2 panel_center = WorldToScenePanelPosition( engine, scene_camera, image_min, image_size, x, y);
         bounds.center_x = panel_center.x;
         bounds.center_y = panel_center.y;
 
         if (bounds.circular) {
-            const float pixel_radius = WorldUnitsToScenePanelPixels(
-                engine, scene_camera, image_size, radius);
+            const float pixel_radius = WorldUnitsToScenePanelPixels( engine, scene_camera, image_size, radius);
             bounds.half_width = pixel_radius;
             bounds.half_height = pixel_radius;
         } else {
-            bounds.half_width = WorldUnitsToScenePanelPixels(
-                engine, scene_camera, image_size, width * 0.5f);
-            bounds.half_height = WorldUnitsToScenePanelPixels(
-                engine, scene_camera, image_size, height * 0.5f);
+            bounds.half_width = WorldUnitsToScenePanelPixels( engine, scene_camera, image_size, width * 0.5f);
+            bounds.half_height = WorldUnitsToScenePanelPixels( engine, scene_camera, image_size, height * 0.5f);
         }
         return bounds;
     }
@@ -423,14 +415,12 @@ std::optional<ActorScreenBounds> BuildActorScreenBounds(
         const bool has_y = ReadPropertyAsFloat(properties, "y", 0.0f, y);
         if (!has_x || !has_y) continue;
 
-        const ImVec2 panel_center = WorldToScenePanelPosition(
-            engine, scene_camera, image_min, image_size, x, y);
+        const ImVec2 panel_center = WorldToScenePanelPosition( engine, scene_camera, image_min, image_size, x, y);
 
         bounds.circular = true;
         bounds.center_x = panel_center.x;
         bounds.center_y = panel_center.y;
-        bounds.half_width = WorldUnitsToScenePanelPixels(
-            engine, scene_camera, image_size, kFallbackSelectionHalfExtentUnits);
+        bounds.half_width = WorldUnitsToScenePanelPixels( engine, scene_camera, image_size, kFallbackSelectionHalfExtentUnits);
         bounds.half_height = bounds.half_width;
         return bounds;
     }
@@ -446,14 +436,12 @@ std::optional<ActorScreenBounds> BuildActorScreenBounds(
         const bool has_y = ReadPropertyAsFloat(properties, "y", 0.0f, y);
         if (!has_x || !has_y) continue;
 
-        const ImVec2 panel_center = WorldToScenePanelPosition(
-            engine, scene_camera, image_min, image_size, x, y);
+        const ImVec2 panel_center = WorldToScenePanelPosition( engine, scene_camera, image_min, image_size, x, y);
 
         bounds.circular = true;
         bounds.center_x = panel_center.x;
         bounds.center_y = panel_center.y;
-        bounds.half_width = WorldUnitsToScenePanelPixels(
-            engine, scene_camera, image_size, kFallbackSelectionHalfExtentUnits);
+        bounds.half_width = WorldUnitsToScenePanelPixels( engine, scene_camera, image_size, kFallbackSelectionHalfExtentUnits);
         bounds.half_height = bounds.half_width;
         return bounds;
     }
@@ -489,8 +477,7 @@ std::optional<ActorScreenBounds> BuildSceneActorScreenBounds(
         image_size);
 }
 
-std::optional<ActorDragTarget> BuildSceneActorDragTarget(
-    SceneDocument &scene_document, std::size_t actor_index) {
+std::optional<ActorDragTarget> BuildSceneActorDragTarget( SceneDocument &scene_document, std::size_t actor_index) {
     const Actor effective_actor = scene_document.BuildEffectiveActor(actor_index);
     if (!HasComponentType(effective_actor.component_specs, "Rigidbody")) {
         float world_x = 0.0f;
@@ -543,15 +530,13 @@ std::optional<ActorScreenBounds> BuildRuntimeActorScreenBounds(
     return BuildActorScreenBounds(
         engine, scene_camera, runtime_components,
         [&runtime_actor](const std::string &component_key) {
-            return ComponentManager::GetRuntimeComponentProperties(
-                runtime_actor.id, component_key);
+            return ComponentManager::GetRuntimeComponentProperties( runtime_actor.id, component_key);
         },
         std::numeric_limits<std::size_t>::max(), runtime_actor.id,
         runtime_actor.editor_actor_uid, image_min, image_size);
 }
 
-std::optional<ActorDragTarget> BuildRuntimeActorDragTarget(
-    SceneDocument &scene_document, const Actor &runtime_actor) {
+std::optional<ActorDragTarget> BuildRuntimeActorDragTarget( SceneDocument &scene_document, const Actor &runtime_actor) {
     const std::vector<Actor::ComponentSpec> runtime_components =
         ComponentManager::GetRuntimeComponentSpecs(runtime_actor.id);
     std::size_t actor_index = std::numeric_limits<std::size_t>::max();
@@ -584,8 +569,7 @@ std::optional<ActorDragTarget> BuildRuntimeActorDragTarget(
     return BuildActorDragTarget(
         runtime_components,
         [&runtime_actor](const std::string &component_key) {
-            return ComponentManager::GetRuntimeComponentProperties(
-                runtime_actor.id, component_key);
+            return ComponentManager::GetRuntimeComponentProperties( runtime_actor.id, component_key);
         },
         actor_index, runtime_actor.id, runtime_actor.editor_actor_uid);
 }
@@ -645,8 +629,7 @@ std::optional<ActorDragTarget> BuildSelectedActorDragTarget(
         selected_actor_index >= static_cast<int>(scene_document.GetActorCount())) {
         return std::nullopt;
     }
-    return BuildSceneActorDragTarget(
-        scene_document, static_cast<std::size_t>(selected_actor_index));
+    return BuildSceneActorDragTarget( scene_document, static_cast<std::size_t>(selected_actor_index));
 }
 
 std::optional<ActorScreenBounds> BuildSelectedActorBounds(
@@ -885,8 +868,7 @@ bool ApplyDraggedActorPosition(
     std::vector<SceneFormat::SceneEditCommand> *out_edit_commands) {
     if (drag_target.transform_component && play_mode_active &&
         drag_target.actor_index == std::numeric_limits<std::size_t>::max()) {
-        return ComponentManager::SetRuntimeTransformWorldPosition(
-            drag_target.runtime_actor_id, world_x, world_y);
+        return ComponentManager::SetRuntimeTransformWorldPosition( drag_target.runtime_actor_id, world_x, world_y);
     }
 
     if (drag_target.transform_component) {
@@ -1023,13 +1005,11 @@ void ZoomSceneCameraAtCursor(const Engine &engine, const ImVec2 &image_min,
                              float wheel_delta) {
     if (std::abs(wheel_delta) <= 0.0001f) return;
 
-    const ImVec2 world_before_zoom = ScenePanelPixelsToWorldPosition(
-        engine, g_scene_camera_state, image_min, image_size, mouse_position);
+    const ImVec2 world_before_zoom = ScenePanelPixelsToWorldPosition( engine, g_scene_camera_state, image_min, image_size, mouse_position);
     const float zoom_scale = std::pow(1.15f, wheel_delta);
     g_scene_camera_state.zoom =
         ClampSceneCameraZoom(g_scene_camera_state.zoom * zoom_scale);
-    const ImVec2 world_after_zoom = ScenePanelPixelsToWorldPosition(
-        engine, g_scene_camera_state, image_min, image_size, mouse_position);
+    const ImVec2 world_after_zoom = ScenePanelPixelsToWorldPosition( engine, g_scene_camera_state, image_min, image_size, mouse_position);
     g_scene_camera_state.world_x += world_before_zoom.x - world_after_zoom.x;
     g_scene_camera_state.world_y += world_before_zoom.y - world_after_zoom.y;
 }

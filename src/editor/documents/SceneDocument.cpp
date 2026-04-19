@@ -25,46 +25,6 @@ bool ArePropertyValuesEqual(const Actor::ComponentPropertyValue &a,
     return a == b;
 }
 
-SceneDocument::ActorUID AllocateNextSceneDocumentActorUID(
-    const std::unordered_set<SceneDocument::ActorUID> &used_uids) {
-    static SceneDocument::ActorUID next_actor_uid = 1;
-    constexpr SceneDocument::ActorUID kPreferredSceneActorUIDLimit =
-        Actor::kRuntimeGeneratedEditorActorUIDStart;
-
-    const auto find_available_uid =
-        [&](SceneDocument::ActorUID begin_uid,
-            SceneDocument::ActorUID end_uid_exclusive)
-        -> SceneDocument::ActorUID {
-        for (SceneDocument::ActorUID candidate_uid = begin_uid;
-             candidate_uid < end_uid_exclusive; ++candidate_uid) {
-            if (candidate_uid == SceneDocument::kInvalidActorUID) continue;
-            if (used_uids.find(candidate_uid) != used_uids.end()) continue;
-            return candidate_uid;
-        }
-        return SceneDocument::kInvalidActorUID;
-    };
-
-    if (next_actor_uid == SceneDocument::kInvalidActorUID ||
-        next_actor_uid >= kPreferredSceneActorUIDLimit) {
-        next_actor_uid = 1;
-    }
-
-    SceneDocument::ActorUID actor_uid =
-        find_available_uid(next_actor_uid, kPreferredSceneActorUIDLimit);
-    if (actor_uid == SceneDocument::kInvalidActorUID) {
-        actor_uid = find_available_uid(1, kPreferredSceneActorUIDLimit);
-    }
-    if (actor_uid == SceneDocument::kInvalidActorUID) {
-        actor_uid = kPreferredSceneActorUIDLimit;
-        while (used_uids.find(actor_uid) != used_uids.end()) {
-            ++actor_uid;
-        }
-    }
-
-    next_actor_uid = actor_uid + 1;
-    return actor_uid;
-}
-
 std::string BuildFallbackActorName(std::size_t actor_index) {
     std::ostringstream label;
     label << "Actor " << (actor_index + 1);
@@ -115,9 +75,8 @@ bool TryReadPropertyAsBool(const std::vector<Actor::ComponentProperty> &properti
     return false;
 }
 
-bool TryReadPropertyAsString(
-    const std::vector<Actor::ComponentProperty> &properties,
-    const std::string &property_name, std::string &out_value) {
+bool TryReadPropertyAsString(const std::vector<Actor::ComponentProperty> &properties,
+                             const std::string &property_name, std::string &out_value) {
     for (const Actor::ComponentProperty &property : properties) {
         if (property.name != property_name) continue;
         if (const std::string *typed_value =
@@ -130,8 +89,7 @@ bool TryReadPropertyAsString(
     return false;
 }
 
-PhysicsHierarchy::State BuildSceneActorPhysicsSelfState(
-    const SceneDocument &scene_document, std::size_t actor_index) {
+PhysicsHierarchy::State BuildSceneActorPhysicsSelfState(const SceneDocument &scene_document, std::size_t actor_index) {
     PhysicsHierarchy::State state;
     const Actor effective_actor = scene_document.BuildEffectiveActor(actor_index);
     for (const Actor::ComponentSpec &component_spec :
@@ -328,6 +286,7 @@ bool SceneDocument::LoadFromSceneName(const std::string &scene_name) {
     scene_asset_ = SceneFormat::LoadSceneAsset(scene_name);
     if (scene_asset_.scene_path.empty()) {
         actor_uids_.clear();
+        ResetSceneBackedUIDAllocator();
         ResetNewActorCounterState();
         return false;
     }
@@ -377,6 +336,7 @@ bool SceneDocument::LoadFromScenePath(const std::filesystem::path &scene_path) {
     scene_asset_ = SceneFormat::LoadSceneAsset(scene_name, preferred_subdirectory);
     if (scene_asset_.scene_path.empty()) {
         actor_uids_.clear();
+        ResetSceneBackedUIDAllocator();
         ResetNewActorCounterState();
         return false;
     }
@@ -426,6 +386,46 @@ const std::vector<SceneDocument::ActorRecord> &SceneDocument::GetActorRecords() 
     return scene_asset_.actors;
 }
 
+SceneDocument::ActorUID SceneDocument::AllocateNextSceneBackedActorUID(const std::unordered_set<ActorUID> &used_uids) {
+    constexpr ActorUID kPreferredSceneActorUIDLimit =
+        Actor::kRuntimeGeneratedEditorActorUIDStart;
+
+    const auto find_available_uid =
+        [&](ActorUID begin_uid, ActorUID end_uid_exclusive) -> ActorUID {
+        for (ActorUID candidate_uid = begin_uid;
+             candidate_uid < end_uid_exclusive; ++candidate_uid) {
+            if (candidate_uid == kInvalidActorUID) continue;
+            if (used_uids.find(candidate_uid) != used_uids.end()) continue;
+            return candidate_uid;
+        }
+        return kInvalidActorUID;
+    };
+
+    if (next_scene_backed_uid_ == kInvalidActorUID ||
+        next_scene_backed_uid_ >= kPreferredSceneActorUIDLimit) {
+        next_scene_backed_uid_ = 1;
+    }
+
+    ActorUID actor_uid =
+        find_available_uid(next_scene_backed_uid_, kPreferredSceneActorUIDLimit);
+    if (actor_uid == kInvalidActorUID) {
+        actor_uid = find_available_uid(1, kPreferredSceneActorUIDLimit);
+        if (actor_uid == kInvalidActorUID) {
+            actor_uid = kPreferredSceneActorUIDLimit;
+            while (used_uids.find(actor_uid) != used_uids.end()) {
+                ++actor_uid;
+            }
+        }
+    }
+
+    next_scene_backed_uid_ = actor_uid + 1;
+    return actor_uid;
+}
+
+void SceneDocument::ResetSceneBackedUIDAllocator() {
+    next_scene_backed_uid_ = 1;
+}
+
 // Return the shared scene asset that backs this document cache.
 const SceneFormat::SceneAsset &SceneDocument::GetSceneAsset() const {
     return scene_asset_;
@@ -443,8 +443,7 @@ SceneDocument::ActorUID SceneDocument::GetActorUID(std::size_t actor_index) cons
 }
 
 // Find one cached actor index by its stable editor-only UID.
-std::optional<std::size_t> SceneDocument::FindActorIndexByUID(
-    ActorUID actor_uid) const {
+std::optional<std::size_t> SceneDocument::FindActorIndexByUID( ActorUID actor_uid) const {
     if (actor_uid == kInvalidActorUID) return std::nullopt;
 
     for (std::size_t actor_index = 0; actor_index < actor_uids_.size();
@@ -456,15 +455,13 @@ std::optional<std::size_t> SceneDocument::FindActorIndexByUID(
     return std::nullopt;
 }
 
-std::optional<std::size_t> SceneDocument::FindParentActorIndex(
-    std::size_t actor_index) const {
+std::optional<std::size_t> SceneDocument::FindParentActorIndex( std::size_t actor_index) const {
     RebuildHierarchyCache();
     if (actor_index >= parent_actor_indices_.size()) return std::nullopt;
     return parent_actor_indices_[actor_index];
 }
 
-std::vector<std::size_t> SceneDocument::GetChildActorIndices(
-    std::size_t actor_index) const {
+std::vector<std::size_t> SceneDocument::GetChildActorIndices( std::size_t actor_index) const {
     RebuildHierarchyCache();
     if (actor_index >= children_by_actor_index_.size()) return {};
     return children_by_actor_index_[actor_index];
@@ -483,8 +480,7 @@ std::vector<std::size_t> SceneDocument::GetRootActorIndices() const {
     return root_indices;
 }
 
-PhysicsHierarchy::State SceneDocument::GetPhysicsHierarchyState(
-    std::size_t actor_index) const {
+PhysicsHierarchy::State SceneDocument::GetPhysicsHierarchyState( std::size_t actor_index) const {
     RebuildPhysicsHierarchyCache();
     if (actor_index >= physics_hierarchy_states_by_actor_index_.size()) {
         return {};
@@ -539,8 +535,7 @@ bool SceneDocument::ApplyMutation(const SceneFormat::SceneMutation &mutation) {
 }
 
 // Mutate actor/component data inside the editor cache.
-bool SceneDocument::ApplyEditCommand(
-    const SceneFormat::SceneEditCommand &command) {
+bool SceneDocument::ApplyEditCommand( const SceneFormat::SceneEditCommand &command) {
     if (command.empty()) return false;
 
     for (const SceneFormat::SceneMutation &mutation : command.mutations) {
@@ -680,8 +675,7 @@ bool SceneDocument::TryGetActorWorldTransform(std::size_t actor_index,
 
 // Return editable properties for one component, including default scalar
 // values contributed by the component type table.
-std::vector<Actor::ComponentProperty> SceneDocument::GetInspectableProperties(
-    std::size_t actor_index, const std::string &component_key) const {
+std::vector<Actor::ComponentProperty> SceneDocument::GetInspectableProperties( std::size_t actor_index, const std::string &component_key) const {
     // Inspector starts from the effective runtime-facing component view, then
     // overlays script-declared defaults so users can edit both inherited and
     // explicitly overridden scalar properties in one place.
@@ -798,7 +792,7 @@ bool SceneDocument::DuplicateActor(std::size_t actor_index,
     std::unordered_set<ActorUID> used_uids(actor_uids_.begin(), actor_uids_.end());
 
     SceneFormat::CreateActorMutation mutation;
-    mutation.actor_uid = AllocateNextSceneDocumentActorUID(used_uids);
+    mutation.actor_uid = AllocateNextSceneBackedActorUID(used_uids);
     mutation.insert_after_actor_uid = source_actor_uid;
     mutation.actor_record = std::move(duplicated_record);
 
@@ -942,7 +936,7 @@ bool SceneDocument::AppendEmptyActor(
     std::unordered_set<ActorUID> used_uids(actor_uids_.begin(), actor_uids_.end());
 
     SceneFormat::CreateActorMutation mutation;
-    mutation.actor_uid = AllocateNextSceneDocumentActorUID(used_uids);
+    mutation.actor_uid = AllocateNextSceneBackedActorUID(used_uids);
     mutation.actor_record = std::move(actor_record);
     const SceneFormat::SceneEditCommand command =
         SceneFormat::SceneEditCommand::Single({mutation});
@@ -978,13 +972,12 @@ bool SceneDocument::AppendActorFromTemplate(
     // the scene instance so newly created actors still support parenting.
     if (!SceneFormat::HasComponentType(template_asset.actor.component_specs,
                                        "Transform")) {
-        SceneFormat::EnsureBuiltinTransformComponent(
-            actor_record.component_specs);
+        SceneFormat::EnsureBuiltinTransformComponent( actor_record.component_specs);
     }
     std::unordered_set<ActorUID> used_uids(actor_uids_.begin(), actor_uids_.end());
 
     SceneFormat::CreateActorMutation mutation;
-    mutation.actor_uid = AllocateNextSceneDocumentActorUID(used_uids);
+    mutation.actor_uid = AllocateNextSceneBackedActorUID(used_uids);
     mutation.actor_record = std::move(actor_record);
     const SceneFormat::SceneEditCommand command =
         SceneFormat::SceneEditCommand::Single({mutation});
@@ -1035,8 +1028,7 @@ bool SceneDocument::HasRawComponent(std::size_t actor_index,
 }
 
 // Report whether one effective component originates from the referenced template.
-bool SceneDocument::IsTemplateBackedComponent(
-    std::size_t actor_index, const std::string &component_key) const {
+bool SceneDocument::IsTemplateBackedComponent( std::size_t actor_index, const std::string &component_key) const {
     const ActorRecord *actor_record = FindActorRecord(actor_index);
     if (actor_record == nullptr) return false;
     if (actor_record->template_name.empty()) return false;
@@ -1050,8 +1042,7 @@ bool SceneDocument::IsTemplateBackedComponent(
                                           component_key) != nullptr;
 }
 
-bool SceneDocument::ApplyCreateActorMutation(
-    const SceneFormat::CreateActorMutation &mutation) {
+bool SceneDocument::ApplyCreateActorMutation( const SceneFormat::CreateActorMutation &mutation) {
     if (mutation.actor_uid == kInvalidActorUID) return false;
     if (FindActorIndexByUID(mutation.actor_uid).has_value()) return false;
 
@@ -1077,8 +1068,7 @@ bool SceneDocument::ApplyCreateActorMutation(
     return true;
 }
 
-bool SceneDocument::ApplyDeleteActorMutation(
-    const SceneFormat::DeleteActorMutation &mutation) {
+bool SceneDocument::ApplyDeleteActorMutation( const SceneFormat::DeleteActorMutation &mutation) {
     const std::optional<std::size_t> actor_index =
         FindActorIndexByUID(mutation.actor_uid);
     if (!actor_index.has_value()) return false;
@@ -1098,8 +1088,7 @@ bool SceneDocument::ApplyDeleteActorMutation(
     return true;
 }
 
-bool SceneDocument::ApplySetActorNameMutation(
-    const SceneFormat::SetActorNameMutation &mutation) {
+bool SceneDocument::ApplySetActorNameMutation( const SceneFormat::SetActorNameMutation &mutation) {
     const std::optional<std::size_t> actor_index =
         FindActorIndexByUID(mutation.actor_uid);
     if (!actor_index.has_value()) return false;
@@ -1117,8 +1106,7 @@ bool SceneDocument::ApplySetActorNameMutation(
     return true;
 }
 
-bool SceneDocument::ApplySetActorParentMutation(
-    const SceneFormat::SetActorParentMutation &mutation) {
+bool SceneDocument::ApplySetActorParentMutation( const SceneFormat::SetActorParentMutation &mutation) {
     const std::optional<std::size_t> actor_index =
         FindActorIndexByUID(mutation.actor_uid);
     if (!actor_index.has_value()) return false;
@@ -1216,8 +1204,7 @@ bool SceneDocument::ApplySetActorParentMutation(
     return true;
 }
 
-bool SceneDocument::ApplyAddComponentMutation(
-    const SceneFormat::AddComponentMutation &mutation) {
+bool SceneDocument::ApplyAddComponentMutation( const SceneFormat::AddComponentMutation &mutation) {
     const std::optional<std::size_t> actor_index =
         FindActorIndexByUID(mutation.actor_uid);
     if (!actor_index.has_value()) return false;
@@ -1245,8 +1232,7 @@ bool SceneDocument::ApplyAddComponentMutation(
     return true;
 }
 
-bool SceneDocument::ApplyDeleteComponentMutation(
-    const SceneFormat::DeleteComponentMutation &mutation) {
+bool SceneDocument::ApplyDeleteComponentMutation( const SceneFormat::DeleteComponentMutation &mutation) {
     const std::optional<std::size_t> actor_index =
         FindActorIndexByUID(mutation.actor_uid);
     if (!actor_index.has_value()) return false;
@@ -1294,8 +1280,7 @@ bool SceneDocument::ApplyDeleteComponentMutation(
     return true;
 }
 
-bool SceneDocument::ApplyRenameComponentMutation(
-    const SceneFormat::RenameComponentMutation &mutation) {
+bool SceneDocument::ApplyRenameComponentMutation( const SceneFormat::RenameComponentMutation &mutation) {
     const std::optional<std::size_t> actor_index =
         FindActorIndexByUID(mutation.actor_uid);
     if (!actor_index.has_value()) return false;
@@ -1347,8 +1332,7 @@ bool SceneDocument::ApplyRenameComponentMutation(
     return true;
 }
 
-bool SceneDocument::ApplySetComponentTypeMutation(
-    const SceneFormat::SetComponentTypeMutation &mutation) {
+bool SceneDocument::ApplySetComponentTypeMutation( const SceneFormat::SetComponentTypeMutation &mutation) {
     const std::optional<std::size_t> actor_index =
         FindActorIndexByUID(mutation.actor_uid);
     if (!actor_index.has_value()) return false;
@@ -1381,8 +1365,7 @@ bool SceneDocument::ApplySetComponentTypeMutation(
     return true;
 }
 
-bool SceneDocument::ApplySetComponentPropertyMutation(
-    const SceneFormat::SetComponentPropertyMutation &mutation) {
+bool SceneDocument::ApplySetComponentPropertyMutation( const SceneFormat::SetComponentPropertyMutation &mutation) {
     const std::optional<std::size_t> actor_index =
         FindActorIndexByUID(mutation.actor_uid);
     if (!actor_index.has_value()) return false;
@@ -1416,20 +1399,17 @@ bool SceneDocument::ApplySetComponentPropertyMutation(
 // SceneDocument private helpers
 // -----------------------------------------------------------------------------
 
-SceneDocument::ActorRecord *SceneDocument::FindActorRecord(
-    std::size_t actor_index) {
+SceneDocument::ActorRecord *SceneDocument::FindActorRecord( std::size_t actor_index) {
     if (actor_index >= scene_asset_.actors.size()) return nullptr;
     return &scene_asset_.actors[actor_index];
 }
 
-const SceneDocument::ActorRecord *SceneDocument::FindActorRecord(
-    std::size_t actor_index) const {
+const SceneDocument::ActorRecord *SceneDocument::FindActorRecord( std::size_t actor_index) const {
     if (actor_index >= scene_asset_.actors.size()) return nullptr;
     return &scene_asset_.actors[actor_index];
 }
 
-Actor::ComponentSpec *SceneDocument::FindRawComponentSpec(
-    std::size_t actor_index, const std::string &component_key) {
+Actor::ComponentSpec *SceneDocument::FindRawComponentSpec( std::size_t actor_index, const std::string &component_key) {
     ActorRecord *actor_record = FindActorRecord(actor_index);
     if (actor_record == nullptr) return nullptr;
     return SceneFormat::FindComponentSpec(actor_record->component_specs,
@@ -1503,8 +1483,7 @@ void SceneDocument::PersistNewActorCounter() {
     new_actor_counter_dirty_ = false;
 }
 
-std::string SceneDocument::BuildUniqueActorName(
-    const std::string &base_name) const {
+std::string SceneDocument::BuildUniqueActorName( const std::string &base_name) const {
     const std::string normalized_base =
         (base_name.empty() || IsStringBlank(base_name)) ? "new actor" : base_name;
 
@@ -1526,8 +1505,7 @@ std::string SceneDocument::BuildUniqueActorName(
     return candidate;
 }
 
-std::string SceneDocument::BuildUniqueComponentKey(
-    std::size_t actor_index, const std::string &base_key) const {
+std::string SceneDocument::BuildUniqueComponentKey( std::size_t actor_index, const std::string &base_key) const {
     const ActorRecord *actor_record = FindActorRecord(actor_index);
     if (actor_record == nullptr) return "";
 
@@ -1580,6 +1558,7 @@ Actor::ComponentSpec *SceneDocument::FindOrCreateRawComponentSpec(
 }
 
 void SceneDocument::ReassignFreshActorUIDs() {
+    ResetSceneBackedUIDAllocator();
     actor_uids_.clear();
     actor_uids_.reserve(scene_asset_.actors.size());
     std::unordered_set<ActorUID> used_uids;
@@ -1589,12 +1568,29 @@ void SceneDocument::ReassignFreshActorUIDs() {
         ActorUID actor_uid = scene_asset_.actors[actor_index].editor_actor_uid;
         if (actor_uid == kInvalidActorUID ||
             used_uids.find(actor_uid) != used_uids.end()) {
-            actor_uid = AllocateNextSceneDocumentActorUID(used_uids);
+            actor_uid = AllocateNextSceneBackedActorUID(used_uids);
         }
         actor_uids_.emplace_back(actor_uid);
         used_uids.insert(actor_uid);
     }
     SyncActorUIDsIntoSceneAsset();
+
+    // New scene-backed actors should continue from the current document's
+    // highest known identity, not from a process-global static cursor.
+    if (used_uids.empty()) {
+        next_scene_backed_uid_ = 1;
+        return;
+    }
+
+    constexpr ActorUID kPreferredSceneActorUIDLimit =
+        Actor::kRuntimeGeneratedEditorActorUIDStart;
+    ActorUID max_scene_uid = 0;
+    for (ActorUID used_uid : used_uids) {
+        max_scene_uid = std::max(max_scene_uid, used_uid);
+    }
+    next_scene_backed_uid_ =
+        std::max<ActorUID>(1, std::min<ActorUID>(max_scene_uid + 1,
+                                                 kPreferredSceneActorUIDLimit));
 }
 
 void SceneDocument::SyncActorUIDsIntoSceneAsset() {

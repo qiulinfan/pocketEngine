@@ -75,11 +75,9 @@ void InjectVector2API() {
         .addFunction("Normalize", &b2Vec2::Normalize)
         .addFunction("Length", &b2Vec2::Length)
         .addStaticFunction("Distance",
-                           static_cast<float (*)(const b2Vec2 &, const b2Vec2 &)>(
-                               &CppVector2Distance))
+                           static_cast<float (*)(const b2Vec2 &, const b2Vec2 &)>( &CppVector2Distance))
         .addStaticFunction("Dot",
-                           static_cast<float (*)(const b2Vec2 &, const b2Vec2 &)>(
-                               &b2Dot))
+                           static_cast<float (*)(const b2Vec2 &, const b2Vec2 &)>( &b2Dot))
         .endClass();
 
     InstallClassMetamethod<b2Vec2>("__add", &LuaVector2Add);

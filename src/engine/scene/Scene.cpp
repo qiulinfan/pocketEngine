@@ -17,8 +17,7 @@ int Scene::AllocateActorID() {
 }
 
 // Override the active scene subdirectory used for resource preference.
-void Scene::SetActiveSceneSubdirectory(
-    const std::filesystem::path &subdirectory) {
+void Scene::SetActiveSceneSubdirectory( const std::filesystem::path &subdirectory) {
     active_scene_subdirectory = subdirectory.lexically_normal();
     if (active_scene_subdirectory == ".") {
         active_scene_subdirectory.clear();

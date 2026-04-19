@@ -14,8 +14,7 @@ public:
 
     // Override the active scene subdirectory used for resource preference.
     // 覆盖当前活跃场景的子目录, 供资源优先级解析使用.
-    static void SetActiveSceneSubdirectory(
-        const std::filesystem::path &subdirectory);
+    static void SetActiveSceneSubdirectory( const std::filesystem::path &subdirectory);
 
     // load actors from resources/scenes/<scene_name>.scene
     // 从 resources/scenes/<scene_name>.scene 加载 actors

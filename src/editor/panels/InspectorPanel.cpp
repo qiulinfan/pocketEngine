@@ -116,8 +116,7 @@ bool RenderLuaComponentDropTarget(
         }
         ImGui::EndDragDropTarget();
     }
-    ImGui::TextDisabled(
-        "Drag a component_types/*.lua asset from Project into this actor.");
+    ImGui::TextDisabled( "Drag a component_types/*.lua asset from Project into this actor.");
     return scene_changed;
 }
 
@@ -134,16 +133,14 @@ void RenderPhysicsHierarchyInfo(const PhysicsHierarchy::State &physics_state) {
     if (physics_state.nearest_dynamic_body_ancestor_uid !=
         PhysicsHierarchy::kInvalidActorUID) {
         ImGui::BulletText("Nearest dynamic ancestor UID: %llu",
-                          static_cast<unsigned long long>(
-                              physics_state.nearest_dynamic_body_ancestor_uid));
+                          static_cast<unsigned long long>( physics_state.nearest_dynamic_body_ancestor_uid));
     } else {
         ImGui::BulletText("Nearest dynamic ancestor: none");
     }
 
     if (physics_state.physics_root_uid != PhysicsHierarchy::kInvalidActorUID) {
         ImGui::BulletText("Physics root UID: %llu",
-                          static_cast<unsigned long long>(
-                              physics_state.physics_root_uid));
+                          static_cast<unsigned long long>( physics_state.physics_root_uid));
     }
 
     if (physics_state.requested_body_type != physics_state.effective_body_type &&
@@ -172,16 +169,13 @@ void RenderRuntimeOnlyActorInspector(const Engine &engine,
 
         std::ostringstream header_label;
         header_label << component_spec.key << " : " << component_spec.type;
-        const bool is_component_open = ImGui::CollapsingHeader(
-            header_label.str().c_str(), ImGuiTreeNodeFlags_DefaultOpen);
+        const bool is_component_open = ImGui::CollapsingHeader( header_label.str().c_str(), ImGuiTreeNodeFlags_DefaultOpen);
 
         if (is_component_open) {
             const std::vector<Actor::ComponentProperty> runtime_properties =
-                ComponentManager::GetRuntimeComponentProperties(
-                    runtime_actor.id, component_spec.key);
+                ComponentManager::GetRuntimeComponentProperties( runtime_actor.id, component_spec.key);
             if (runtime_properties.empty()) {
-                ImGui::TextDisabled(
-                    "No scalar runtime properties are currently available.");
+                ImGui::TextDisabled( "No scalar runtime properties are currently available.");
             }
 
             for (const Actor::ComponentProperty &property : runtime_properties) {
@@ -197,9 +191,7 @@ void RenderRuntimeOnlyActorInspector(const Engine &engine,
             }
 
             if (component_spec.type == "Rigidbody") {
-                RenderPhysicsHierarchyInfo(
-                    engine.GetRuntimePhysicsHierarchyStateByID(
-                        runtime_actor.id));
+                RenderPhysicsHierarchyInfo( engine.GetRuntimePhysicsHierarchyStateByID( runtime_actor.id));
             }
         }
 
@@ -356,8 +348,7 @@ bool RenderInspectorPanel(const Engine &engine, SceneDocument &scene_document,
                 Actor::ComponentPropertyValue updated_value;
                 if (EditPropertyValue(property.name.c_str(), property.value, updated_value)) {
                     SceneFormat::SceneEditCommand command;
-                    const bool changed = scene_document.SetComponentProperty(
-                        actor_index, component_spec.key, property.name, updated_value, &command);
+                    const bool changed = scene_document.SetComponentProperty( actor_index, component_spec.key, property.name, updated_value, &command);
                     scene_changed |= changed;
                     if (changed && out_edit_commands != nullptr) {
                         out_edit_commands->emplace_back(std::move(command));

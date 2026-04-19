@@ -49,16 +49,14 @@ void RenderPhysicsHierarchySummary(const PhysicsHierarchy::State &physics_state)
     if (physics_state.nearest_dynamic_body_ancestor_uid !=
         PhysicsHierarchy::kInvalidActorUID) {
         ImGui::Text("Nearest Dynamic Ancestor UID: %llu",
-                    static_cast<unsigned long long>(
-                        physics_state.nearest_dynamic_body_ancestor_uid));
+                    static_cast<unsigned long long>( physics_state.nearest_dynamic_body_ancestor_uid));
     } else {
         ImGui::TextDisabled("Nearest Dynamic Ancestor: none");
     }
 
     if (physics_state.physics_root_uid != PhysicsHierarchy::kInvalidActorUID) {
         ImGui::Text("Physics Root UID: %llu",
-                    static_cast<unsigned long long>(
-                        physics_state.physics_root_uid));
+                    static_cast<unsigned long long>( physics_state.physics_root_uid));
     }
 
     if (physics_state.requested_body_type != physics_state.effective_body_type &&
@@ -103,9 +101,7 @@ void RenderStatusPanel(const Engine &engine, const SceneDocument &scene_document
                 runtime_actor->actor_name.empty() ? "Unnamed Actor"
                                                   : runtime_actor->actor_name;
             ImGui::Text("Actor: %s", actor_name.c_str());
-            RenderPhysicsHierarchySummary(
-                engine.GetRuntimePhysicsHierarchyStateByID(
-                    selected_runtime_actor_id));
+            RenderPhysicsHierarchySummary( engine.GetRuntimePhysicsHierarchyStateByID( selected_runtime_actor_id));
         } else {
             ImGui::TextDisabled("Selected runtime actor is no longer valid.");
         }

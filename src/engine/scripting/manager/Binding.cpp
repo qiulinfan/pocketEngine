@@ -17,23 +17,6 @@ using namespace ManagerDetail;
 
 namespace {
 
-std::uint64_t AllocateRuntimeGeneratedActorUID(const std::deque<Actor> &actors) {
-    // start from 10000 to avoid colliding with typical editor-assigned UIDs, usually small integers.
-    static std::uint64_t next_runtime_uid = Actor::kRuntimeGeneratedEditorActorUIDStart;
-
-    auto uid_is_taken = [&](std::uint64_t candidate_uid) {
-        return std::any_of(actors.begin(), actors.end(), 
-            [&](const Actor &actor) {
-                return !actor.runtime_destroyed && actor.editor_actor_uid == candidate_uid;
-            }
-        );
-    };
-
-    while (uid_is_taken(next_runtime_uid)) ++next_runtime_uid;
-
-    return next_runtime_uid++;
-}
-
 void RotateClockwise(float x, float y, float rotation_degrees, float &out_x,
                      float &out_y) {
     const float radians = rotation_degrees * (3.14159265358979323846f / 180.0f);
@@ -102,8 +85,7 @@ void SyncTransformAndRigidbodyAfterPropertyEdit(
         float world_x = transform->x;
         float world_y = transform->y;
         float world_rotation = transform->rotation;
-        if (ComponentManager::TryGetRuntimeTransformWorld(
-                actor_id, world_x, world_y, world_rotation, nullptr)) {
+        if (ComponentManager::TryGetRuntimeTransformWorld( actor_id, world_x, world_y, world_rotation, nullptr)) {
             rigidbody->SetPosition(b2Vec2(world_x, world_y));
             rigidbody->SetRotation(world_rotation);
             return;
@@ -200,8 +182,7 @@ void ComponentManager::BindActorsForScene(std::deque<Actor> &actors) {
 // -----------------------------------------------------------------------------
 
 // instantiate one component from parsed scene / template spec
-void ComponentManager::InstantiateComponentForActor(
-    int actor_id, const Actor::ComponentSpec &component_spec) {
+void ComponentManager::InstantiateComponentForActor( int actor_id, const Actor::ComponentSpec &component_spec) {
     luabridge::LuaRef instance_table(g_runtime.lua_state);
     if (IsBuiltinComponentType(component_spec.type)) {
         if (component_spec.type == "Rigidbody") {
@@ -269,8 +250,7 @@ void ComponentManager::InstantiateComponentForActor(
 }
 
 // runtime component add / remove
-luabridge::LuaRef ComponentManager::AddComponent(
-    int actor_id, const std::string &type_name) {
+luabridge::LuaRef ComponentManager::AddComponent( int actor_id, const std::string &type_name) {
     // AddComponent 的语义: 立即创建并返回 ref, 但生命周期从下一帧开始.
     if (g_runtime.lua_state == nullptr) return MakeNilRef();
     auto actor_ptr_it = g_runtime.actor_by_id.find(actor_id);
@@ -437,18 +417,21 @@ bool ComponentManager::SetRuntimeComponentPropertyValue(
 }
 
 // actor-level helpers exposed through Actor static APIs
-luabridge::LuaRef ComponentManager::InstantiateActor(
-    const std::string &template_name) {
+luabridge::LuaRef ComponentManager::InstantiateActor( const std::string &template_name) {
     // Actor.Instantiate 语义：
     // 立即可被 Find / FindAll 找到
     // 组件生命周期从下一帧开始
+    using APIRegistrationDetail::g_engine;
     if (g_runtime.lua_state == nullptr || g_runtime.scene_actors == nullptr) {
+        return MakeNilRef();
+    }
+    if (g_engine == nullptr) {
         return MakeNilRef();
     }
 
     Actor actor = Actor::LoadTemplate(template_name);
     actor.id = Scene::AllocateActorID();
-    actor.editor_actor_uid = AllocateRuntimeGeneratedActorUID(*g_runtime.scene_actors);
+    actor.editor_actor_uid = g_engine->AllocateRuntimeGeneratedActorUID();
     actor.scene_backed = false;
     actor.parent_editor_actor_uid = Actor::kInvalidEditorActorUID;
     actor.parent_id = -1;

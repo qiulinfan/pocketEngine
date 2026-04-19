@@ -41,24 +41,6 @@ void RotateClockwise(float x, float y, float rotation_degrees, float &out_x,
     out_y = -sin_theta * x + cos_theta * y;
 }
 
-std::uint64_t AllocateRuntimeGeneratedActorUID(const std::deque<Actor> &actors) {
-    static std::uint64_t next_runtime_uid =
-        Actor::kRuntimeGeneratedEditorActorUIDStart;
-
-    auto uid_is_taken = [&](std::uint64_t candidate_uid) {
-        return std::any_of(actors.begin(), actors.end(),
-                           [&](const Actor &actor) {
-                               return !actor.runtime_destroyed &&
-                                      actor.editor_actor_uid == candidate_uid;
-                           });
-    };
-
-    while (uid_is_taken(next_runtime_uid)) {
-        ++next_runtime_uid;
-    }
-    return next_runtime_uid++;
-}
-
 std::string BuildUniqueRuntimeActorName(const std::deque<Actor> &actors,
                                         const std::string &base_name) {
     const std::string safe_base_name =
@@ -114,8 +96,7 @@ bool TryReadRuntimePropertyAsString(
     return false;
 }
 
-PhysicsHierarchy::State BuildRuntimeActorPhysicsSelfState(
-    int actor_id, const std::vector<Actor::ComponentSpec> &component_specs) {
+PhysicsHierarchy::State BuildRuntimeActorPhysicsSelfState( int actor_id, const std::vector<Actor::ComponentSpec> &component_specs) {
     PhysicsHierarchy::State state;
     for (const Actor::ComponentSpec &component_spec : component_specs) {
         if (component_spec.type != "Rigidbody") continue;
@@ -357,21 +338,29 @@ const Actor *Engine::GetRuntimeActorByEditorUID(std::uint64_t actor_uid) const {
     return findRuntimeActorByEditorUID(actor_uid);
 }
 
-PhysicsHierarchy::State Engine::GetRuntimePhysicsHierarchyStateByID(
-    int actor_id) const {
+PhysicsHierarchy::State Engine::GetRuntimePhysicsHierarchyStateByID(int actor_id) const {
     const Actor *actor = GetRuntimeActorByID(actor_id);
     if (actor == nullptr) return {};
     return GetRuntimePhysicsHierarchyStateByEditorUID(actor->editor_actor_uid);
 }
 
-PhysicsHierarchy::State Engine::GetRuntimePhysicsHierarchyStateByEditorUID(
-    std::uint64_t actor_uid) const {
+PhysicsHierarchy::State Engine::GetRuntimePhysicsHierarchyStateByEditorUID(std::uint64_t actor_uid) const {
     if (actor_uid == PhysicsHierarchy::kInvalidActorUID) return {};
     rebuildRuntimePhysicsHierarchyCache();
     auto state_it = runtime_physics_hierarchy_state_by_uid_.find(actor_uid);
     if (state_it == runtime_physics_hierarchy_state_by_uid_.end()) return {};
     return state_it->second;
 }
+
+std::uint64_t Engine::AllocateRuntimeGeneratedActorUID() {
+    if (next_runtime_generated_actor_uid_ <
+        Actor::kRuntimeGeneratedEditorActorUIDStart) {
+        next_runtime_generated_actor_uid_ =
+            Actor::kRuntimeGeneratedEditorActorUIDStart;
+    }
+    return next_runtime_generated_actor_uid_++;
+}
+
 bool Engine::DuplicateRuntimeActorByID(int actor_id, int *out_new_actor_id) {
     const Actor *source_actor = GetRuntimeActorByID(actor_id);
     if (source_actor == nullptr) return false;
@@ -383,7 +372,7 @@ bool Engine::DuplicateRuntimeActorByID(int actor_id, int *out_new_actor_id) {
     duplicated_actor.actor_name =
         BuildUniqueRuntimeActorName(actors, duplicate_base_name);
     duplicated_actor.id = Scene::AllocateActorID();
-    duplicated_actor.editor_actor_uid = AllocateRuntimeGeneratedActorUID(actors);
+    duplicated_actor.editor_actor_uid = AllocateRuntimeGeneratedActorUID();
     duplicated_actor.scene_backed = false;
     duplicated_actor.parent_editor_actor_uid = Actor::kInvalidEditorActorUID;
     duplicated_actor.parent_id = -1;
@@ -583,8 +572,7 @@ void Engine::initialize() {
         exit(0);
     }
 
-    renderer = SDLRenderHelper::SDL_CreateRenderer(
-        window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    renderer = SDLRenderHelper::SDL_CreateRenderer( window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (renderer == nullptr) {
         SDL_DestroyWindow(window);
         window = nullptr;
@@ -818,11 +806,16 @@ void Engine::rebuildRuntimeActorUIDMap() {
     invalidateRuntimePhysicsHierarchyCache();
     runtime_actor_by_editor_uid_.clear();
     runtime_actor_by_editor_uid_.reserve(actors.size());
+    std::uint64_t max_existing_uid = 0;
     for (Actor &actor : actors) {
         if (actor.runtime_destroyed) continue;
         if (actor.editor_actor_uid == SceneFormat::kInvalidSceneActorUID) continue;
+        max_existing_uid = std::max(max_existing_uid, actor.editor_actor_uid);
         runtime_actor_by_editor_uid_[actor.editor_actor_uid] = &actor;
     }
+    next_runtime_generated_actor_uid_ =
+        std::max<std::uint64_t>(Actor::kRuntimeGeneratedEditorActorUIDStart,
+                                max_existing_uid + 1);
     rebuildRuntimeParentLinks();
 }
 
@@ -912,8 +905,7 @@ bool Engine::applySceneMutation(const SceneFormat::SceneMutation &mutation) {
         mutation.payload);
 }
 
-bool Engine::applyCreateActorMutation(
-    const SceneFormat::CreateActorMutation &mutation) {
+bool Engine::applyCreateActorMutation( const SceneFormat::CreateActorMutation &mutation) {
     // Create the effective runtime actor from editor data, insert it at the
     // requested hierarchy position, then instantiate all component instances.
     if (mutation.actor_uid == SceneFormat::kInvalidSceneActorUID) return false;
@@ -952,8 +944,7 @@ bool Engine::applyCreateActorMutation(
     return true;
 }
 
-bool Engine::applyDeleteActorMutation(
-    const SceneFormat::DeleteActorMutation &mutation) {
+bool Engine::applyDeleteActorMutation( const SceneFormat::DeleteActorMutation &mutation) {
     // Deletion is two-phase in the component system, so finalize immediately
     // before rebuilding lookup tables.
     Actor *actor = findRuntimeActorByEditorUID(mutation.actor_uid);
@@ -966,8 +957,7 @@ bool Engine::applyDeleteActorMutation(
     return true;
 }
 
-bool Engine::applySetActorNameMutation(
-    const SceneFormat::SetActorNameMutation &mutation) {
+bool Engine::applySetActorNameMutation( const SceneFormat::SetActorNameMutation &mutation) {
     // Renaming is structurally simple, but we still rebind so cached actor
     // references in subsystems see a consistent container state.
     Actor *actor = findRuntimeActorByEditorUID(mutation.actor_uid);
@@ -981,8 +971,7 @@ bool Engine::applySetActorNameMutation(
     return true;
 }
 
-bool Engine::applySetActorParentMutation(
-    const SceneFormat::SetActorParentMutation &mutation) {
+bool Engine::applySetActorParentMutation( const SceneFormat::SetActorParentMutation &mutation) {
     Actor *actor = findRuntimeActorByEditorUID(mutation.actor_uid);
     if (actor == nullptr) return false;
 
@@ -1003,8 +992,7 @@ bool Engine::applySetActorParentMutation(
                 SceneFormat::kInvalidSceneActorUID) {
                 break;
             }
-            ancestor_actor = findRuntimeActorByEditorUID(
-                ancestor_actor->parent_editor_actor_uid);
+            ancestor_actor = findRuntimeActorByEditorUID( ancestor_actor->parent_editor_actor_uid);
         }
     }
 
@@ -1069,8 +1057,7 @@ bool Engine::applySetActorParentMutation(
     return true;
 }
 
-bool Engine::applyAddComponentMutation(
-    const SceneFormat::AddComponentMutation &mutation) {
+bool Engine::applyAddComponentMutation( const SceneFormat::AddComponentMutation &mutation) {
     // Component specs are the authoritative serialized form; append the spec,
     // instantiate the live component, then refresh actor/component bindings.
     Actor *actor = findRuntimeActorByEditorUID(mutation.actor_uid);
@@ -1092,8 +1079,7 @@ bool Engine::applyAddComponentMutation(
     return true;
 }
 
-bool Engine::applyDeleteComponentMutation(
-    const SceneFormat::DeleteComponentMutation &mutation) {
+bool Engine::applyDeleteComponentMutation( const SceneFormat::DeleteComponentMutation &mutation) {
     // Remove from serialized specs and live runtime together so the mirrored
     // world stays aligned with what the editor believes exists.
     Actor *actor = findRuntimeActorByEditorUID(mutation.actor_uid);
@@ -1122,8 +1108,7 @@ bool Engine::applyDeleteComponentMutation(
     return true;
 }
 
-bool Engine::applyRenameComponentMutation(
-    const SceneFormat::RenameComponentMutation &mutation) {
+bool Engine::applyRenameComponentMutation( const SceneFormat::RenameComponentMutation &mutation) {
     // Renaming updates both the serialized component key and the live component
     // registry entry used by scripting lookups.
     Actor *actor = findRuntimeActorByEditorUID(mutation.actor_uid);
@@ -1149,8 +1134,7 @@ bool Engine::applyRenameComponentMutation(
     return true;
 }
 
-bool Engine::applySetComponentTypeMutation(
-    const SceneFormat::SetComponentTypeMutation &mutation) {
+bool Engine::applySetComponentTypeMutation( const SceneFormat::SetComponentTypeMutation &mutation) {
     // Changing type is effectively a remove+recreate operation because the old
     // instance layout/script binding is no longer valid.
     Actor *actor = findRuntimeActorByEditorUID(mutation.actor_uid);
@@ -1178,8 +1162,7 @@ bool Engine::applySetComponentTypeMutation(
     return true;
 }
 
-bool Engine::applySetComponentPropertyMutation(
-    const SceneFormat::SetComponentPropertyMutation &mutation) {
+bool Engine::applySetComponentPropertyMutation( const SceneFormat::SetComponentPropertyMutation &mutation) {
     // Prefer in-place property patching for generic script components. Builtin
     // components fall back to full reconstruction so native state stays synced.
     Actor *actor = findRuntimeActorByEditorUID(mutation.actor_uid);

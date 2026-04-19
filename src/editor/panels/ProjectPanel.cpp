@@ -258,8 +258,7 @@ std::string BuildDirectoryCaption(const std::filesystem::path &resources_root,
     }
 
     std::error_code relative_error;
-    const std::filesystem::path relative_path = std::filesystem::relative(
-        directory_path, resources_root, relative_error);
+    const std::filesystem::path relative_path = std::filesystem::relative( directory_path, resources_root, relative_error);
     if (relative_error || relative_path.empty()) {
         return "resources/";
     }
@@ -537,8 +536,7 @@ void RenderDirectoryGrid(const std::filesystem::path &resources_root,
 } // namespace
 
 // Render a read-only project browser tree for the resources directory.
-ProjectPanelResult RenderProjectPanel(
-    const std::filesystem::path &resources_root, SDL_Renderer *renderer) {
+ProjectPanelResult RenderProjectPanel( const std::filesystem::path &resources_root, SDL_Renderer *renderer) {
     // Project panel owns only UI-navigation state. The actual file-system state
     // lives on disk, and open requests are returned to the host as a result.
     static std::filesystem::path selected_directory;

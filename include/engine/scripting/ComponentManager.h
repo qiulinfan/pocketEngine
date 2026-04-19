@@ -28,8 +28,7 @@ public:
 
     // instantiate one component from parsed scene / template spec
     // 根据解析后的场景或模板数据实例化一个组件
-    static void InstantiateComponentForActor(
-        int actor_id, const Actor::ComponentSpec &component_spec);
+    static void InstantiateComponentForActor( int actor_id, const Actor::ComponentSpec &component_spec);
 
     // runtime component add / remove
     // 运行时组件增删接口
@@ -70,8 +69,7 @@ public:
                                                const std::string &key);
     static luabridge::LuaRef GetComponentByType(int actor_id,
                                                 const std::string &type_name);
-    static luabridge::LuaRef GetComponentsByType(
-        int actor_id, const std::string &type_name);
+    static luabridge::LuaRef GetComponentsByType( int actor_id, const std::string &type_name);
 
     // editor-facing metadata queries for available component types/defaults
     // 给编辑器使用的组件元数据查询接口

@@ -226,8 +226,7 @@ private:
             int width = 0;
             int height = 0;
             SDL_GetRendererOutputSize(renderer, &width, &height);
-            frame_capture_surface_ = SDL_CreateRGBSurfaceWithFormat(
-                0, width, height, 24, SDL_PIXELFORMAT_RGB24);
+            frame_capture_surface_ = SDL_CreateRGBSurfaceWithFormat( 0, width, height, 24, SDL_PIXELFORMAT_RGB24);
             FrameClock::Reset();
             frame_capture_initialized_ = true;
         }

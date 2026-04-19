@@ -232,8 +232,7 @@ void MergeDynamicLuaTableProperties(
 // -----------------------------------------------------------------------------
 
 // component queries used by Actor's Lua-facing methods
-luabridge::LuaRef ComponentManager::GetComponentByKey(
-    int actor_id, const std::string &key) {
+luabridge::LuaRef ComponentManager::GetComponentByKey( int actor_id, const std::string &key) {
     // removed 组件会被 FindComponentRecord 过滤, 查询结果为 nil
     ComponentRecord *component = FindComponentRecord(actor_id, key);
     if (component == nullptr) return MakeNilRef();
@@ -241,8 +240,7 @@ luabridge::LuaRef ComponentManager::GetComponentByKey(
 }
 
 // component queries used by Actor's Lua-facing methods
-luabridge::LuaRef ComponentManager::GetComponentByType(
-    int actor_id, const std::string &type_name) {
+luabridge::LuaRef ComponentManager::GetComponentByType( int actor_id, const std::string &type_name) {
     auto actor_it = g_runtime.component_first_key_by_type.find(actor_id);
     if (actor_it == g_runtime.component_first_key_by_type.end()) return MakeNilRef();
 
@@ -255,8 +253,7 @@ luabridge::LuaRef ComponentManager::GetComponentByType(
 }
 
 // component queries used by Actor's Lua-facing methods
-luabridge::LuaRef ComponentManager::GetComponentsByType(
-    int actor_id, const std::string &type_name) {
+luabridge::LuaRef ComponentManager::GetComponentsByType( int actor_id, const std::string &type_name) {
     auto actor_it = g_runtime.component_keys_by_type.find(actor_id);
     if (actor_it == g_runtime.component_keys_by_type.end()) {
         return MakeEmptyArrayTable();
@@ -287,8 +284,7 @@ luabridge::LuaRef ComponentManager::FindActorByName(const std::string &name) {
 }
 
 // actor-level helpers exposed through Actor static APIs
-luabridge::LuaRef ComponentManager::FindAllActorsByName(
-    const std::string &name) {
+luabridge::LuaRef ComponentManager::FindAllActorsByName( const std::string &name) {
     // 返回 Lua 数组(Note: 1-based), 便于 Lua 端 ipairs()
     auto it = g_runtime.actors_by_name.find(name);
     luabridge::LuaRef result_table = MakeEmptyArrayTable();
@@ -323,8 +319,7 @@ std::vector<std::string> ComponentManager::GetRegisteredComponentTypes() {
 
 // editor-facing metadata queries for available component types/defaults
 std::vector<Actor::ComponentProperty>
-ComponentManager::GetComponentTypeDefaultProperties(
-    const std::string &type_name) {
+ComponentManager::GetComponentTypeDefaultProperties( const std::string &type_name) {
     std::vector<Actor::ComponentProperty> properties;
     if (IsBuiltinComponentType(type_name)) {
         return GetBuiltinComponentDefaultProperties(type_name);

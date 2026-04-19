@@ -37,8 +37,7 @@ inline bool EnsureDirectoryExists(const std::filesystem::path &directory) {
     return std::filesystem::create_directories(directory, error);
 }
 
-inline std::filesystem::path NormalizeRelativePath(
-    const std::filesystem::path &path) {
+inline std::filesystem::path NormalizeRelativePath( const std::filesystem::path &path) {
     const std::filesystem::path normalized = path.lexically_normal();
     if (normalized == ".") return {};
     return normalized;
@@ -118,8 +117,7 @@ inline void SortPathsWithPreference(
               });
 }
 
-inline std::vector<std::filesystem::path> CollectFilesRecursively(
-    const std::filesystem::path &root, const std::string &extension = "") {
+inline std::vector<std::filesystem::path> CollectFilesRecursively( const std::filesystem::path &root, const std::string &extension = "") {
     std::vector<std::filesystem::path> files;
     if (!std::filesystem::exists(root) || !std::filesystem::is_directory(root)) {
         return files;

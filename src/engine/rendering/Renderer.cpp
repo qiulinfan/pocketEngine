@@ -259,8 +259,7 @@ void Renderer::DrawText(const std::string &text_content,
                         const std::string &font_name, int font_size,
                         SDL_Color font_color, int x, int y) {
     if (font_name.empty()) return;
-    text_draw_requests.push_back(
-        {text_content, font_name, font_size, font_color, x, y});
+    text_draw_requests.push_back( {text_content, font_name, font_size, font_color, x, y});
 }
 
 // Render one frame by flushing queued scene images, particles, text, and pixels.

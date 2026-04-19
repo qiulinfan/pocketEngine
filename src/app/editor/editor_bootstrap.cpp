@@ -463,8 +463,7 @@ void EditorApp::Run() {
                             .scene_edit_commands_runtime_synced_end_index) {
                     continue;
                 }
-                scene_session_.HandleSceneEditCommand(
-                    overlay_result.scene_edit_commands[command_index], engine_);
+                scene_session_.HandleSceneEditCommand( overlay_result.scene_edit_commands[command_index], engine_);
             }
             if (overlay_result.play_mode_start_requested) {
                 scene_session_.EnterPlayMode(engine_);
@@ -490,8 +489,7 @@ void EditorApp::Run() {
             }
             if (overlay_result.editor_config_changed) {
                 editor_config_dirty_ =
-                    !AreEditorConfigsEqualForConfirmation(
-                        editor_config_, confirmed_editor_config_);
+                    !AreEditorConfigsEqualForConfirmation( editor_config_, confirmed_editor_config_);
             }
             if (overlay_result.editor_window_settings_changed) {
                 ApplyEditorWindowSettings();
@@ -508,8 +506,7 @@ void EditorApp::Run() {
             }
             if (overlay_result.open_scene_requested) {
                 const std::string &scene_external_command =
-                    EditorConfig::ExternalEditorCommand(
-                        editor_config_, EditorExternalFileType::Scene);
+                    EditorConfig::ExternalEditorCommand( editor_config_, EditorExternalFileType::Scene);
                 if (!IsBlankCommand(scene_external_command)) {
                     OpenExternalEditor(editor_config_,
                                        EditorExternalFileType::Scene,

@@ -95,8 +95,7 @@ bool RenderTransportButton(const char *id, TransportIcon icon,
     return enabled && clicked;
 }
 
-ViewportControlsResult RenderTopCenteredTransportControls(
-    const ImVec2 &image_min, const ImVec2 &image_size, bool play_mode_active) {
+ViewportControlsResult RenderTopCenteredTransportControls( const ImVec2 &image_min, const ImVec2 &image_size, bool play_mode_active) {
     ViewportControlsResult result;
     if (image_size.x < 120.0f || image_size.y < 80.0f) {
         return result;
