@@ -298,7 +298,7 @@ bool SceneDocument::SetActorParent(
     if (parent_actor_index.has_value()) {
         const ActorUID parent_uid = GetActorUID(*parent_actor_index);
         if (parent_uid == kInvalidActorUID) return false;
-        mutation.parent_actor_uid = parent_uid;
+        mutation.parent_uid = parent_uid;
     }
 
     const SceneFormat::SceneEditCommand command =
@@ -617,7 +617,7 @@ bool SceneDocument::ApplyCreateActorMutation(
     if (FindActorIndexByUID(mutation.actor_uid).has_value()) return false;
 
     ActorRecord actor_record = mutation.actor_record;
-    actor_record.editor_actor_uid = mutation.actor_uid;
+    actor_record.uid = mutation.actor_uid;
 
     std::size_t insert_index = scene_asset_.actors.size();
     if (mutation.insert_after_actor_uid.has_value()) {
@@ -654,8 +654,8 @@ bool SceneDocument::ApplyDeleteActorMutation(
     actor_uids_.erase(actor_uids_.begin() +
                       static_cast<std::ptrdiff_t>(*actor_index));
     for (ActorRecord &actor_record : scene_asset_.actors) {
-        if (actor_record.parent_actor_uid == mutation.actor_uid) {
-            actor_record.parent_actor_uid = kInvalidActorUID;
+        if (actor_record.parent_uid == mutation.actor_uid) {
+            actor_record.parent_uid = kInvalidActorUID;
         }
     }
     SyncActorUIDsIntoSceneAsset();
@@ -698,10 +698,10 @@ bool SceneDocument::ApplySetActorParentMutation(
     const std::optional<std::size_t> current_parent_index =
         FindParentActorIndex(*actor_index);
     const std::optional<std::size_t> new_parent_index =
-        mutation.parent_actor_uid.has_value()
-            ? FindActorIndexByUID(*mutation.parent_actor_uid)
+        mutation.parent_uid.has_value()
+            ? FindActorIndexByUID(*mutation.parent_uid)
             : std::nullopt;
-    if (mutation.parent_actor_uid.has_value() && !new_parent_index.has_value()) {
+    if (mutation.parent_uid.has_value() && !new_parent_index.has_value()) {
         return false;
     }
 
@@ -753,8 +753,7 @@ bool SceneDocument::ApplySetActorParentMutation(
 
     ActorRecord *actor_record = FindActorRecord(*actor_index);
     if (actor_record == nullptr) return false;
-    actor_record->parent_actor_uid =
-        mutation.parent_actor_uid.value_or(kInvalidActorUID);
+    actor_record->parent_uid = mutation.parent_uid.value_or(kInvalidActorUID);
 
     if (has_transform) {
         /*

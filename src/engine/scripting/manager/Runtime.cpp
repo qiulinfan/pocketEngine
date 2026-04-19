@@ -32,13 +32,13 @@ void ClearBoundActorState() {
     g_runtime.component_keys_by_type.clear();
     g_runtime.on_update_components.clear();
     g_runtime.on_late_update_components.clear();
-    g_runtime.actor_by_id.clear();
+    g_runtime.actor_by_uid.clear();
     g_runtime.actors_by_name.clear();
-    g_runtime.actor_order_by_id.clear();
-    g_runtime.actor_ids_sorted.clear();
-    g_runtime.pending_actor_ids_to_activate.clear();
-    g_runtime.pending_destroy_actor_ids.clear();
-    g_runtime.dirty_component_actor_ids.clear();
+    g_runtime.actor_order_by_uid.clear();
+    g_runtime.actor_uids_sorted.clear();
+    g_runtime.pending_actor_uids_to_activate.clear();
+    g_runtime.pending_destroy_actor_uids.clear();
+    g_runtime.dirty_component_actor_uids.clear();
     g_runtime.scene_actors = nullptr;
 }
 

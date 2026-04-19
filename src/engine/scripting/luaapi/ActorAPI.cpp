@@ -11,7 +11,7 @@ void InjectActorAPI() {
     luabridge::getGlobalNamespace(g_lua_state)
         .beginClass<Actor>("Actor")
         .addFunction("GetName", &Actor::GetName)
-        .addFunction("GetID", &Actor::GetID)
+        .addFunction("GetUID", &Actor::GetUID)
         .addFunction("SetParent", &Actor::SetParent)
         .addFunction("AddComponent", &Actor::AddComponent)
         .addFunction("RemoveComponent", &Actor::RemoveComponent)

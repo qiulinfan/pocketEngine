@@ -1,6 +1,7 @@
 #ifndef EDITOR_INSPECTOR_PANEL_H
 #define EDITOR_INSPECTOR_PANEL_H
 
+#include "scene/Actor.h"
 #include "shared/scene_format/SceneMutation.h"
 #include <vector>
 
@@ -14,7 +15,7 @@ namespace EditorPanels {
 bool RenderInspectorPanel(const Engine &engine,
                           SceneDocument &scene_document,
                           int &selected_actor_index,
-                          int selected_runtime_actor_id,
+                          Actor::UID selected_runtime_actor_uid,
                           bool play_mode_active,
                           bool scene_editing_enabled,
                           std::vector<SceneFormat::SceneEditCommand>

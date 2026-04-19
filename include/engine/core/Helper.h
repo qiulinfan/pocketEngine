@@ -38,13 +38,15 @@ public:
         SDLRenderHelper::SDL_RenderPresent(renderer, advance_gameplay_frame);
     }
 
-    static void SDL_RenderCopyEx(int actor_id, const std::string &actor_name,
+    static void SDL_RenderCopyEx(Actor::UID actor_uid,
+                                 const std::string &actor_name,
                                  SDL_Renderer *renderer, SDL_Texture *texture,
                                  const SDL_FRect *srcrect,
                                  const SDL_FRect *dstrect, float angle,
                                  const SDL_FPoint *center,
                                  SDL_RendererFlip flip) {
-        SDLRenderHelper::SDL_RenderCopyEx(actor_id, actor_name, renderer, texture,
+        SDLRenderHelper::SDL_RenderCopyEx(actor_uid, actor_name, renderer,
+                                          texture,
                                           srcrect, dstrect, angle, center, flip);
     }
 

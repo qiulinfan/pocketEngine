@@ -2,6 +2,7 @@
 #define EDITOR_SCENE_PANEL_H
 
 #include <cstddef>
+#include "scene/Actor.h"
 #include "shared/scene_format/SceneMutation.h"
 #include <vector>
 
@@ -33,7 +34,7 @@ struct ScenePanelResult {
 // This panel owns scene selection and transform-gizmo interactions.
 ScenePanelResult RenderScenePanel(
     Engine &engine, SceneDocument &scene_document,
-    int &selected_actor_index, int &selected_runtime_actor_id,
+    int &selected_actor_index, Actor::UID &selected_runtime_actor_uid,
     int scene_view_width, int scene_view_height, bool play_mode_active,
     bool play_mode_paused, bool scene_editing_enabled,
     std::vector<SceneFormat::SceneEditCommand> *out_edit_commands);

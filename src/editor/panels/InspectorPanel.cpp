@@ -170,12 +170,13 @@ authoring SceneDocument.
 */
 void RenderRuntimeOnlyActorInspector(const Engine &engine,
                                      const Actor &runtime_actor) {
-    ImGui::Text("Runtime ID: %d", runtime_actor.id);
+    ImGui::Text("Runtime UID: %llu",
+                static_cast<unsigned long long>(runtime_actor.uid));
     ImGui::TextDisabled("Runtime-spawned actor. Changes here are transient and will be discarded when play mode stops.");
     ImGui::Separator();
 
     const std::vector<Actor::ComponentSpec> runtime_component_specs =
-        ComponentManager::GetRuntimeComponentSpecs(runtime_actor.id);
+        ComponentManager::GetRuntimeComponentSpecs(runtime_actor.uid);
     if (runtime_component_specs.empty()) {
         ImGui::Separator();
         ImGui::TextDisabled("Runtime actor currently has no live components.");
@@ -191,7 +192,8 @@ void RenderRuntimeOnlyActorInspector(const Engine &engine,
 
         if (is_component_open) {
             const std::vector<Actor::ComponentProperty> runtime_properties =
-                ComponentManager::GetRuntimeComponentProperties( runtime_actor.id, component_spec.key);
+                ComponentManager::GetRuntimeComponentProperties(
+                    runtime_actor.uid, component_spec.key);
             if (runtime_properties.empty()) {
                 ImGui::TextDisabled( "No scalar runtime properties are currently available.");
             }
@@ -202,14 +204,16 @@ void RenderRuntimeOnlyActorInspector(const Engine &engine,
                 if (EditPropertyValue(property.name.c_str(), property.value,
                                       updated_value)) {
                     ComponentManager::SetRuntimeComponentPropertyValue(
-                        runtime_actor.id, component_spec.key, property.name,
+                        runtime_actor.uid, component_spec.key, property.name,
                         updated_value);
                 }
                 ImGui::PopID();
             }
 
             if (component_spec.type == "Rigidbody") {
-                RenderPhysicsHierarchyInfo( engine.GetRuntimePhysicsHierarchyStateByID( runtime_actor.id));
+                RenderPhysicsHierarchyInfo(
+                    engine.GetRuntimePhysicsHierarchyStateByUID(
+                        runtime_actor.uid));
             }
         }
 
@@ -226,7 +230,7 @@ void RenderRuntimeOnlyActorInspector(const Engine &engine,
 
 bool RenderInspectorPanel(const Engine &engine, SceneDocument &scene_document,
                           int &selected_actor_index,
-                          int selected_runtime_actor_id,
+                          Actor::UID selected_runtime_actor_uid,
                           bool play_mode_active,
                           bool scene_editing_enabled,
                           std::vector<SceneFormat::SceneEditCommand> *out_edit_commands) {
@@ -241,8 +245,10 @@ bool RenderInspectorPanel(const Engine &engine, SceneDocument &scene_document,
     EnsureValidSelection(scene_document, selected_actor_index);
 
     if (selected_actor_index < 0) {
-        if (play_mode_active && selected_runtime_actor_id >= 0) {
-            const Actor *runtime_actor = engine.GetRuntimeActorByID(selected_runtime_actor_id);
+        if (play_mode_active &&
+            selected_runtime_actor_uid != Actor::kInvalidUID) {
+            const Actor *runtime_actor =
+                engine.GetRuntimeActorByUID(selected_runtime_actor_uid);
             if (runtime_actor != nullptr) {
                 RenderRuntimeOnlyActorInspector(engine, *runtime_actor);
                 ImGui::End();

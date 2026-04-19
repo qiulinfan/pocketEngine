@@ -102,7 +102,9 @@ Read only the actor-local Rigidbody request from live runtime component state.
 Hierarchy-derived fields such as nearest dynamic ancestor are layered on later
 when the runtime physics cache walks parent links.
 */
-PhysicsHierarchy::State BuildRuntimeActorPhysicsSelfState( int actor_id, const std::vector<Actor::ComponentSpec> &component_specs) {
+PhysicsHierarchy::State BuildRuntimeActorPhysicsSelfState(
+    Actor::UID actor_uid,
+    const std::vector<Actor::ComponentSpec> &component_specs) {
     PhysicsHierarchy::State state;
     for (const Actor::ComponentSpec &component_spec : component_specs) {
         if (component_spec.type != "Rigidbody") continue;
@@ -111,7 +113,7 @@ PhysicsHierarchy::State BuildRuntimeActorPhysicsSelfState( int actor_id, const s
         state.rigidbody_component_key = component_spec.key;
 
         const std::vector<Actor::ComponentProperty> properties =
-            ComponentManager::GetRuntimeComponentProperties(actor_id,
+            ComponentManager::GetRuntimeComponentProperties(actor_uid,
                                                            component_spec.key);
         bool enabled = true;
         TryReadRuntimePropertyAsBool(properties, "enabled", enabled);
@@ -194,7 +196,7 @@ void Engine::ShutdownRuntime() {
 
     destroyRuntimeRenderTarget();
     destroyScenePreviewRenderTarget();
-    runtime_actor_by_editor_uid_.clear();
+    runtime_actor_by_uid_.clear();
     ComponentManager::Shutdown();
     ParticleManager::Clear();
     Renderer::Shutdown();
@@ -336,22 +338,8 @@ int Engine::GetWindowHeight() const {
 const GameConfigData &Engine::GetConfig() const {return config_;}
 std::size_t Engine::GetActorCount() const {return actors.size();}
 const std::deque<Actor> &Engine::GetRuntimeActors() const {return actors;}
-const Actor *Engine::GetRuntimeActorByID(int actor_id) const {
-    for (const Actor &actor : actors) {
-        if (actor.runtime_destroyed) continue;
-        if (actor.id != actor_id) continue;
-        return &actor;
-    }
-    return nullptr;
-}
-const Actor *Engine::GetRuntimeActorByEditorUID(std::uint64_t actor_uid) const {
-    return findRuntimeActorByEditorUID(actor_uid);
-}
-
-PhysicsHierarchy::State Engine::GetRuntimePhysicsHierarchyStateByID(int actor_id) const {
-    const Actor *actor = GetRuntimeActorByID(actor_id);
-    if (actor == nullptr) return {};
-    return GetRuntimePhysicsHierarchyStateByEditorUID(actor->editor_actor_uid);
+const Actor *Engine::GetRuntimeActorByUID(Actor::UID actor_uid) const {
+    return findRuntimeActorByUID(actor_uid);
 }
 
 /*
@@ -359,7 +347,8 @@ Expose the derived physics-hierarchy classification for one live actor.
 The cache is rebuilt lazily so editor UI can inspect the latest runtime tree
 without forcing every mutation site to eagerly recompute ancestry state.
 */
-PhysicsHierarchy::State Engine::GetRuntimePhysicsHierarchyStateByEditorUID(std::uint64_t actor_uid) const {
+PhysicsHierarchy::State Engine::GetRuntimePhysicsHierarchyStateByUID(
+    Actor::UID actor_uid) const {
     if (actor_uid == PhysicsHierarchy::kInvalidActorUID) return {};
     rebuildRuntimePhysicsHierarchyCache();
     auto state_it = runtime_physics_hierarchy_state_by_uid_.find(actor_uid);
@@ -372,11 +361,11 @@ Runtime-generated actors use a separate UID cursor from scene-backed actors.
 The cursor is advanced from the highest live UID whenever runtime actors are
 rebound, so instantiate/duplicate can stay O(1) during play.
 */
-std::uint64_t Engine::AllocateRuntimeGeneratedActorUID() {
+Actor::UID Engine::AllocateRuntimeGeneratedActorUID() {
     if (next_runtime_generated_actor_uid_ <
-        Actor::kRuntimeGeneratedEditorActorUIDStart) {
+        Actor::kRuntimeGeneratedUIDStart) {
         next_runtime_generated_actor_uid_ =
-            Actor::kRuntimeGeneratedEditorActorUIDStart;
+            Actor::kRuntimeGeneratedUIDStart;
     }
     return next_runtime_generated_actor_uid_++;
 }
@@ -386,8 +375,9 @@ Duplicate a live actor entirely inside the runtime world.
 This path intentionally does not write back to the authoring scene document;
 it is the transient play-mode equivalent of scene-backed duplication.
 */
-bool Engine::DuplicateRuntimeActorByID(int actor_id, int *out_new_actor_id) {
-    const Actor *source_actor = GetRuntimeActorByID(actor_id);
+bool Engine::DuplicateRuntimeActorByUID(Actor::UID actor_uid,
+                                        Actor::UID *out_new_actor_uid) {
+    const Actor *source_actor = GetRuntimeActorByUID(actor_uid);
     if (source_actor == nullptr) return false;
 
     Actor duplicated_actor = *source_actor;
@@ -396,11 +386,9 @@ bool Engine::DuplicateRuntimeActorByID(int actor_id, int *out_new_actor_id) {
                                          : source_actor->actor_name + " (copy)";
     duplicated_actor.actor_name =
         BuildUniqueRuntimeActorName(actors, duplicate_base_name);
-    duplicated_actor.id = Scene::AllocateActorID();
-    duplicated_actor.editor_actor_uid = AllocateRuntimeGeneratedActorUID();
+    duplicated_actor.uid = AllocateRuntimeGeneratedActorUID();
     duplicated_actor.scene_backed = false;
-    duplicated_actor.parent_editor_actor_uid = Actor::kInvalidEditorActorUID;
-    duplicated_actor.parent_id = -1;
+    duplicated_actor.parent_uid = Actor::kInvalidUID;
     duplicated_actor.runtime_destroyed = false;
 
     actors.emplace_back(std::move(duplicated_actor));
@@ -408,15 +396,15 @@ bool Engine::DuplicateRuntimeActorByID(int actor_id, int *out_new_actor_id) {
 
     ComponentManager::BindActorsForScene(actors);
     for (const Actor::ComponentSpec &component_spec :
-         runtime_actor->component_specs) {
-        ComponentManager::InstantiateComponentForActor(runtime_actor->id,
+        runtime_actor->component_specs) {
+        ComponentManager::InstantiateComponentForActor(runtime_actor->uid,
                                                        component_spec);
     }
     ComponentManager::BindActorsForScene(actors);
     rebuildRuntimeActorUIDMap();
 
-    if (out_new_actor_id != nullptr) {
-        *out_new_actor_id = runtime_actor->id;
+    if (out_new_actor_uid != nullptr) {
+        *out_new_actor_uid = runtime_actor->uid;
     }
     return true;
 }
@@ -424,10 +412,10 @@ bool Engine::DuplicateRuntimeActorByID(int actor_id, int *out_new_actor_id) {
 Remove one runtime actor and immediately flush the component-system destruction
 queue so editor views do not keep dangling selections or stale hierarchy data.
 */
-bool Engine::DeleteRuntimeActorByID(int actor_id) {
+bool Engine::DeleteRuntimeActorByUID(Actor::UID actor_uid) {
     for (Actor &actor : actors) {
         if (actor.runtime_destroyed) continue;
-        if (actor.id != actor_id) continue;
+        if (actor.uid != actor_uid) continue;
 
         ComponentManager::DestroyActor(&actor);
         ComponentManager::FinalizeFrameMutations();
@@ -443,27 +431,28 @@ Runtime-only parenting mirrors the same preserve-world semantics as the scene
 document path, but it operates directly on live actors and component state.
 This is the backend used by the Lua SetParent API.
 */
-bool Engine::SetRuntimeActorParentByID(int actor_id, int parent_actor_id) {
+bool Engine::SetRuntimeActorParentByUID(Actor::UID actor_uid,
+                                        Actor::UID parent_uid) {
     /*
     Runtime-generated actors are appended directly by the scripting layer, so
     the UID cache may lag behind until we explicitly resync it here.
     */
     rebuildRuntimeActorUIDMap();
 
-    const Actor *actor = GetRuntimeActorByID(actor_id);
+    const Actor *actor = GetRuntimeActorByUID(actor_uid);
     if (actor == nullptr) return false;
-    if (actor->editor_actor_uid == Actor::kInvalidEditorActorUID) return false;
+    if (actor->uid == Actor::kInvalidUID) return false;
 
     SceneFormat::SetActorParentMutation mutation;
-    mutation.actor_uid = actor->editor_actor_uid;
+    mutation.actor_uid = actor->uid;
 
-    if (parent_actor_id >= 0) {
-        const Actor *parent_actor = GetRuntimeActorByID(parent_actor_id);
+    if (parent_uid != Actor::kInvalidUID) {
+        const Actor *parent_actor = GetRuntimeActorByUID(parent_uid);
         if (parent_actor == nullptr) return false;
-        if (parent_actor->editor_actor_uid == Actor::kInvalidEditorActorUID) {
+        if (parent_actor->uid == Actor::kInvalidUID) {
             return false;
         }
-        mutation.parent_actor_uid = parent_actor->editor_actor_uid;
+        mutation.parent_uid = parent_actor->uid;
     }
 
     return applySetActorParentMutation(mutation);
@@ -496,14 +485,14 @@ void Engine::LoadSceneAsset(const SceneFormat::SceneAsset &scene_asset) {
 
     std::vector<Actor> runtime_actors = SceneFormat::BuildRuntimeActors(scene_asset);
     for (Actor &actor : runtime_actors) {
-        actor.id = Scene::AllocateActorID();
         actors.emplace_back(std::move(actor));
     }
 
     ComponentManager::BindActorsForScene(actors);
     for (const Actor &actor : actors) {
         for (const Actor::ComponentSpec &component_spec : actor.component_specs) {
-            ComponentManager::InstantiateComponentForActor(actor.id, component_spec);
+            ComponentManager::InstantiateComponentForActor(actor.uid,
+                                                           component_spec);
         }
     }
     /*
@@ -766,25 +755,25 @@ void Engine::rebuildRuntimePhysicsHierarchyCache() const {
     runtime_physics_hierarchy_state_by_uid_.clear();
     runtime_physics_hierarchy_state_by_uid_.reserve(actors.size());
 
-    std::unordered_map<int, const Actor *> runtime_actor_by_id;
-    runtime_actor_by_id.reserve(actors.size());
+    std::unordered_map<Actor::UID, const Actor *> runtime_actor_by_uid;
+    runtime_actor_by_uid.reserve(actors.size());
     for (const Actor &actor : actors) {
         if (actor.runtime_destroyed) continue;
-        runtime_actor_by_id[actor.id] = &actor;
+        runtime_actor_by_uid[actor.uid] = &actor;
     }
 
-    std::unordered_map<int, PhysicsHierarchy::State> state_by_actor_id;
-    state_by_actor_id.reserve(actors.size());
-    std::unordered_set<int> resolved_actor_ids;
-    std::unordered_set<int> resolving_actor_ids;
+    std::unordered_map<Actor::UID, PhysicsHierarchy::State> state_by_actor_uid;
+    state_by_actor_uid.reserve(actors.size());
+    std::unordered_set<Actor::UID> resolved_actor_uids;
+    std::unordered_set<Actor::UID> resolving_actor_uids;
 
     std::function<void(const Actor &)> resolve_actor_state =
         [&](const Actor &actor) {
             if (actor.runtime_destroyed) return;
-            if (resolved_actor_ids.find(actor.id) != resolved_actor_ids.end()) {
+            if (resolved_actor_uids.find(actor.uid) != resolved_actor_uids.end()) {
                 return;
             }
-            if (!resolving_actor_ids.insert(actor.id).second) {
+            if (!resolving_actor_uids.insert(actor.uid).second) {
                 return;
             }
 
@@ -793,13 +782,14 @@ void Engine::rebuildRuntimePhysicsHierarchyCache() const {
             state, then layer ancestry-derived ownership rules on top.
             */
             PhysicsHierarchy::State state = BuildRuntimeActorPhysicsSelfState(
-                actor.id, ComponentManager::GetRuntimeComponentSpecs(actor.id));
+                actor.uid, ComponentManager::GetRuntimeComponentSpecs(actor.uid));
 
             std::uint64_t nearest_dynamic_ancestor_uid =
                 PhysicsHierarchy::kInvalidActorUID;
-            if (actor.parent_id >= 0 && actor.parent_id != actor.id) {
-                auto parent_it = runtime_actor_by_id.find(actor.parent_id);
-                if (parent_it != runtime_actor_by_id.end() &&
+            if (actor.parent_uid != Actor::kInvalidUID &&
+                actor.parent_uid != actor.uid) {
+                auto parent_it = runtime_actor_by_uid.find(actor.parent_uid);
+                if (parent_it != runtime_actor_by_uid.end() &&
                     parent_it->second != nullptr) {
                     /*
                     Resolve parents first so each child can inherit nearest
@@ -807,10 +797,10 @@ void Engine::rebuildRuntimePhysicsHierarchyCache() const {
                     */
                     resolve_actor_state(*parent_it->second);
                     const PhysicsHierarchy::State &parent_state =
-                        state_by_actor_id[parent_it->second->id];
+                        state_by_actor_uid[parent_it->second->uid];
                     if (parent_state.has_dynamic_rigidbody_self) {
                         nearest_dynamic_ancestor_uid =
-                            parent_it->second->editor_actor_uid;
+                            parent_it->second->uid;
                     } else {
                         nearest_dynamic_ancestor_uid =
                             parent_state.nearest_dynamic_body_ancestor_uid;
@@ -822,7 +812,7 @@ void Engine::rebuildRuntimePhysicsHierarchyCache() const {
             state.is_under_dynamic_hierarchy =
                 nearest_dynamic_ancestor_uid != PhysicsHierarchy::kInvalidActorUID;
             if (state.has_dynamic_rigidbody_self) {
-                state.physics_root_uid = actor.editor_actor_uid;
+                state.physics_root_uid = actor.uid;
             } else if (state.is_under_dynamic_hierarchy) {
                 state.physics_root_uid = nearest_dynamic_ancestor_uid;
             }
@@ -837,13 +827,13 @@ void Engine::rebuildRuntimePhysicsHierarchyCache() const {
                 state.effective_body_type = "kinematic";
             }
 
-            state_by_actor_id[actor.id] = state;
-            if (actor.editor_actor_uid != PhysicsHierarchy::kInvalidActorUID) {
-                runtime_physics_hierarchy_state_by_uid_[actor.editor_actor_uid] = state;
+            state_by_actor_uid[actor.uid] = state;
+            if (actor.uid != PhysicsHierarchy::kInvalidActorUID) {
+                runtime_physics_hierarchy_state_by_uid_[actor.uid] = state;
             }
 
-            resolving_actor_ids.erase(actor.id);
-            resolved_actor_ids.insert(actor.id);
+            resolving_actor_uids.erase(actor.uid);
+            resolved_actor_uids.insert(actor.uid);
         };
 
     for (const Actor &actor : actors) {
@@ -860,60 +850,35 @@ find the current live actor after reloads or component-system mutations.
 */
 void Engine::rebuildRuntimeActorUIDMap() {
     invalidateRuntimePhysicsHierarchyCache();
-    runtime_actor_by_editor_uid_.clear();
-    runtime_actor_by_editor_uid_.reserve(actors.size());
+    runtime_actor_by_uid_.clear();
+    runtime_actor_by_uid_.reserve(actors.size());
     std::uint64_t max_existing_uid = 0;
     for (Actor &actor : actors) {
         if (actor.runtime_destroyed) continue;
-        if (actor.editor_actor_uid == SceneFormat::kInvalidSceneActorUID) continue;
-        max_existing_uid = std::max(max_existing_uid, actor.editor_actor_uid);
-        runtime_actor_by_editor_uid_[actor.editor_actor_uid] = &actor;
+        if (actor.uid == SceneFormat::kInvalidSceneActorUID) continue;
+        max_existing_uid = std::max(max_existing_uid, actor.uid);
+        runtime_actor_by_uid_[actor.uid] = &actor;
     }
     /*
     Runtime-only actors allocate from a monotonic cursor after the highest live
     UID so instantiate/duplicate stay O(1) during play mode.
     */
     next_runtime_generated_actor_uid_ =
-        std::max<std::uint64_t>(Actor::kRuntimeGeneratedEditorActorUIDStart,
+        std::max<std::uint64_t>(Actor::kRuntimeGeneratedUIDStart,
                                 max_existing_uid + 1);
-    rebuildRuntimeParentLinks();
 }
 
-/*
-Resolve persisted parent_editor_actor_uid values into live parent_id links.
-The runtime still stores actors in a flat deque; this step just rebuilds the
-minimal ancestry information needed by transform, hierarchy, and physics code.
-*/
-void Engine::rebuildRuntimeParentLinks() {
-    /*
-    Runtime parent links are derived from the persisted stable actor UIDs, so
-    editor-authored hierarchy can survive scene reloads and hot mirroring.
-    */
-    for (Actor &actor : actors) {
-        actor.parent_id = -1;
-        if (actor.runtime_destroyed) continue;
-        if (actor.parent_editor_actor_uid == SceneFormat::kInvalidSceneActorUID) {
-            continue;
-        }
-
-        const Actor *parent_actor = findRuntimeActorByEditorUID(actor.parent_editor_actor_uid);
-        if (parent_actor == nullptr) continue;
-        if (parent_actor->id == actor.id) continue;
-        actor.parent_id = parent_actor->id;
-    }
-}
-
-Actor* Engine::findRuntimeActorByEditorUID(std::uint64_t actor_uid) {
-    auto actor_it = runtime_actor_by_editor_uid_.find(actor_uid);
-    if (actor_it == runtime_actor_by_editor_uid_.end()) return nullptr;
+Actor* Engine::findRuntimeActorByUID(Actor::UID actor_uid) {
+    auto actor_it = runtime_actor_by_uid_.find(actor_uid);
+    if (actor_it == runtime_actor_by_uid_.end()) return nullptr;
     if (actor_it->second == nullptr || actor_it->second->runtime_destroyed) {
         return nullptr;
     }
     return actor_it->second;
 }
-const Actor* Engine::findRuntimeActorByEditorUID(std::uint64_t actor_uid) const {
-    auto actor_it = runtime_actor_by_editor_uid_.find(actor_uid);
-    if (actor_it == runtime_actor_by_editor_uid_.end()) return nullptr;
+const Actor* Engine::findRuntimeActorByUID(Actor::UID actor_uid) const {
+    auto actor_it = runtime_actor_by_uid_.find(actor_uid);
+    if (actor_it == runtime_actor_by_uid_.end()) return nullptr;
     if (actor_it->second == nullptr || actor_it->second->runtime_destroyed) {
         return nullptr;
     }
@@ -979,19 +944,18 @@ bool Engine::applyCreateActorMutation( const SceneFormat::CreateActorMutation &m
     requested hierarchy position, then instantiate all component instances.
     */
     if (mutation.actor_uid == SceneFormat::kInvalidSceneActorUID) return false;
-    if (findRuntimeActorByEditorUID(mutation.actor_uid) != nullptr) return false;
+    if (findRuntimeActorByUID(mutation.actor_uid) != nullptr) return false;
 
     Actor actor = SceneFormat::BuildEffectiveActor(
         mutation.actor_record, Scene::GetActiveSceneSubdirectory());
-    actor.id = Scene::AllocateActorID();
-    actor.editor_actor_uid = mutation.actor_uid;
+    actor.uid = mutation.actor_uid;
 
     auto insert_it = actors.end();
     if (mutation.insert_after_actor_uid.has_value()) {
         insert_it = std::find_if(
             actors.begin(), actors.end(), [&](const Actor &existing_actor) {
                 return !existing_actor.runtime_destroyed &&
-                existing_actor.editor_actor_uid == *mutation.insert_after_actor_uid;
+                existing_actor.uid == *mutation.insert_after_actor_uid;
             });
         if (insert_it == actors.end()) return false;
         ++insert_it;
@@ -1001,11 +965,11 @@ bool Engine::applyCreateActorMutation( const SceneFormat::CreateActorMutation &m
     ComponentManager::BindActorsForScene(actors);
     rebuildRuntimeActorUIDMap();
 
-    Actor *runtime_actor = findRuntimeActorByEditorUID(mutation.actor_uid);
+    Actor *runtime_actor = findRuntimeActorByUID(mutation.actor_uid);
     if (runtime_actor == nullptr) return false;
     for (const Actor::ComponentSpec &component_spec :
          runtime_actor->component_specs) {
-        ComponentManager::InstantiateComponentForActor(runtime_actor->id,
+        ComponentManager::InstantiateComponentForActor(runtime_actor->uid,
                                                        component_spec);
     }
     ComponentManager::BindActorsForScene(actors);
@@ -1018,7 +982,7 @@ bool Engine::applyDeleteActorMutation( const SceneFormat::DeleteActorMutation &m
     Deletion is two-phase in the component system, so finalize immediately
     before rebuilding lookup tables.
     */
-    Actor *actor = findRuntimeActorByEditorUID(mutation.actor_uid);
+    Actor *actor = findRuntimeActorByUID(mutation.actor_uid);
     if (actor == nullptr) return false;
 
     ComponentManager::DestroyActor(actor);
@@ -1033,7 +997,7 @@ bool Engine::applySetActorNameMutation( const SceneFormat::SetActorNameMutation 
     Renaming is structurally simple, but we still rebind so cached actor
     references in subsystems see a consistent container state.
     */
-    Actor *actor = findRuntimeActorByEditorUID(mutation.actor_uid);
+    Actor *actor = findRuntimeActorByUID(mutation.actor_uid);
     if (actor == nullptr) return false;
     if (mutation.actor_name.empty()) return false;
     if (actor->actor_name == mutation.actor_name) return false;
@@ -1050,37 +1014,37 @@ The actor keeps its previous world transform, and we rewrite the local
 Transform values afterward so the visual pose does not jump on screen.
 */
 bool Engine::applySetActorParentMutation( const SceneFormat::SetActorParentMutation &mutation) {
-    Actor *actor = findRuntimeActorByEditorUID(mutation.actor_uid);
+    Actor *actor = findRuntimeActorByUID(mutation.actor_uid);
     if (actor == nullptr) return false;
 
     Actor *parent_actor = nullptr;
-    if (mutation.parent_actor_uid.has_value()) {
-        parent_actor = findRuntimeActorByEditorUID(*mutation.parent_actor_uid);
+    if (mutation.parent_uid.has_value()) {
+        parent_actor = findRuntimeActorByUID(*mutation.parent_uid);
         if (parent_actor == nullptr) return false;
-        if (parent_actor->id == actor->id) return false;
+        if (parent_actor->uid == actor->uid) return false;
 
         /*
         Runtime parenting still rejects cycles even though actors live in a
         flat deque. We validate by walking the proposed parent's ancestors.
         */
-        std::unordered_set<int> visited_actor_ids;
+        std::unordered_set<Actor::UID> visited_actor_uids;
         const Actor *ancestor_actor = parent_actor;
         while (ancestor_actor != nullptr) {
-            if (ancestor_actor->id == actor->id) return false;
-            if (!visited_actor_ids.insert(ancestor_actor->id).second) {
+            if (ancestor_actor->uid == actor->uid) return false;
+            if (!visited_actor_uids.insert(ancestor_actor->uid).second) {
                 return false;
             }
-            if (ancestor_actor->parent_editor_actor_uid ==
+            if (ancestor_actor->parent_uid ==
                 SceneFormat::kInvalidSceneActorUID) {
                 break;
             }
-            ancestor_actor = findRuntimeActorByEditorUID( ancestor_actor->parent_editor_actor_uid);
+            ancestor_actor = findRuntimeActorByUID(ancestor_actor->parent_uid);
         }
     }
 
-    const std::uint64_t current_parent_uid = actor->parent_editor_actor_uid;
+    const std::uint64_t current_parent_uid = actor->parent_uid;
     const std::uint64_t new_parent_uid =
-        mutation.parent_actor_uid.value_or(SceneFormat::kInvalidSceneActorUID);
+        mutation.parent_uid.value_or(SceneFormat::kInvalidSceneActorUID);
     if (current_parent_uid == new_parent_uid) return false;
 
     float actor_world_x = 0.0f;
@@ -1088,7 +1052,7 @@ bool Engine::applySetActorParentMutation( const SceneFormat::SetActorParentMutat
     float actor_world_rotation = 0.0f;
     std::string transform_component_key;
     const bool has_transform = ComponentManager::TryGetRuntimeTransformWorld(
-        actor->id, actor_world_x, actor_world_y, actor_world_rotation,
+        actor->uid, actor_world_x, actor_world_y, actor_world_rotation,
         &transform_component_key);
 
     std::optional<float> parent_world_x;
@@ -1099,7 +1063,7 @@ bool Engine::applySetActorParentMutation( const SceneFormat::SetActorParentMutat
         float resolved_parent_world_y = 0.0f;
         float resolved_parent_world_rotation = 0.0f;
         if (ComponentManager::TryGetRuntimeTransformWorld(
-                parent_actor->id, resolved_parent_world_x,
+                parent_actor->uid, resolved_parent_world_x,
                 resolved_parent_world_y, resolved_parent_world_rotation,
                 nullptr)) {
             parent_world_x = resolved_parent_world_x;
@@ -1108,9 +1072,8 @@ bool Engine::applySetActorParentMutation( const SceneFormat::SetActorParentMutat
         }
     }
 
-    actor->parent_editor_actor_uid = new_parent_uid;
+    actor->parent_uid = new_parent_uid;
     invalidateRuntimePhysicsHierarchyCache();
-    rebuildRuntimeParentLinks();
 
     if (has_transform) {
         /*
@@ -1130,13 +1093,13 @@ bool Engine::applySetActorParentMutation( const SceneFormat::SetActorParentMutat
         }
 
         ComponentManager::SetRuntimeComponentPropertyValue(
-            actor->id, transform_component_key, "x",
+            actor->uid, transform_component_key, "x",
             static_cast<double>(local_x));
         ComponentManager::SetRuntimeComponentPropertyValue(
-            actor->id, transform_component_key, "y",
+            actor->uid, transform_component_key, "y",
             static_cast<double>(local_y));
         ComponentManager::SetRuntimeComponentPropertyValue(
-            actor->id, transform_component_key, "rotation",
+            actor->uid, transform_component_key, "rotation",
             static_cast<double>(local_rotation));
     }
 
@@ -1148,7 +1111,7 @@ bool Engine::applyAddComponentMutation( const SceneFormat::AddComponentMutation 
     Component specs are the authoritative serialized form; append the spec,
     instantiate the live component, then refresh actor/component bindings.
     */
-    Actor *actor = findRuntimeActorByEditorUID(mutation.actor_uid);
+    Actor *actor = findRuntimeActorByUID(mutation.actor_uid);
     if (actor == nullptr) return false;
     if (mutation.component_spec.key.empty() || mutation.component_spec.type.empty()) {
         return false;
@@ -1160,7 +1123,7 @@ bool Engine::applyAddComponentMutation( const SceneFormat::AddComponentMutation 
 
     actor->component_specs.emplace_back(mutation.component_spec);
     SceneFormat::SortComponentSpecs(actor->component_specs);
-    ComponentManager::InstantiateComponentForActor(actor->id,
+    ComponentManager::InstantiateComponentForActor(actor->uid,
                                                    mutation.component_spec);
     ComponentManager::BindActorsForScene(actors);
     rebuildRuntimeActorUIDMap();
@@ -1172,7 +1135,7 @@ bool Engine::applyDeleteComponentMutation( const SceneFormat::DeleteComponentMut
     Remove from serialized specs and live runtime together so the mirrored
     world stays aligned with what the editor believes exists.
     */
-    Actor *actor = findRuntimeActorByEditorUID(mutation.actor_uid);
+    Actor *actor = findRuntimeActorByUID(mutation.actor_uid);
     if (actor == nullptr) return false;
 
     const Actor::ComponentSpec *component_spec =
@@ -1181,7 +1144,7 @@ bool Engine::applyDeleteComponentMutation( const SceneFormat::DeleteComponentMut
     if (component_spec == nullptr) return false;
 
     const luabridge::LuaRef component_ref =
-        ComponentManager::GetComponentByKey(actor->id, mutation.component_key);
+        ComponentManager::GetComponentByKey(actor->uid, mutation.component_key);
     if (component_ref.isNil()) return false;
 
     actor->component_specs.erase(
@@ -1190,7 +1153,7 @@ bool Engine::applyDeleteComponentMutation( const SceneFormat::DeleteComponentMut
                            return component_spec_to_remove.key == mutation.component_key;
                        }),
         actor->component_specs.end());
-    ComponentManager::RemoveComponent(actor->id, component_ref);
+    ComponentManager::RemoveComponent(actor->uid, component_ref);
     ComponentManager::FinalizeFrameMutations();
     ComponentManager::BindActorsForScene(actors);
     rebuildRuntimeActorUIDMap();
@@ -1202,7 +1165,7 @@ bool Engine::applyRenameComponentMutation( const SceneFormat::RenameComponentMut
     Renaming updates both the serialized component key and the live component
     registry entry used by scripting lookups.
     */
-    Actor *actor = findRuntimeActorByEditorUID(mutation.actor_uid);
+    Actor *actor = findRuntimeActorByUID(mutation.actor_uid);
     if (actor == nullptr) return false;
     if (mutation.component_key.empty() || mutation.new_component_key.empty()) {
         return false;
@@ -1218,7 +1181,7 @@ bool Engine::applyRenameComponentMutation( const SceneFormat::RenameComponentMut
     if (component_spec == nullptr) return false;
     component_spec->key = mutation.new_component_key;
     SceneFormat::SortComponentSpecs(actor->component_specs);
-    if (!ComponentManager::RenameComponentKey(actor->id, mutation.component_key,
+    if (!ComponentManager::RenameComponentKey(actor->uid, mutation.component_key,
                                               mutation.new_component_key)) {
         return false;
     }
@@ -1230,7 +1193,7 @@ bool Engine::applySetComponentTypeMutation( const SceneFormat::SetComponentTypeM
     Changing type is effectively a remove+recreate operation because the old
     instance layout/script binding is no longer valid.
     */
-    Actor *actor = findRuntimeActorByEditorUID(mutation.actor_uid);
+    Actor *actor = findRuntimeActorByUID(mutation.actor_uid);
     if (actor == nullptr) return false;
     Actor::ComponentSpec *component_spec =
         SceneFormat::FindComponentSpec(actor->component_specs,
@@ -1239,10 +1202,10 @@ bool Engine::applySetComponentTypeMutation( const SceneFormat::SetComponentTypeM
     if (component_spec->type == mutation.type_name) return false;
 
     const luabridge::LuaRef component_ref =
-        ComponentManager::GetComponentByKey(actor->id, mutation.component_key);
+        ComponentManager::GetComponentByKey(actor->uid, mutation.component_key);
     if (component_ref.isNil()) return false;
 
-    ComponentManager::RemoveComponent(actor->id, component_ref);
+    ComponentManager::RemoveComponent(actor->uid, component_ref);
     ComponentManager::FinalizeFrameMutations();
     component_spec = SceneFormat::FindComponentSpec(actor->component_specs,
                                                     mutation.component_key);
@@ -1260,7 +1223,7 @@ bool Engine::applySetComponentPropertyMutation( const SceneFormat::SetComponentP
     Prefer in-place property patching for generic script components. Builtin
     components fall back to full reconstruction so native state stays synced.
     */
-    Actor *actor = findRuntimeActorByEditorUID(mutation.actor_uid);
+    Actor *actor = findRuntimeActorByUID(mutation.actor_uid);
     if (actor == nullptr) return false;
     Actor::ComponentSpec *component_spec =
         SceneFormat::FindComponentSpec(actor->component_specs,
@@ -1276,16 +1239,16 @@ bool Engine::applySetComponentPropertyMutation( const SceneFormat::SetComponentP
     if ((!IsBuiltinRuntimeComponentType(component_spec->type) ||
          CanBuiltinRuntimeComponentPatchInPlace(component_spec->type)) &&
         ComponentManager::SetComponentPropertyValue(
-            actor->id, mutation.component_key, mutation.property_name,
+            actor->uid, mutation.component_key, mutation.property_name,
             mutation.value)) {
         return true;
     }
 
     const luabridge::LuaRef component_ref =
-        ComponentManager::GetComponentByKey(actor->id, mutation.component_key);
+        ComponentManager::GetComponentByKey(actor->uid, mutation.component_key);
     if (component_ref.isNil()) return false;
 
-    ComponentManager::RemoveComponent(actor->id, component_ref);
+    ComponentManager::RemoveComponent(actor->uid, component_ref);
     ComponentManager::FinalizeFrameMutations();
     if (!rebuildRuntimeComponentFromSpec(*actor, mutation.component_key)) {
         return false;
@@ -1304,7 +1267,7 @@ bool Engine::rebuildRuntimeComponentFromSpec(Actor &actor,
         SceneFormat::FindComponentSpec(actor.component_specs, component_key);
     if (component_spec == nullptr) return false;
 
-    ComponentManager::InstantiateComponentForActor(actor.id, *component_spec);
+    ComponentManager::InstantiateComponentForActor(actor.uid, *component_spec);
     ComponentManager::BindActorsForScene(actors);
     return true;
 }

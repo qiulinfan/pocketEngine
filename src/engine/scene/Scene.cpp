@@ -7,14 +7,7 @@
 #include <iostream>
 #include <utility>
 
-// Initialize the static ID counter
-int Scene::next_actor_id = 0;
 std::filesystem::path Scene::active_scene_subdirectory;
-
-// allocate a globally unique actor id
-int Scene::AllocateActorID() {
-    return next_actor_id++;
-}
 
 // Override the active scene subdirectory used for resource preference.
 void Scene::SetActiveSceneSubdirectory( const std::filesystem::path &subdirectory) {
@@ -53,13 +46,10 @@ std::vector<Actor> Scene::LoadScene(const std::string &scene_name) {
         }
         actor = SceneFormat::ApplyActorRecordToActor(std::move(actor), actor_record);
 
-        // Assign unique, strictly-increasing ID (after template load)
-        actor.id = AllocateActorID();
-
         if (!actor.component_specs.empty()) {
             // Lifecycle requirement: process components by key lexical order.
             for (const Actor::ComponentSpec &component_spec : actor.component_specs) {
-                ComponentManager::InstantiateComponentForActor(actor.id,
+                ComponentManager::InstantiateComponentForActor(actor.uid,
                                                                component_spec);
             }
         }

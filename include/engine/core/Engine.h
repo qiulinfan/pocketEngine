@@ -53,8 +53,9 @@ private:
     SDL_Texture *scene_preview_render_target_ = nullptr;
     int scene_preview_render_target_width_ = 0;
     int scene_preview_render_target_height_ = 0;
-    std::uint64_t next_runtime_generated_actor_uid_ = Actor::kRuntimeGeneratedEditorActorUIDStart;
-    std::unordered_map<std::uint64_t, Actor *> runtime_actor_by_editor_uid_;
+    Actor::UID next_runtime_generated_actor_uid_ =
+        Actor::kRuntimeGeneratedUIDStart;
+    std::unordered_map<Actor::UID, Actor *> runtime_actor_by_uid_;
     mutable bool runtime_physics_hierarchy_cache_dirty_ = true;
     mutable std::unordered_map<std::uint64_t, PhysicsHierarchy::State>
         runtime_physics_hierarchy_state_by_uid_;
@@ -79,9 +80,8 @@ private:
     void invalidateRuntimePhysicsHierarchyCache();
     void rebuildRuntimePhysicsHierarchyCache() const;
     void rebuildRuntimeActorUIDMap();
-    void rebuildRuntimeParentLinks();
-    Actor *findRuntimeActorByEditorUID(std::uint64_t actor_uid);
-    const Actor *findRuntimeActorByEditorUID(std::uint64_t actor_uid) const;
+    Actor *findRuntimeActorByUID(Actor::UID actor_uid);
+    const Actor *findRuntimeActorByUID(Actor::UID actor_uid) const;
     bool applySceneMutation(const SceneFormat::SceneMutation &mutation);
     bool applyCreateActorMutation( const SceneFormat::CreateActorMutation &mutation);
     bool applyDeleteActorMutation( const SceneFormat::DeleteActorMutation &mutation);
@@ -147,17 +147,17 @@ public:
     // Editors can inspect this during play mode without owning runtime state.
     const std::deque<Actor> &GetRuntimeActors() const;
     // Look up one live runtime actor by runtime id / stable editor uid.
-    const Actor *GetRuntimeActorByID(int actor_id) const;
-    const Actor *GetRuntimeActorByEditorUID(std::uint64_t actor_uid) const;
-    PhysicsHierarchy::State GetRuntimePhysicsHierarchyStateByID(int actor_id) const;
-    PhysicsHierarchy::State GetRuntimePhysicsHierarchyStateByEditorUID(std::uint64_t actor_uid) const;
+    const Actor *GetRuntimeActorByUID(Actor::UID actor_uid) const;
+    PhysicsHierarchy::State GetRuntimePhysicsHierarchyStateByUID(Actor::UID actor_uid) const;
     // Duplicate/delete one live runtime actor without touching on-disk scene files.
-    bool DuplicateRuntimeActorByID(int actor_id, int *out_new_actor_id = nullptr);
-    bool DeleteRuntimeActorByID(int actor_id);
-    bool SetRuntimeActorParentByID(int actor_id, int parent_actor_id);
+    bool DuplicateRuntimeActorByUID(Actor::UID actor_uid,
+                                    Actor::UID *out_new_actor_uid = nullptr);
+    bool DeleteRuntimeActorByUID(Actor::UID actor_uid);
+    bool SetRuntimeActorParentByUID(Actor::UID actor_uid,
+                                    Actor::UID parent_uid);
     // Runtime-only actors receive transient stable UIDs from a dedicated
     // allocator so they never depend on SceneDocument's authoring counter.
-    std::uint64_t AllocateRuntimeGeneratedActorUID();
+    Actor::UID AllocateRuntimeGeneratedActorUID();
     // Reload the runtime from a shared scene asset snapshot.
     // 使用共享场景资源快照重新装载运行时.
     void LoadSceneAsset(const SceneFormat::SceneAsset &scene_asset);

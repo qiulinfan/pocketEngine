@@ -430,7 +430,8 @@ void ParticleManager::RenderEmitterBatch(int emitter_id, SDL_Renderer *renderer,
             has_last_alpha_mod = true;
         }
 
-        SDLRenderHelper::SDL_RenderCopyEx(-1, "", renderer, texture, nullptr,
+        SDLRenderHelper::SDL_RenderCopyEx(Actor::kInvalidUID, "", renderer,
+                                          texture, nullptr,
                                           &dst, emitter.rotation[i], &pivot,
                                           flip);
     }

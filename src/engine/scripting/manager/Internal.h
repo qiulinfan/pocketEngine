@@ -62,23 +62,24 @@ struct ComponentRecord {
           has_on_trigger_exit(has_on_trigger_exit_in) {}
 };
 
-// 待执行 OnStart 的队列元素 (按 actor_id + component_key 定位)
+// 待执行 OnStart 的队列元素 (按 actor_uid + component_key 定位)
 // 只在“帧开始”时统一消费, 避免边迭代边修改容器
 struct PendingOnStartRecord {
-    int actor_id = -1;
+    Actor::UID actor_uid = Actor::kInvalidUID;
     std::string component_key;
 
-    PendingOnStartRecord(int actor_id_in, std::string component_key_in)
-        : actor_id(actor_id_in), component_key(std::move(component_key_in)) {}
+    PendingOnStartRecord(Actor::UID actor_uid_in,
+                         std::string component_key_in)
+        : actor_uid(actor_uid_in), component_key(std::move(component_key_in)) {}
 };
 
 // 预筛出的生命周期调用列表 (仅包含声明了该函数的组件)
 struct LifecycleComponentRef {
-    int actor_id = -1;
+    Actor::UID actor_uid = Actor::kInvalidUID;
     ComponentRecord *component = nullptr;
 
-    LifecycleComponentRef(int actor_id_in, ComponentRecord *component_in)
-        : actor_id(actor_id_in), component(component_in) {}
+    LifecycleComponentRef(Actor::UID actor_uid_in, ComponentRecord *component_in)
+        : actor_uid(actor_uid_in), component(component_in) {}
 };
 
 // -----------------------------------------------------------------------------
@@ -90,39 +91,39 @@ struct RuntimeState {
     lua_State *lua_state = nullptr;
     // component type registry：type 名 -> component type table (blueprint)
     std::unordered_map<std::string, luabridge::LuaRef> component_type_tables;
-    // actor_id -> component instance tables of the actor
-    std::unordered_map<int, std::vector<std::unique_ptr<ComponentRecord>>>
+    // actor_uid -> component instance tables of the actor
+    std::unordered_map<Actor::UID, std::vector<std::unique_ptr<ComponentRecord>>>
         actor_components;
-    // actor_id -> (component_key -> component_index in actor_components[actor_id])
-    std::unordered_map<int, std::unordered_map<std::string, size_t>>
+    // actor_uid -> (component_key -> component_index in actor_components[actor_uid])
+    std::unordered_map<Actor::UID, std::unordered_map<std::string, size_t>>
         component_index_by_key;
-    // actor_id -> (type -> first component key of this type, by key order)
-    std::unordered_map<int, std::unordered_map<std::string, std::string>>
+    // actor_uid -> (type -> first component key of this type, by key order)
+    std::unordered_map<Actor::UID, std::unordered_map<std::string, std::string>>
         component_first_key_by_type;
-    // actor_id -> (type -> all component keys of this type, already sorted by key)
-    std::unordered_map<int, std::unordered_map<std::string,
-                                               std::vector<std::string>>>
+    // actor_uid -> (type -> all component keys of this type, already sorted by key)
+    std::unordered_map<Actor::UID, std::unordered_map<std::string,
+                                                      std::vector<std::string>>>
         component_keys_by_type;
-    // 全局生命周期执行列表 (按 actor_id, key 排序)
+    // 全局生命周期执行列表 (按 actor_uid, key 排序)
     std::vector<LifecycleComponentRef> on_update_components;
     std::vector<LifecycleComponentRef> on_late_update_components;
     std::vector<PendingOnStartRecord> pending_on_start;
-    // actor_id -> Actor*
-    std::unordered_map<int, Actor *> actor_by_id;
+    // actor_uid -> Actor*
+    std::unordered_map<Actor::UID, Actor *> actor_by_uid;
     // name -> Actor*
     std::unordered_map<std::string, std::vector<Actor *>> actors_by_name;
-    // actor_id -> current scene-order index among active actors
-    std::unordered_map<int, size_t> actor_order_by_id;
-    // ordered actor id vec (not distroyed yet)
-    std::vector<int> actor_ids_sorted;
+    // actor_uid -> current scene-order index among active actors
+    std::unordered_map<Actor::UID, size_t> actor_order_by_uid;
+    // ordered actor uid vec (not distroyed yet)
+    std::vector<Actor::UID> actor_uids_sorted;
     // ptr to the actor container of current scene (stored by Engine)
     std::deque<Actor> *scene_actors = nullptr;
     // 本帧新建的 actors (finable, 但是到下一帧才进入生命周期迭代)
-    std::vector<int> pending_actor_ids_to_activate;
+    std::vector<Actor::UID> pending_actor_uids_to_activate;
     // 本帧请求销毁的 actors, 帧末统一处理
-    std::unordered_set<int> pending_destroy_actor_ids;
+    std::unordered_set<Actor::UID> pending_destroy_actor_uids;
     // 发生过组件增删改（主要是 remove）的 actor，帧末只处理这些
-    std::unordered_set<int> dirty_component_actor_ids;
+    std::unordered_set<Actor::UID> dirty_component_actor_uids;
     // AddComponent global counter
     uint64_t runtime_add_component_counter = 0;
 };
@@ -156,38 +157,43 @@ void ApplyPropertyOverrides(
 // Component / actor indexing helpers
 // -----------------------------------------------------------------------------
 
-ComponentRecord *FindComponentRecord(int actor_id,
+ComponentRecord *FindComponentRecord(Actor::UID actor_uid,
                                      const std::string &component_key);
-ComponentRecord *FindPrimaryComponentByType(int actor_id,
+ComponentRecord *FindPrimaryComponentByType(Actor::UID actor_uid,
                                             const std::string &type_name);
-void RebuildComponentIndexForActor(int actor_id);
-void RebuildTypeIndexForActor(int actor_id);
+void RebuildComponentIndexForActor(Actor::UID actor_uid);
+void RebuildTypeIndexForActor(Actor::UID actor_uid);
 bool CompareLifecycleComponentRef(const LifecycleComponentRef &a,
                                   const LifecycleComponentRef &b);
-void RebuildLifecycleListsForDirtyActors( const std::unordered_set<int> &dirty_actor_ids);
+void RebuildLifecycleListsForDirtyActors(
+    const std::unordered_set<Actor::UID> &dirty_actor_uids);
 bool IsComponentEnabled(const ComponentRecord &component);
 void SyncBuiltinParticleSystemState(ComponentRecord &component);
 // Keep component order deterministic for all key-based lifecycle rules.
-void SortComponentsForActor(int actor_id);
+void SortComponentsForActor(Actor::UID actor_uid);
 void RemoveActorFromNameIndex(Actor *actor_ptr);
 
 bool AreSameLuaRef(const luabridge::LuaRef &a, const luabridge::LuaRef &b);
 luabridge::LuaRef MakeNilRef();
 luabridge::LuaRef MakeEmptyArrayTable();
 bool TryExtractComponentIdentity(const luabridge::LuaRef &component_ref,
-                                 int &actor_id, std::string &component_key);
-bool IsComponentRefAlive(const luabridge::LuaRef &component_ref, int actor_id,
+                                 Actor::UID &actor_uid,
+                                 std::string &component_key);
+bool IsComponentRefAlive(const luabridge::LuaRef &component_ref,
+                         Actor::UID actor_uid,
                          const std::string &component_key);
 
 // -----------------------------------------------------------------------------
 // Error handling and lifecycle dispatch helpers
 // -----------------------------------------------------------------------------
 
-std::string GetActorNameByID(int actor_id);
+std::string GetActorNameByUID(Actor::UID actor_uid);
 void ReportError(const std::string &actor_name,
                  const luabridge::LuaException &e);
-void ReportEventBusError(int actor_id, const luabridge::LuaException &e);
-void RunComponentOnDestroyIfNeeded(ComponentRecord &component, int actor_id);
+void ReportEventBusError(Actor::UID actor_uid,
+                         const luabridge::LuaException &e);
+void RunComponentOnDestroyIfNeeded(ComponentRecord &component,
+                                   Actor::UID actor_uid);
 
 } // namespace ManagerDetail
 

@@ -14,10 +14,12 @@ class LuaRef;
 
 struct Actor {
 public:
+    using UID = std::uint64_t;
+
     // Zero means "no identity". Both scene-backed actors and runtime-only
     // actors may own non-zero UIDs; provenance is tracked separately.
-    static inline constexpr std::uint64_t kInvalidEditorActorUID = 0;
-    static inline constexpr std::uint64_t kRuntimeGeneratedEditorActorUIDStart = 10000;
+    static inline constexpr UID kInvalidUID = 0;
+    static inline constexpr UID kRuntimeGeneratedUIDStart = 10000;
 
     // supported json value types for component property overrides
     // 组件属性支持的 JSON 值类型
@@ -39,18 +41,14 @@ public:
         std::vector<ComponentProperty> overrides;
     };
 
-    // runtime actor uniqueid. assigned during scene loading
-    int id = -1;
-    // Stable identity used to map editor/runtime actors. Scene documents
-    // persist this UID; runtime-only actors receive transient UIDs.
-    std::uint64_t editor_actor_uid = 0;
-    // Runtime-only actors now also receive UIDs, so scene provenance needs an
-    // explicit flag instead of inferring it from UID!=0.
+    // Stable actor identity used by both editor and runtime. 
+    // Scene-backed actors persist this to .scene file; runtime-only actors receive transient UIDs.
+    UID uid = kInvalidUID;
     bool scene_backed = false;
-    // Scene-authored parent link expressed in the same persistent UID space.
-    std::uint64_t parent_editor_actor_uid = 0;
-    // Runtime-resolved parent actor id. Runtime-only actors can also use this.
-    int parent_id = -1;
+
+    // Stable parent identity in the same UID space.
+    UID parent_uid = kInvalidUID;
+
     std::string actor_name = "";
 
     // 设为 true 后该 actor 不应再参与正常逻辑.
@@ -65,7 +63,7 @@ public:
     std::vector<ComponentSpec> component_specs;
 
     std::string GetName() const;
-    int GetID() const;
+    UID GetUID() const;
     // Scene-backed actors originated from an editor scene document snapshot.
     bool IsSceneBacked() const;
     // Runtime-spawned actors only exist in the live runtime world.

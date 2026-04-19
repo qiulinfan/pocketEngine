@@ -23,8 +23,8 @@ constexpr float kFallbackSelectionHalfExtentUnits = 0.45f;
 
 struct ActorScreenBounds {
     std::size_t actor_index = std::numeric_limits<std::size_t>::max();
-    int runtime_actor_id = -1;
-    std::uint64_t editor_actor_uid = Actor::kInvalidEditorActorUID;
+    Actor::UID runtime_actor_uid = Actor::kInvalidUID;
+    Actor::UID actor_uid = Actor::kInvalidUID;
     float center_x = 0.0f;
     float center_y = 0.0f;
     float half_width = 0.0f;
@@ -34,8 +34,8 @@ struct ActorScreenBounds {
 
 struct ActorDragTarget {
     std::size_t actor_index = std::numeric_limits<std::size_t>::max();
-    int runtime_actor_id = -1;
-    std::uint64_t editor_actor_uid = Actor::kInvalidEditorActorUID;
+    Actor::UID runtime_actor_uid = Actor::kInvalidUID;
+    Actor::UID actor_uid = Actor::kInvalidUID;
     std::string component_key;
     float world_x = 0.0f;
     float world_y = 0.0f;
@@ -46,8 +46,8 @@ struct SceneDragState {
     bool active = false;
     bool play_mode_active = false;
     std::size_t actor_index = std::numeric_limits<std::size_t>::max();
-    int runtime_actor_id = -1;
-    std::uint64_t editor_actor_uid = Actor::kInvalidEditorActorUID;
+    Actor::UID runtime_actor_uid = Actor::kInvalidUID;
+    Actor::UID actor_uid = Actor::kInvalidUID;
     std::string component_key;
     float world_offset_x = 0.0f;
     float world_offset_y = 0.0f;
@@ -254,12 +254,12 @@ x/y-bearing component so older content can still be picked and moved.
 std::optional<ActorDragTarget> BuildActorDragTarget(
     const std::vector<Actor::ComponentSpec> &component_specs,
     const std::function<std::vector<Actor::ComponentProperty>( const std::string &component_key)> &property_lookup,
-    std::size_t actor_index, int runtime_actor_id,
-    std::uint64_t editor_actor_uid) {
+    std::size_t actor_index, Actor::UID runtime_actor_uid,
+    Actor::UID actor_uid) {
     ActorDragTarget target;
     target.actor_index = actor_index;
-    target.runtime_actor_id = runtime_actor_id;
-    target.editor_actor_uid = editor_actor_uid;
+    target.runtime_actor_uid = runtime_actor_uid;
+    target.actor_uid = actor_uid;
 
     for (const Actor::ComponentSpec &component_spec : component_specs) {
         if (component_spec.type != "Transform") continue;
@@ -309,15 +309,15 @@ ActorScreenBounds BuildTransformAnchorBounds(
                                              const Engine &engine,
                                              const SceneViewCameraState &scene_camera,
                                              std::size_t actor_index,
-                                             int runtime_actor_id,
-                                             std::uint64_t editor_actor_uid,
+                                             Actor::UID runtime_actor_uid,
+                                             Actor::UID actor_uid,
                                              float world_x, float world_y,
                                              const ImVec2 &image_min,
                                              const ImVec2 &image_size) {
     ActorScreenBounds bounds;
     bounds.actor_index = actor_index;
-    bounds.runtime_actor_id = runtime_actor_id;
-    bounds.editor_actor_uid = editor_actor_uid;
+    bounds.runtime_actor_uid = runtime_actor_uid;
+    bounds.actor_uid = actor_uid;
     bounds.circular = true;
 
     const ImVec2 panel_center = WorldToScenePanelPosition( engine, scene_camera, image_min, image_size, world_x, world_y);
@@ -338,13 +338,13 @@ std::optional<ActorScreenBounds> BuildActorScreenBounds(
     const Engine &engine, const SceneViewCameraState &scene_camera,
     const std::vector<Actor::ComponentSpec> &component_specs,
     const std::function<std::vector<Actor::ComponentProperty>( const std::string &component_key)> &property_lookup,
-    std::size_t actor_index, int runtime_actor_id,
-    std::uint64_t editor_actor_uid, const ImVec2 &image_min,
+    std::size_t actor_index, Actor::UID runtime_actor_uid,
+    Actor::UID actor_uid, const ImVec2 &image_min,
     const ImVec2 &image_size) {
     ActorScreenBounds bounds;
     bounds.actor_index = actor_index;
-    bounds.runtime_actor_id = runtime_actor_id;
-    bounds.editor_actor_uid = editor_actor_uid;
+    bounds.runtime_actor_uid = runtime_actor_uid;
+    bounds.actor_uid = actor_uid;
 
     for (const Actor::ComponentSpec &component_spec : component_specs) {
         if (component_spec.type != "Rigidbody") continue;
@@ -453,7 +453,7 @@ std::optional<ActorScreenBounds> BuildSceneActorScreenBounds(
                                                      world_x, world_y,
                                                      world_rotation)) {
             return BuildTransformAnchorBounds(
-                engine, scene_camera, actor_index, -1,
+                engine, scene_camera, actor_index, Actor::kInvalidUID,
                 scene_document.GetActorUID(actor_index),
                 world_x, world_y, image_min, image_size);
         }
@@ -464,7 +464,7 @@ std::optional<ActorScreenBounds> BuildSceneActorScreenBounds(
             return scene_document.GetInspectableProperties(actor_index,
                                                           component_key);
         },
-        actor_index, -1, scene_document.GetActorUID(actor_index), image_min,
+        actor_index, Actor::kInvalidUID, scene_document.GetActorUID(actor_index), image_min,
         image_size);
 }
 
@@ -481,7 +481,7 @@ std::optional<ActorDragTarget> BuildSceneActorDragTarget( SceneDocument &scene_d
                                                      world_rotation)) {
             ActorDragTarget target;
             target.actor_index = actor_index;
-            target.editor_actor_uid = scene_document.GetActorUID(actor_index);
+            target.actor_uid = scene_document.GetActorUID(actor_index);
             target.component_key = transform_component_key;
             target.world_x = world_x;
             target.world_y = world_y;
@@ -495,7 +495,7 @@ std::optional<ActorDragTarget> BuildSceneActorDragTarget( SceneDocument &scene_d
             return scene_document.GetInspectableProperties(actor_index,
                                                           component_key);
         },
-        actor_index, -1, scene_document.GetActorUID(actor_index));
+        actor_index, Actor::kInvalidUID, scene_document.GetActorUID(actor_index));
 }
 
 std::optional<ActorScreenBounds> BuildRuntimeActorScreenBounds(
@@ -503,37 +503,38 @@ std::optional<ActorScreenBounds> BuildRuntimeActorScreenBounds(
     const Actor &runtime_actor, const ImVec2 &image_min,
     const ImVec2 &image_size) {
     const std::vector<Actor::ComponentSpec> runtime_components =
-        ComponentManager::GetRuntimeComponentSpecs(runtime_actor.id);
+        ComponentManager::GetRuntimeComponentSpecs(runtime_actor.uid);
     if (!HasComponentType(runtime_components, "Rigidbody")) {
         float world_x = 0.0f;
         float world_y = 0.0f;
         float world_rotation = 0.0f;
-        if (ComponentManager::TryGetRuntimeTransformWorld(runtime_actor.id,
+        if (ComponentManager::TryGetRuntimeTransformWorld(runtime_actor.uid,
                                                           world_x, world_y,
                                                           world_rotation,
                                                           nullptr)) {
             return BuildTransformAnchorBounds(
                 engine, scene_camera, std::numeric_limits<std::size_t>::max(),
-                runtime_actor.id, runtime_actor.editor_actor_uid, world_x,
+                runtime_actor.uid, runtime_actor.uid, world_x,
                 world_y, image_min, image_size);
         }
     }
     return BuildActorScreenBounds(
         engine, scene_camera, runtime_components,
         [&runtime_actor](const std::string &component_key) {
-            return ComponentManager::GetRuntimeComponentProperties( runtime_actor.id, component_key);
+            return ComponentManager::GetRuntimeComponentProperties(
+                runtime_actor.uid, component_key);
         },
-        std::numeric_limits<std::size_t>::max(), runtime_actor.id,
-        runtime_actor.editor_actor_uid, image_min, image_size);
+        std::numeric_limits<std::size_t>::max(), runtime_actor.uid,
+        runtime_actor.uid, image_min, image_size);
 }
 
 std::optional<ActorDragTarget> BuildRuntimeActorDragTarget( SceneDocument &scene_document, const Actor &runtime_actor) {
     const std::vector<Actor::ComponentSpec> runtime_components =
-        ComponentManager::GetRuntimeComponentSpecs(runtime_actor.id);
+        ComponentManager::GetRuntimeComponentSpecs(runtime_actor.uid);
     std::size_t actor_index = std::numeric_limits<std::size_t>::max();
-    if (runtime_actor.editor_actor_uid != Actor::kInvalidEditorActorUID) {
+    if (runtime_actor.IsSceneBacked()) {
         const std::optional<std::size_t> scene_actor_index =
-            scene_document.FindActorIndexByUID(runtime_actor.editor_actor_uid);
+            scene_document.FindActorIndexByUID(runtime_actor.uid);
         if (scene_actor_index.has_value()) {
             actor_index = *scene_actor_index;
         }
@@ -544,12 +545,12 @@ std::optional<ActorDragTarget> BuildRuntimeActorDragTarget( SceneDocument &scene
         float world_rotation = 0.0f;
         std::string transform_component_key;
         if (ComponentManager::TryGetRuntimeTransformWorld(
-                runtime_actor.id, world_x, world_y, world_rotation,
+                runtime_actor.uid, world_x, world_y, world_rotation,
                 &transform_component_key)) {
             ActorDragTarget target;
             target.actor_index = actor_index;
-            target.runtime_actor_id = runtime_actor.id;
-            target.editor_actor_uid = runtime_actor.editor_actor_uid;
+            target.runtime_actor_uid = runtime_actor.uid;
+            target.actor_uid = runtime_actor.uid;
             target.component_key = transform_component_key;
             target.world_x = world_x;
             target.world_y = world_y;
@@ -560,9 +561,10 @@ std::optional<ActorDragTarget> BuildRuntimeActorDragTarget( SceneDocument &scene
     return BuildActorDragTarget(
         runtime_components,
         [&runtime_actor](const std::string &component_key) {
-            return ComponentManager::GetRuntimeComponentProperties( runtime_actor.id, component_key);
+            return ComponentManager::GetRuntimeComponentProperties(
+                runtime_actor.uid, component_key);
         },
-        actor_index, runtime_actor.id, runtime_actor.editor_actor_uid);
+        actor_index, runtime_actor.uid, runtime_actor.uid);
 }
 
 /*
@@ -606,11 +608,12 @@ std::vector<ActorScreenBounds> BuildPickBoundsForClick(
 
 std::optional<ActorDragTarget> BuildSelectedActorDragTarget(
     const Engine &engine, SceneDocument &scene_document,
-    int selected_actor_index, int selected_runtime_actor_id,
+    int selected_actor_index, Actor::UID selected_runtime_actor_uid,
     bool play_mode_active) {
     if (play_mode_active) {
-        if (selected_runtime_actor_id < 0) return std::nullopt;
-        const Actor *runtime_actor = engine.GetRuntimeActorByID(selected_runtime_actor_id);
+        if (selected_runtime_actor_uid == Actor::kInvalidUID) return std::nullopt;
+        const Actor *runtime_actor =
+            engine.GetRuntimeActorByUID(selected_runtime_actor_uid);
         if (runtime_actor == nullptr || runtime_actor->runtime_destroyed) {
             return std::nullopt;
         }
@@ -627,11 +630,12 @@ std::optional<ActorDragTarget> BuildSelectedActorDragTarget(
 std::optional<ActorScreenBounds> BuildSelectedActorBounds(
     const Engine &engine, const SceneViewCameraState &scene_camera,
     SceneDocument &scene_document,
-    int selected_actor_index, int selected_runtime_actor_id,
+    int selected_actor_index, Actor::UID selected_runtime_actor_uid,
     bool play_mode_active, const ImVec2 &image_min, const ImVec2 &image_size) {
     if (play_mode_active) {
-        if (selected_runtime_actor_id < 0) return std::nullopt;
-        const Actor *runtime_actor = engine.GetRuntimeActorByID(selected_runtime_actor_id);
+        if (selected_runtime_actor_uid == Actor::kInvalidUID) return std::nullopt;
+        const Actor *runtime_actor =
+            engine.GetRuntimeActorByUID(selected_runtime_actor_uid);
         if (runtime_actor == nullptr || runtime_actor->runtime_destroyed) {
             return std::nullopt;
         }
@@ -707,14 +711,14 @@ void HandleSceneSelectionClick(const ImVec2 &mouse_position,
                                SceneDocument &scene_document,
                                bool play_mode_active,
                                int &selected_actor_index,
-                               int &selected_runtime_actor_id) {
+                               Actor::UID &selected_runtime_actor_uid) {
     for (auto it = pick_bounds.rbegin(); it != pick_bounds.rend(); ++it) {
         if (!IsPointInsideActorBounds(*it, mouse_position)) continue;
         if (play_mode_active) {
-            selected_runtime_actor_id = it->runtime_actor_id;
-            if (it->editor_actor_uid != Actor::kInvalidEditorActorUID) {
+            selected_runtime_actor_uid = it->runtime_actor_uid;
+            if (it->actor_uid != Actor::kInvalidUID) {
                 const std::optional<std::size_t> actor_index =
-                    scene_document.FindActorIndexByUID(it->editor_actor_uid);
+                    scene_document.FindActorIndexByUID(it->actor_uid);
                 selected_actor_index =
                     actor_index.has_value() ? static_cast<int>(*actor_index)
                                             : -1;
@@ -723,12 +727,12 @@ void HandleSceneSelectionClick(const ImVec2 &mouse_position,
             }
         } else {
             selected_actor_index = static_cast<int>(it->actor_index);
-            selected_runtime_actor_id = -1;
+            selected_runtime_actor_uid = Actor::kInvalidUID;
         }
         return;
     }
     selected_actor_index = -1;
-    selected_runtime_actor_id = -1;
+    selected_runtime_actor_uid = Actor::kInvalidUID;
 }
 
 /*
@@ -740,7 +744,7 @@ bool HandleSceneTemplateDrop(
     const Engine &engine, const SceneViewCameraState &scene_camera,
     SceneDocument &scene_document, const ImVec2 &image_min,
     const ImVec2 &image_size, int &selected_actor_index,
-    int &selected_runtime_actor_id,
+    Actor::UID &selected_runtime_actor_uid,
     std::vector<SceneFormat::SceneEditCommand> *out_edit_commands) {
     if (!ImGui::BeginDragDropTarget()) return false;
 
@@ -794,7 +798,7 @@ bool HandleSceneTemplateDrop(
                 }
 
                 selected_actor_index = static_cast<int>(new_actor_index);
-                selected_runtime_actor_id = -1;
+                selected_runtime_actor_uid = Actor::kInvalidUID;
             }
         }
     }
@@ -874,7 +878,8 @@ bool ApplyDraggedActorPosition(
     std::vector<SceneFormat::SceneEditCommand> *out_edit_commands) {
     if (drag_target.transform_component && play_mode_active &&
         drag_target.actor_index == std::numeric_limits<std::size_t>::max()) {
-        return ComponentManager::SetRuntimeTransformWorldPosition( drag_target.runtime_actor_id, world_x, world_y);
+        return ComponentManager::SetRuntimeTransformWorldPosition(
+            drag_target.runtime_actor_uid, world_x, world_y);
     }
 
     if (drag_target.transform_component) {
@@ -895,10 +900,10 @@ bool ApplyDraggedActorPosition(
         drag_target.actor_index == std::numeric_limits<std::size_t>::max()) {
         bool changed = false;
         changed |= ComponentManager::SetRuntimeComponentPropertyValue(
-            drag_target.runtime_actor_id, drag_target.component_key, "x",
+            drag_target.runtime_actor_uid, drag_target.component_key, "x",
             static_cast<double>(world_x));
         changed |= ComponentManager::SetRuntimeComponentPropertyValue(
-            drag_target.runtime_actor_id, drag_target.component_key, "y",
+            drag_target.runtime_actor_uid, drag_target.component_key, "y",
             static_cast<double>(world_y));
         return changed;
     }
@@ -918,12 +923,12 @@ void BeginSelectedActorDrag(const Engine &engine,
                             SceneDocument &scene_document,
                             const ImVec2 &image_min, const ImVec2 &image_size,
                             int selected_actor_index,
-                            int selected_runtime_actor_id,
+                            Actor::UID selected_runtime_actor_uid,
                             bool play_mode_active) {
     const std::optional<ActorDragTarget> drag_target =
         BuildSelectedActorDragTarget(engine, scene_document,
                                      selected_actor_index,
-                                     selected_runtime_actor_id,
+                                     selected_runtime_actor_uid,
                                      play_mode_active);
     if (!drag_target.has_value()) {
         ResetSceneDragState();
@@ -935,8 +940,8 @@ void BeginSelectedActorDrag(const Engine &engine,
     g_scene_drag_state.active = true;
     g_scene_drag_state.play_mode_active = play_mode_active;
     g_scene_drag_state.actor_index = drag_target->actor_index;
-    g_scene_drag_state.runtime_actor_id = drag_target->runtime_actor_id;
-    g_scene_drag_state.editor_actor_uid = drag_target->editor_actor_uid;
+    g_scene_drag_state.runtime_actor_uid = drag_target->runtime_actor_uid;
+    g_scene_drag_state.actor_uid = drag_target->actor_uid;
     g_scene_drag_state.component_key = drag_target->component_key;
     g_scene_drag_state.world_offset_x = drag_target->world_x - mouse_world_position.x;
     g_scene_drag_state.world_offset_y = drag_target->world_y - mouse_world_position.y;
@@ -951,7 +956,7 @@ bool UpdateSelectedActorDrag(
     const Engine &engine, const SceneViewCameraState &scene_camera,
     SceneDocument &scene_document,
     const ImVec2 &image_min, const ImVec2 &image_size,
-    int selected_actor_index, int selected_runtime_actor_id,
+    int selected_actor_index, Actor::UID selected_runtime_actor_uid,
     bool play_mode_active,
     std::vector<SceneFormat::SceneEditCommand> *out_edit_commands) {
     if (!g_scene_drag_state.active) return false;
@@ -970,12 +975,12 @@ bool UpdateSelectedActorDrag(
     const std::optional<ActorDragTarget> drag_target =
         BuildSelectedActorDragTarget(engine, scene_document,
                                      selected_actor_index,
-                                     selected_runtime_actor_id,
+                                     selected_runtime_actor_uid,
                                      play_mode_active);
     if (!drag_target.has_value() ||
         drag_target->component_key != g_scene_drag_state.component_key ||
-        drag_target->runtime_actor_id != g_scene_drag_state.runtime_actor_id ||
-        drag_target->editor_actor_uid != g_scene_drag_state.editor_actor_uid) {
+        drag_target->runtime_actor_uid != g_scene_drag_state.runtime_actor_uid ||
+        drag_target->actor_uid != g_scene_drag_state.actor_uid) {
         ResetSceneDragState();
         return false;
     }
@@ -1030,7 +1035,7 @@ void ZoomSceneCameraAtCursor(const Engine &engine, const ImVec2 &image_min,
 
 ScenePanelResult RenderScenePanel(
     Engine &engine, SceneDocument &scene_document,
-    int &selected_actor_index, int &selected_runtime_actor_id,
+    int &selected_actor_index, Actor::UID &selected_runtime_actor_uid,
     int scene_view_width, int scene_view_height, bool play_mode_active,
     bool play_mode_paused, bool scene_editing_enabled,
     std::vector<SceneFormat::SceneEditCommand> *out_edit_commands) {
@@ -1108,7 +1113,7 @@ ScenePanelResult RenderScenePanel(
             (out_edit_commands != nullptr) ? out_edit_commands->size() : 0;
         const bool dropped_template = HandleSceneTemplateDrop(
             engine, g_scene_camera_state, scene_document, centered_cursor,
-            image_size, selected_actor_index, selected_runtime_actor_id,
+            image_size, selected_actor_index, selected_runtime_actor_uid,
             out_edit_commands);
         controls_result.scene_changed |= dropped_template;
         if (dropped_template) {
@@ -1136,12 +1141,12 @@ ScenePanelResult RenderScenePanel(
             FindTopmostHitBounds(mouse_position, pick_bounds);
         HandleSceneSelectionClick(mouse_position, pick_bounds, scene_document,
                                   play_mode_active, selected_actor_index,
-                                  selected_runtime_actor_id);
+                                  selected_runtime_actor_uid);
         if (hit_bounds.has_value()) {
             BeginSelectedActorDrag(engine, g_scene_camera_state,
                                    scene_document, centered_cursor, image_size,
                                    selected_actor_index,
-                                   selected_runtime_actor_id,
+                                   selected_runtime_actor_uid,
                                    play_mode_active);
         } else {
             ResetSceneDragState();
@@ -1153,7 +1158,7 @@ ScenePanelResult RenderScenePanel(
     controls_result.scene_changed |= UpdateSelectedActorDrag(
         engine, g_scene_camera_state, scene_document, centered_cursor,
         image_size,
-        selected_actor_index, selected_runtime_actor_id, play_mode_active,
+        selected_actor_index, selected_runtime_actor_uid, play_mode_active,
         out_edit_commands);
     if (controls_result.scene_changed) {
         preview_refresh_requested = true;
@@ -1202,7 +1207,7 @@ ScenePanelResult RenderScenePanel(
     const std::optional<ActorScreenBounds> selected_bounds =
         BuildSelectedActorBounds(engine, g_scene_camera_state, scene_document,
                                  selected_actor_index,
-                                 selected_runtime_actor_id, play_mode_active,
+                                 selected_runtime_actor_uid, play_mode_active,
                                  centered_cursor, image_size);
     if (selected_bounds.has_value()) {
         DrawActorSelectionOutline(draw_list, *selected_bounds);

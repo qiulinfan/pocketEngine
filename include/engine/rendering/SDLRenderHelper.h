@@ -3,6 +3,7 @@
 
 #include "core/FrameClock.h"
 #include "input/SDLEventHelper.h"
+#include "scene/Actor.h"
 #include "SDL2/SDL.h"
 #include <algorithm>
 #include <cstdlib>
@@ -70,7 +71,8 @@ public:
         }
     }
 
-    static void SDL_RenderCopyEx(int actor_id, const std::string &actor_name,
+    static void SDL_RenderCopyEx(Actor::UID actor_uid,
+                                 const std::string &actor_name,
                                  SDL_Renderer *renderer, SDL_Texture *texture,
                                  const SDL_FRect *srcrect,
                                  const SDL_FRect *dstrect, float angle,
@@ -115,7 +117,7 @@ public:
         float y_scale = 1.0f;
         SDL_RenderGetScale(renderer, &x_scale, &y_scale);
 
-        render_logging_file_ << FrameClock::GetFrameNumber() << ":" << actor_id
+        render_logging_file_ << FrameClock::GetFrameNumber() << ":" << actor_uid
                              << ":" << actor_name;
         if (dstrect != nullptr) {
             render_logging_file_ << " dstrect " << dstrect->x << " " << dstrect->y
@@ -210,7 +212,7 @@ inline static RenderLoggerStatus render_logger_mode_ = RenderLoggerStatus::NotIn
             << "Study SDL_RenderCopyEx() calls for render debugging."
             << std::endl;
         render_logging_file_ << "Enable with RENDERLOGGER env var." << std::endl;
-        render_logging_file_ << "frame:actor_id:actor_name" << std::endl
+        render_logging_file_ << "frame:actor_uid:actor_name" << std::endl
                              << std::endl;
     }
 

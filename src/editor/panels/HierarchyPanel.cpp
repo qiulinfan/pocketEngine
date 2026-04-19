@@ -40,10 +40,12 @@ Runtime selection can outlive the actor when play-mode mutations destroy it.
 Clamp invalid selections back to "none" before the panel renders.
 */
 void EnsureValidRuntimeSelection(const Engine &engine,
-                                 int &selected_runtime_actor_id) {
-    if (selected_runtime_actor_id < 0) return;
-    if (engine.GetRuntimeActorByID(selected_runtime_actor_id) != nullptr) return;
-    selected_runtime_actor_id = -1;
+                                 Actor::UID &selected_runtime_actor_uid) {
+    if (selected_runtime_actor_uid == Actor::kInvalidUID) return;
+    if (engine.GetRuntimeActorByUID(selected_runtime_actor_uid) != nullptr) {
+        return;
+    }
+    selected_runtime_actor_uid = Actor::kInvalidUID;
 }
 
 /* Small string helpers used by add-actor filtering and rename popups. */
@@ -234,16 +236,17 @@ bool RenderHierarchyTemplateDropTarget(
 void SelectRuntimeActor(SceneDocument &scene_document,
                         const Actor &runtime_actor,
                         int &selected_actor_index,
-                        int &selected_runtime_actor_id) {
-    selected_runtime_actor_id = runtime_actor.id;
+                        Actor::UID &selected_runtime_actor_uid) {
+    selected_runtime_actor_uid = runtime_actor.uid;
     if (!runtime_actor.IsSceneBacked()) {
         selected_actor_index = -1;
         return;
     }
 
     const std::optional<std::size_t> actor_index =
-        scene_document.FindActorIndexByUID(runtime_actor.editor_actor_uid);
-        selected_actor_index = actor_index.has_value() ? static_cast<int>(*actor_index) : -1;
+        scene_document.FindActorIndexByUID(runtime_actor.uid);
+    selected_actor_index =
+        actor_index.has_value() ? static_cast<int>(*actor_index) : -1;
 }
 
 bool BeginSceneActorDragSource(SceneDocument::ActorUID actor_uid,
@@ -378,34 +381,38 @@ void RenderSceneHierarchyNode(SceneDocument &scene_document,
 
 struct RuntimeHierarchyTree {
     std::vector<const Actor *> root_actors;
-    std::unordered_map<int, std::vector<const Actor *>> children_by_parent_id;
+    std::unordered_map<Actor::UID, std::vector<const Actor *>>
+        children_by_parent_uid;
 };
 
 /*
 Build a temporary runtime tree view from the flat live actor container. Runtime
 does not maintain a permanent children array here; the UI derives it from
-parent_id each frame it needs to draw the hierarchy.
+parent_uid each frame it needs to draw the hierarchy.
 */
 RuntimeHierarchyTree BuildRuntimeHierarchyTree(const Engine &engine) {
     RuntimeHierarchyTree tree;
 
-    std::unordered_map<int, const Actor *> runtime_actor_by_id;
+    std::unordered_map<Actor::UID, const Actor *> runtime_actor_by_uid;
     for (const Actor &runtime_actor : engine.GetRuntimeActors()) {
         if (runtime_actor.runtime_destroyed) continue;
-        runtime_actor_by_id[runtime_actor.id] = &runtime_actor;
+        runtime_actor_by_uid[runtime_actor.uid] = &runtime_actor;
     }
 
     for (const Actor &runtime_actor : engine.GetRuntimeActors()) {
         if (runtime_actor.runtime_destroyed) continue;
 
         const bool has_valid_parent =
-            runtime_actor.parent_id >= 0 && runtime_actor.parent_id != runtime_actor.id &&
-            runtime_actor_by_id.find(runtime_actor.parent_id) != runtime_actor_by_id.end();
+            runtime_actor.parent_uid != Actor::kInvalidUID &&
+            runtime_actor.parent_uid != runtime_actor.uid &&
+            runtime_actor_by_uid.find(runtime_actor.parent_uid) !=
+                runtime_actor_by_uid.end();
         if (!has_valid_parent) {
             tree.root_actors.emplace_back(&runtime_actor);
             continue;
         }
-        tree.children_by_parent_id[runtime_actor.parent_id].emplace_back( &runtime_actor);
+        tree.children_by_parent_uid[runtime_actor.parent_uid].emplace_back(
+            &runtime_actor);
     }
 
     return tree;
@@ -413,16 +420,16 @@ RuntimeHierarchyTree BuildRuntimeHierarchyTree(const Engine &engine) {
 
 /* Recursively mark a collapsed runtime subtree as already accounted for. */
 void MarkRuntimeHierarchySubtreeVisited(
-    const RuntimeHierarchyTree &tree, int actor_id,
-    std::unordered_set<int> &visited_actor_ids) {
-    if (!visited_actor_ids.insert(actor_id).second) return;
+    const RuntimeHierarchyTree &tree, Actor::UID actor_uid,
+    std::unordered_set<Actor::UID> &visited_actor_uids) {
+    if (!visited_actor_uids.insert(actor_uid).second) return;
 
-    auto children_it = tree.children_by_parent_id.find(actor_id);
-    if (children_it == tree.children_by_parent_id.end()) return;
+    auto children_it = tree.children_by_parent_uid.find(actor_uid);
+    if (children_it == tree.children_by_parent_uid.end()) return;
     for (const Actor *child_actor : children_it->second) {
         if (child_actor == nullptr) continue;
-        MarkRuntimeHierarchySubtreeVisited(tree, child_actor->id,
-                                           visited_actor_ids);
+        MarkRuntimeHierarchySubtreeVisited(tree, child_actor->uid,
+                                           visited_actor_uids);
     }
 }
 
@@ -434,41 +441,42 @@ actors are displayed and selectable but remain transient.
 void RenderRuntimeHierarchyNode(
     SceneDocument &scene_document, const Actor &runtime_actor,
     const RuntimeHierarchyTree &tree, int &selected_actor_index,
-    int &selected_runtime_actor_id,
+    Actor::UID &selected_runtime_actor_uid,
     bool scene_editing_enabled,
     std::vector<SceneFormat::SceneEditCommand> *out_edit_commands,
-    std::unordered_set<int> &visited_actor_ids, bool &out_scene_changed) {
-    if (!visited_actor_ids.insert(runtime_actor.id).second) return;
+    std::unordered_set<Actor::UID> &visited_actor_uids,
+    bool &out_scene_changed) {
+    if (!visited_actor_uids.insert(runtime_actor.uid).second) return;
 
-    auto children_it = tree.children_by_parent_id.find(runtime_actor.id);
+    auto children_it = tree.children_by_parent_uid.find(runtime_actor.uid);
     const bool has_children =
-        children_it != tree.children_by_parent_id.end() &&
+        children_it != tree.children_by_parent_uid.end() &&
         !children_it->second.empty();
     const std::string actor_label =
         runtime_actor.actor_name.empty() ? "Unnamed Actor"
                                          : runtime_actor.actor_name;
 
-    ImGui::PushID(runtime_actor.id);
+    ImGui::PushID(static_cast<int>(runtime_actor.uid));
     ImGuiTreeNodeFlags flags =
         ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth |
         ImGuiTreeNodeFlags_DefaultOpen;
     if (!has_children) {
         flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
     }
-    if (selected_runtime_actor_id == runtime_actor.id) {
+    if (selected_runtime_actor_uid == runtime_actor.uid) {
         flags |= ImGuiTreeNodeFlags_Selected;
     }
 
     const bool node_open = ImGui::TreeNodeEx(actor_label.c_str(), flags);
     if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
         SelectRuntimeActor(scene_document, runtime_actor, selected_actor_index,
-                           selected_runtime_actor_id);
+                           selected_runtime_actor_uid);
     }
 
     if (scene_editing_enabled && runtime_actor.IsSceneBacked()) {
-        BeginSceneActorDragSource(runtime_actor.editor_actor_uid, actor_label);
+        BeginSceneActorDragSource(runtime_actor.uid, actor_label);
         const std::optional<std::size_t> parent_actor_index =
-            scene_document.FindActorIndexByUID(runtime_actor.editor_actor_uid);
+            scene_document.FindActorIndexByUID(runtime_actor.uid);
         out_scene_changed |= HandleSceneActorReparentDropTarget(
             scene_document, parent_actor_index, selected_actor_index,
             out_edit_commands);
@@ -480,20 +488,20 @@ void RenderRuntimeHierarchyNode(
 
     if (has_children && node_open) {
         for (const Actor *child_actor : children_it->second) {
-            if (child_actor == nullptr) continue;
-            RenderRuntimeHierarchyNode(scene_document, *child_actor, tree,
-                                       selected_actor_index,
-                                       selected_runtime_actor_id,
-                                       scene_editing_enabled,
-                                       out_edit_commands,
-                                       visited_actor_ids, out_scene_changed);
+                if (child_actor == nullptr) continue;
+                RenderRuntimeHierarchyNode(scene_document, *child_actor, tree,
+                                           selected_actor_index,
+                                           selected_runtime_actor_uid,
+                                           scene_editing_enabled,
+                                           out_edit_commands,
+                                           visited_actor_uids, out_scene_changed);
         }
         ImGui::TreePop();
     } else if (has_children) {
         for (const Actor *child_actor : children_it->second) {
             if (child_actor == nullptr) continue;
-            MarkRuntimeHierarchySubtreeVisited(tree, child_actor->id,
-                                               visited_actor_ids);
+            MarkRuntimeHierarchySubtreeVisited(tree, child_actor->uid,
+                                               visited_actor_uids);
         }
     }
     ImGui::PopID();
@@ -508,7 +516,7 @@ tree, while still routing scene-backed structural edits through SceneDocument.
 */
 bool RenderHierarchyPanel(Engine &engine, SceneDocument &scene_document,
                           int &selected_actor_index,
-                          int &selected_runtime_actor_id,
+                          Actor::UID &selected_runtime_actor_uid,
                           bool play_mode_active,
                           bool scene_editing_enabled,
                           std::vector<SceneFormat::SceneEditCommand>
@@ -516,13 +524,15 @@ bool RenderHierarchyPanel(Engine &engine, SceneDocument &scene_document,
     bool scene_changed = false;
     ImGui::Begin("Hierarchy");
     EnsureValidSceneSelection(scene_document, selected_actor_index);
-    EnsureValidRuntimeSelection(engine, selected_runtime_actor_id);
+    EnsureValidRuntimeSelection(engine, selected_runtime_actor_uid);
 
     if (!play_mode_active) {
-        selected_runtime_actor_id = -1;
+        selected_runtime_actor_uid = Actor::kInvalidUID;
     }
 
-    const Actor *selected_runtime_actor = play_mode_active ? engine.GetRuntimeActorByID(selected_runtime_actor_id) : nullptr;
+    const Actor *selected_runtime_actor =
+        play_mode_active ? engine.GetRuntimeActorByUID(selected_runtime_actor_uid)
+                         : nullptr;
     const bool runtime_only_actor_selected = selected_runtime_actor != nullptr && selected_runtime_actor->IsRuntimeSpawned();
     const bool runtime_scene_backed_actor_selected = selected_runtime_actor != nullptr &&
                                                      selected_runtime_actor->IsSceneBacked() && selected_actor_index >= 0;
@@ -562,7 +572,7 @@ bool RenderHierarchyPanel(Engine &engine, SceneDocument &scene_document,
             SceneFormat::SceneEditCommand command;
             if (scene_document.DuplicateActor(static_cast<std::size_t>(selected_actor_index), duplicated_actor_index, &command)) {
                 selected_actor_index = static_cast<int>(duplicated_actor_index);
-                selected_runtime_actor_id = -1;
+                selected_runtime_actor_uid = Actor::kInvalidUID;
                 scene_changed = true;
                 if (out_edit_commands != nullptr) {
                     out_edit_commands->emplace_back(std::move(command));
@@ -570,9 +580,10 @@ bool RenderHierarchyPanel(Engine &engine, SceneDocument &scene_document,
             }
         } 
         else if (play_mode_active && runtime_only_actor_selected) {
-            int duplicated_runtime_actor_id = -1;
-            if (engine.DuplicateRuntimeActorByID(selected_runtime_actor_id, &duplicated_runtime_actor_id)) {
-                selected_runtime_actor_id = duplicated_runtime_actor_id;
+            Actor::UID duplicated_runtime_actor_uid = Actor::kInvalidUID;
+            if (engine.DuplicateRuntimeActorByUID(selected_runtime_actor_uid,
+                                                  &duplicated_runtime_actor_uid)) {
+                selected_runtime_actor_uid = duplicated_runtime_actor_uid;
                 selected_actor_index = -1;
             }
         } 
@@ -595,7 +606,7 @@ bool RenderHierarchyPanel(Engine &engine, SceneDocument &scene_document,
         if (play_mode_active && runtime_scene_backed_actor_selected) {
             SceneFormat::SceneEditCommand command;
             if (scene_document.DeleteActor(static_cast<std::size_t>(selected_actor_index), &command)) {
-                selected_runtime_actor_id = -1;
+                selected_runtime_actor_uid = Actor::kInvalidUID;
                 if (scene_document.GetActorCount() == 0) {
                     selected_actor_index = -1;
                 } else if (selected_actor_index >=
@@ -608,8 +619,8 @@ bool RenderHierarchyPanel(Engine &engine, SceneDocument &scene_document,
                 }
             }
         } else if (play_mode_active && runtime_only_actor_selected) {
-            if (engine.DeleteRuntimeActorByID(selected_runtime_actor_id)) {
-                selected_runtime_actor_id = -1;
+            if (engine.DeleteRuntimeActorByUID(selected_runtime_actor_uid)) {
+                selected_runtime_actor_uid = Actor::kInvalidUID;
                 selected_actor_index = -1;
             }
         } else if (selected_actor_index >= 0) {
@@ -694,28 +705,28 @@ bool RenderHierarchyPanel(Engine &engine, SceneDocument &scene_document,
         if (!has_live_runtime_actor) {
             ImGui::TextUnformatted("Runtime currently has no live actors.");
         } else {
-            std::unordered_set<int> visited_actor_ids;
+            std::unordered_set<Actor::UID> visited_actor_uids;
             for (const Actor *root_actor : runtime_tree.root_actors) {
                 if (root_actor == nullptr) continue;
                 RenderRuntimeHierarchyNode(scene_document, *root_actor,
                                            runtime_tree, selected_actor_index,
-                                           selected_runtime_actor_id,
+                                           selected_runtime_actor_uid,
                                            scene_editing_enabled,
                                            out_edit_commands,
-                                           visited_actor_ids, scene_changed);
+                                           visited_actor_uids, scene_changed);
             }
             for (const Actor &runtime_actor : engine.GetRuntimeActors()) {
                 if (runtime_actor.runtime_destroyed) continue;
-                if (visited_actor_ids.find(runtime_actor.id) !=
-                    visited_actor_ids.end()) {
+                if (visited_actor_uids.find(runtime_actor.uid) !=
+                    visited_actor_uids.end()) {
                     continue;
                 }
                 RenderRuntimeHierarchyNode(scene_document, runtime_actor,
                                            runtime_tree, selected_actor_index,
-                                           selected_runtime_actor_id,
+                                           selected_runtime_actor_uid,
                                            scene_editing_enabled,
                                            out_edit_commands,
-                                           visited_actor_ids, scene_changed);
+                                           visited_actor_uids, scene_changed);
             }
         }
     } else {

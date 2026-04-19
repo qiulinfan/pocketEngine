@@ -228,29 +228,32 @@ void MergeDynamicLuaTableProperties(
 // -----------------------------------------------------------------------------
 
 // component queries used by Actor's Lua-facing methods
-luabridge::LuaRef ComponentManager::GetComponentByKey( int actor_id, const std::string &key) {
+luabridge::LuaRef ComponentManager::GetComponentByKey(Actor::UID actor_uid,
+                                                      const std::string &key) {
     // removed 组件会被 FindComponentRecord 过滤, 查询结果为 nil
-    ComponentRecord *component = FindComponentRecord(actor_id, key);
+    ComponentRecord *component = FindComponentRecord(actor_uid, key);
     if (component == nullptr) return MakeNilRef();
     return component->instance_table;
 }
 
 // component queries used by Actor's Lua-facing methods
-luabridge::LuaRef ComponentManager::GetComponentByType( int actor_id, const std::string &type_name) {
-    auto actor_it = g_runtime.component_first_key_by_type.find(actor_id);
+luabridge::LuaRef ComponentManager::GetComponentByType(Actor::UID actor_uid,
+                                                       const std::string &type_name) {
+    auto actor_it = g_runtime.component_first_key_by_type.find(actor_uid);
     if (actor_it == g_runtime.component_first_key_by_type.end()) return MakeNilRef();
 
     auto type_it = actor_it->second.find(type_name);
     if (type_it == actor_it->second.end()) return MakeNilRef();
 
-    ComponentRecord *component = FindComponentRecord(actor_id, type_it->second);
+    ComponentRecord *component = FindComponentRecord(actor_uid, type_it->second);
     if (component == nullptr) return MakeNilRef();
     return component->instance_table;
 }
 
 // component queries used by Actor's Lua-facing methods
-luabridge::LuaRef ComponentManager::GetComponentsByType( int actor_id, const std::string &type_name) {
-    auto actor_it = g_runtime.component_keys_by_type.find(actor_id);
+luabridge::LuaRef ComponentManager::GetComponentsByType(Actor::UID actor_uid,
+                                                        const std::string &type_name) {
+    auto actor_it = g_runtime.component_keys_by_type.find(actor_uid);
     if (actor_it == g_runtime.component_keys_by_type.end()) {
         return MakeEmptyArrayTable();
     }
@@ -261,7 +264,8 @@ luabridge::LuaRef ComponentManager::GetComponentsByType( int actor_id, const std
     luabridge::LuaRef result_table = MakeEmptyArrayTable();
     int lua_index = 1;
     for (const std::string &component_key : type_it->second) {
-        ComponentRecord *component = FindComponentRecord(actor_id, component_key);
+        ComponentRecord *component = FindComponentRecord(actor_uid,
+                                                         component_key);
         if (component == nullptr) continue;
         // Lua arrays are 1-indexed for ipairs().
         result_table[lua_index++] = component->instance_table;
@@ -364,9 +368,9 @@ ComponentManager::GetComponentTypeDefaultProperties( const std::string &type_nam
 }
 
 std::vector<Actor::ComponentSpec>
-ComponentManager::GetRuntimeComponentSpecs(int actor_id) {
+ComponentManager::GetRuntimeComponentSpecs(Actor::UID actor_uid) {
     std::vector<Actor::ComponentSpec> component_specs;
-    auto actor_it = g_runtime.actor_components.find(actor_id);
+    auto actor_it = g_runtime.actor_components.find(actor_uid);
     if (actor_it == g_runtime.actor_components.end()) {
         return component_specs;
     }
@@ -388,10 +392,10 @@ ComponentManager::GetRuntimeComponentSpecs(int actor_id) {
 }
 
 std::vector<Actor::ComponentProperty>
-ComponentManager::GetRuntimeComponentProperties(int actor_id,
+ComponentManager::GetRuntimeComponentProperties(Actor::UID actor_uid,
                                                 const std::string &component_key) {
     std::vector<Actor::ComponentProperty> properties;
-    ComponentRecord *component = FindComponentRecord(actor_id, component_key);
+    ComponentRecord *component = FindComponentRecord(actor_uid, component_key);
     if (component == nullptr) return properties;
 
     if (IsBuiltinComponentType(component->type)) {

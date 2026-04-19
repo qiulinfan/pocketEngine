@@ -2,6 +2,7 @@
 #define EDITOR_CORE_EDITOR_OVERLAY_H
 
 #include "editor/core/EditorConfig.h"
+#include "scene/Actor.h"
 #include "shared/config/GameConfig.h"
 #include "shared/scene_format/SceneMutation.h"
 #include <cstddef>
@@ -101,7 +102,7 @@ private:
     bool project_config_loaded_ = false;
     GameConfigData project_config_cache_;
     int selected_actor_index_ = -1;
-    int selected_runtime_actor_id_ = -1;
+    Actor::UID selected_runtime_actor_uid_ = Actor::kInvalidUID;
     bool play_mode_active_for_input_ = false;
     bool play_mode_paused_for_input_ = false;
     bool runtime_input_focus_ = false;

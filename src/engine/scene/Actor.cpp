@@ -18,8 +18,8 @@ std::string Actor::GetName() const {
     return actor_name;
 }
 
-int Actor::GetID() const {
-    return id;
+Actor::UID Actor::GetUID() const {
+    return uid;
 }
 
 bool Actor::IsSceneBacked() const {
@@ -31,32 +31,32 @@ bool Actor::IsRuntimeSpawned() const {
 }
 
 bool Actor::SetParent(Actor *parent) const {
-    return ComponentManager::SetActorParent(id, parent);
+    return ComponentManager::SetActorParent(uid, parent);
 }
 
 luabridge::LuaRef Actor::AddComponent(const std::string &type_name) const {
-    return ComponentManager::AddComponent(id, type_name);
+    return ComponentManager::AddComponent(uid, type_name);
 }
 
 void Actor::RemoveComponent(luabridge::LuaRef component_ref) const {
-    ComponentManager::RemoveComponent(id, component_ref);
+    ComponentManager::RemoveComponent(uid, component_ref);
 }
 
 // get component by key / type. returns nil if not found.
 // if multiple components of the same type exist, returns the first one.
 luabridge::LuaRef Actor::GetComponentByKey(const std::string &key) const {
-    return ComponentManager::GetComponentByKey(id, key);
+    return ComponentManager::GetComponentByKey(uid, key);
 }
 
 // get component by key / type. returns nil if not found.
 // if multiple components of the same type exist, returns the first one.
 luabridge::LuaRef Actor::GetComponent(const std::string &type_name) const {
-    return ComponentManager::GetComponentByType(id, type_name);
+    return ComponentManager::GetComponentByType(uid, type_name);
 }
 
 // returns all component instances of the given type as a Lua array.
 luabridge::LuaRef Actor::GetComponents(const std::string &type_name) const {
-    return ComponentManager::GetComponentsByType(id, type_name);
+    return ComponentManager::GetComponentsByType(uid, type_name);
 }
 
 // loads an actor data copy from an actor template file.

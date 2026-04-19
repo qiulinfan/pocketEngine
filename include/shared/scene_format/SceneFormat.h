@@ -15,8 +15,8 @@ inline constexpr const char *kDeletedComponentType = "__editor_deleted__";
 // Raw actor record exactly as it appears in a .scene file before template
 // inheritance is applied.
 struct ActorRecord {
-    std::uint64_t editor_actor_uid = 0;
-    std::uint64_t parent_actor_uid = 0;
+    std::uint64_t uid = 0;
+    std::uint64_t parent_uid = 0;
     std::string template_name;
     std::string name;
     std::vector<Actor::ComponentSpec> component_specs;

@@ -229,7 +229,7 @@ We prefer the scene-backed range below the runtime-generated UID start, but we
 can spill higher if a very large scene exhausts that preferred band.
 */
 SceneDocument::ActorUID SceneDocument::AllocateNextSceneBackedActorUID(const std::unordered_set<ActorUID> &used_uids) {
-    constexpr ActorUID kPreferredSceneActorUIDLimit = Actor::kRuntimeGeneratedEditorActorUIDStart;
+    constexpr ActorUID kPreferredSceneActorUIDLimit = Actor::kRuntimeGeneratedUIDStart;
 
     const auto find_available_uid =
         [&](ActorUID begin_uid, ActorUID end_uid_exclusive) -> ActorUID {
@@ -305,7 +305,7 @@ std::optional<std::size_t> SceneDocument::FindActorIndexByUID( ActorUID actor_ui
 
 /*
 Return the derived parent index for one actor.
-The raw scene only stores parent_actor_uid, so this is served from the cached
+The raw scene only stores parent_uid, so this is served from the cached
 UID -> index rebuild performed by RebuildHierarchyCache().
 */
 std::optional<std::size_t> SceneDocument::FindParentActorIndex( std::size_t actor_index) const {
@@ -568,7 +568,7 @@ void SceneDocument::ReassignFreshActorUIDs() {
     used_uids.reserve(scene_asset_.actors.size());
     for (std::size_t actor_index = 0; actor_index < scene_asset_.actors.size();
          ++actor_index) {
-        ActorUID actor_uid = scene_asset_.actors[actor_index].editor_actor_uid;
+        ActorUID actor_uid = scene_asset_.actors[actor_index].uid;
         if (actor_uid == kInvalidActorUID ||
             used_uids.find(actor_uid) != used_uids.end()) {
             actor_uid = AllocateNextSceneBackedActorUID(used_uids);
@@ -587,7 +587,7 @@ void SceneDocument::ReassignFreshActorUIDs() {
         return;
     }
 
-    constexpr ActorUID kPreferredSceneActorUIDLimit = Actor::kRuntimeGeneratedEditorActorUIDStart;
+    constexpr ActorUID kPreferredSceneActorUIDLimit = Actor::kRuntimeGeneratedUIDStart;
     ActorUID max_scene_uid = 0;
     for (ActorUID used_uid : used_uids) {
         max_scene_uid = std::max(max_scene_uid, used_uid);
@@ -607,7 +607,7 @@ void SceneDocument::SyncActorUIDsIntoSceneAsset() {
     }
 
     for (std::size_t actor_index = 0; actor_index < actor_count; ++actor_index) {
-        scene_asset_.actors[actor_index].editor_actor_uid = actor_uids_[actor_index];
+        scene_asset_.actors[actor_index].uid = actor_uids_[actor_index];
     }
 }
 
@@ -621,7 +621,7 @@ void SceneDocument::InvalidatePhysicsHierarchyCache() {
 }
 
 /*
-Rebuild the derived parent/children view from the persisted parent_actor_uid
+Rebuild the derived parent/children view from the persisted parent_uid
 links. The source scene asset stays flat; hierarchy is a cached interpretation.
 */
 void SceneDocument::RebuildHierarchyCache() const {
@@ -632,7 +632,7 @@ void SceneDocument::RebuildHierarchyCache() const {
     children_by_actor_index_.assign(actor_count, {});
 
     for (std::size_t actor_index = 0; actor_index < actor_count; ++actor_index) {
-        const ActorUID parent_uid = scene_asset_.actors[actor_index].parent_actor_uid;
+        const ActorUID parent_uid = scene_asset_.actors[actor_index].parent_uid;
         if (parent_uid == kInvalidActorUID) continue;
 
         const std::optional<std::size_t> parent_actor_index = FindActorIndexByUID(parent_uid);

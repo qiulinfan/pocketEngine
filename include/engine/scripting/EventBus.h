@@ -1,6 +1,7 @@
 #ifndef EVENTBUS_H
 #define EVENTBUS_H
 
+#include "scene/Actor.h"
 #include <string>
 
 struct lua_State;
@@ -23,18 +24,19 @@ struct Hooks {
                          const luabridge::LuaRef &) = nullptr;
 
     // extract a stable component identity from a component ref
-    // 从组件引用中提取稳定身份, 即 actor_id 和 component_key
-    bool (*try_extract_component_identity)(const luabridge::LuaRef &, int &,
+    // 从组件引用中提取稳定身份, 即 actor_uid 和 component_key
+    bool (*try_extract_component_identity)(const luabridge::LuaRef &,
+                                           Actor::UID &,
                                            std::string &) = nullptr;
 
     // check whether a component ref is still alive
     // 判断组件引用当前是否仍然有效
-    bool (*is_component_ref_alive)(const luabridge::LuaRef &, int,
+    bool (*is_component_ref_alive)(const luabridge::LuaRef &, Actor::UID,
                                    const std::string &) = nullptr;
 
     // host-side error reporter for Lua callback failures
     // Lua 回调报错时交给宿主侧输出
-    void (*report_error)(int actor_id,
+    void (*report_error)(Actor::UID actor_uid,
                          const luabridge::LuaException &) = nullptr;
 };
 
@@ -64,7 +66,7 @@ void Unsubscribe(const std::string &event_type, luabridge::LuaRef component_ref,
 // remove both active and pending subscriptions for one component
 // 移除某个组件已有的和待生效的所有订阅
 void RemoveSubscriptionsForComponent(const luabridge::LuaRef &component_ref,
-                                     int actor_id,
+                                     Actor::UID actor_uid,
                                      const std::string &component_key);
 
 // apply queued subscribe / unsubscribe operations

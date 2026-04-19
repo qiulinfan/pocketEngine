@@ -592,7 +592,7 @@ EditorOverlayResult EditorOverlay::Render(Engine &engine,
 
     EditorPanels::RenderStatusPanel(engine, scene_document,
                                     selected_actor_index_,
-                                    selected_runtime_actor_id_,
+                                    selected_runtime_actor_uid_,
                                     play_mode_active, play_mode_paused,
                                     applied_ui_scale_);
 
@@ -601,7 +601,7 @@ EditorOverlayResult EditorOverlay::Render(Engine &engine,
         result.open_scene_requested = true;
         result.requested_scene_path = project_panel_result.requested_scene_path;
         selected_actor_index_ = -1;
-        selected_runtime_actor_id_ = -1;
+        selected_runtime_actor_uid_ = Actor::kInvalidUID;
     }
     if (project_panel_result.open_external_editor_requested) {
         const EditorExternalFileType file_type = project_panel_result.requested_external_file_type;
@@ -619,30 +619,36 @@ EditorOverlayResult EditorOverlay::Render(Engine &engine,
         }
     }
     if (!play_mode_active) {
-        selected_runtime_actor_id_ = -1;
+        selected_runtime_actor_uid_ = Actor::kInvalidUID;
     } else if (selected_actor_index_ >= 0 &&
                selected_actor_index_ <
                    static_cast<int>(scene_document.GetActorCount())) {
         const SceneDocument::ActorUID selected_actor_uid = scene_document.GetActorUID( static_cast<std::size_t>(selected_actor_index_));
-        const Actor *selected_runtime_actor = engine.GetRuntimeActorByID(selected_runtime_actor_id_);
+        const Actor *selected_runtime_actor =
+            engine.GetRuntimeActorByUID(selected_runtime_actor_uid_);
         if (selected_runtime_actor == nullptr ||
-            selected_runtime_actor->editor_actor_uid != selected_actor_uid) {
-                const Actor *runtime_actor = engine.GetRuntimeActorByEditorUID(selected_actor_uid);
-                selected_runtime_actor_id_ = (runtime_actor != nullptr) ? runtime_actor->id : -1;
+            selected_runtime_actor->uid != selected_actor_uid) {
+                const Actor *runtime_actor =
+                    engine.GetRuntimeActorByUID(selected_actor_uid);
+                selected_runtime_actor_uid_ =
+                    (runtime_actor != nullptr) ? runtime_actor->uid
+                                               : Actor::kInvalidUID;
         }
     }
 
     result.scene_changed |= EditorPanels::RenderHierarchyPanel(
-        engine, scene_document, selected_actor_index_, selected_runtime_actor_id_,
+        engine, scene_document, selected_actor_index_,
+        selected_runtime_actor_uid_,
         play_mode_active, scene_editing_enabled, &result.scene_edit_commands);
     result.scene_changed |= EditorPanels::RenderInspectorPanel(
-        engine, scene_document, selected_actor_index_, selected_runtime_actor_id_,
+        engine, scene_document, selected_actor_index_,
+        selected_runtime_actor_uid_,
         play_mode_active, scene_editing_enabled, &result.scene_edit_commands);
 
     const EditorPanels::ScenePanelResult scene_panel_result =
         EditorPanels::RenderScenePanel(
             engine, scene_document, selected_actor_index_,
-            selected_runtime_actor_id_, editor_config.scene_view_width,
+            selected_runtime_actor_uid_, editor_config.scene_view_width,
             editor_config.scene_view_height, play_mode_active,
             play_mode_paused, scene_editing_enabled,
             &result.scene_edit_commands);

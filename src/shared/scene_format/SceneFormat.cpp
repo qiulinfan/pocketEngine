@@ -127,11 +127,11 @@ ActorRecord ParseActorRecord(const rapidjson::Value &actor_json) {
     ActorRecord actor_record;
 
     if (actor_json.HasMember("uid") && actor_json["uid"].IsUint64()) {
-        actor_record.editor_actor_uid = actor_json["uid"].GetUint64();
+        actor_record.uid = actor_json["uid"].GetUint64();
     }
     if (actor_json.HasMember("parent_uid") &&
         actor_json["parent_uid"].IsUint64()) {
-        actor_record.parent_actor_uid = actor_json["parent_uid"].GetUint64();
+        actor_record.parent_uid = actor_json["parent_uid"].GetUint64();
     }
     if (actor_json.HasMember("template") && actor_json["template"].IsString()) {
         actor_record.template_name = actor_json["template"].GetString();
@@ -217,13 +217,13 @@ bool SaveSceneAsset(const SceneAsset &scene_asset) {
     writer.StartArray();
     for (const ActorRecord &actor_record : scene_asset.actors) {
         writer.StartObject();
-        if (actor_record.editor_actor_uid != 0) {
+        if (actor_record.uid != 0) {
             writer.Key("uid");
-            writer.Uint64(actor_record.editor_actor_uid);
+            writer.Uint64(actor_record.uid);
         }
-        if (actor_record.parent_actor_uid != 0) {
+        if (actor_record.parent_uid != 0) {
             writer.Key("parent_uid");
-            writer.Uint64(actor_record.parent_actor_uid);
+            writer.Uint64(actor_record.parent_uid);
         }
         if (!actor_record.template_name.empty()) {
             writer.Key("template");
@@ -405,10 +405,9 @@ void UpsertComponentProperty(
 
 // Merge one raw scene actor record into an existing actor instance.
 Actor ApplyActorRecordToActor(Actor actor, const ActorRecord &actor_record) {
-    actor.editor_actor_uid = actor_record.editor_actor_uid;
+    actor.uid = actor_record.uid;
     actor.scene_backed = true;
-    actor.parent_editor_actor_uid = actor_record.parent_actor_uid;
-    actor.parent_id = -1;
+    actor.parent_uid = actor_record.parent_uid;
     if (!actor_record.name.empty()) {
         actor.actor_name = actor_record.name;
     }
@@ -450,10 +449,8 @@ Actor BuildEffectiveActor(const ActorRecord &actor_record,
     }
 
     actor = ApplyActorRecordToActor(std::move(actor), actor_record);
-    actor.id = -1;
     actor.runtime_destroyed = false;
     actor.dont_destroy_on_scene_load = false;
-    actor.parent_id = -1;
     return actor;
 }
 

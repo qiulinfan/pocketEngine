@@ -69,7 +69,8 @@ void RenderPhysicsHierarchySummary(const PhysicsHierarchy::State &physics_state)
 } // namespace
 
 void RenderStatusPanel(const Engine &engine, const SceneDocument &scene_document,
-                       int selected_actor_index, int selected_runtime_actor_id,
+                       int selected_actor_index,
+                       Actor::UID selected_runtime_actor_uid,
                        bool play_mode_active, bool play_mode_paused,
                        float applied_ui_scale) {
     UpdateEditorFrameSample();
@@ -93,14 +94,18 @@ void RenderStatusPanel(const Engine &engine, const SceneDocument &scene_document
 
     ImGui::Separator();
     ImGui::TextUnformatted("Selection");
-    if (play_mode_active && selected_runtime_actor_id >= 0) {
-        const Actor *runtime_actor = engine.GetRuntimeActorByID(selected_runtime_actor_id);
+    if (play_mode_active &&
+        selected_runtime_actor_uid != Actor::kInvalidUID) {
+        const Actor *runtime_actor =
+            engine.GetRuntimeActorByUID(selected_runtime_actor_uid);
         if (runtime_actor != nullptr) {
             const std::string actor_name =
                 runtime_actor->actor_name.empty() ? "Unnamed Actor"
                                                   : runtime_actor->actor_name;
             ImGui::Text("Actor: %s", actor_name.c_str());
-            RenderPhysicsHierarchySummary( engine.GetRuntimePhysicsHierarchyStateByID( selected_runtime_actor_id));
+            RenderPhysicsHierarchySummary(
+                engine.GetRuntimePhysicsHierarchyStateByUID(
+                    selected_runtime_actor_uid));
         } else {
             ImGui::TextDisabled("Selected runtime actor is no longer valid.");
         }

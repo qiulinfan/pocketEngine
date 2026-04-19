@@ -29,7 +29,7 @@ struct SetActorNameMutation {
 
 struct SetActorParentMutation {
     SceneActorUID actor_uid = kInvalidSceneActorUID;
-    std::optional<SceneActorUID> parent_actor_uid;
+    std::optional<SceneActorUID> parent_uid;
 };
 
 struct AddComponentMutation {

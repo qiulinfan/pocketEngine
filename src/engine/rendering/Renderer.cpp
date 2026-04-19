@@ -356,7 +356,8 @@ void Renderer::RenderAndClearAllImages(SDL_Renderer *renderer, float camera_x,
         SDL_SetTextureAlphaMod(texture, static_cast<Uint8>(ClampByte(request.a)));
 
         SDLRenderHelper::SDL_RenderCopyEx(
-            -1, "", renderer, texture, nullptr, &dst, request.rotation_degrees,
+            Actor::kInvalidUID, "", renderer, texture, nullptr, &dst,
+            request.rotation_degrees,
             &pivot, flip);
 
         SDL_SetTextureColorMod(texture, 255, 255, 255);
@@ -401,7 +402,8 @@ void Renderer::RenderAndClearAllImages(SDL_Renderer *renderer, float camera_x,
                                static_cast<Uint8>(ClampByte(request.b)));
         SDL_SetTextureAlphaMod(texture, static_cast<Uint8>(ClampByte(request.a)));
 
-        SDLRenderHelper::SDL_RenderCopyEx(-1, "", renderer, texture, nullptr,
+        SDLRenderHelper::SDL_RenderCopyEx(Actor::kInvalidUID, "", renderer,
+                                          texture, nullptr,
                                           &dst, 0.0f, nullptr, SDL_FLIP_NONE);
 
         SDL_SetTextureColorMod(texture, 255, 255, 255);
@@ -453,7 +455,7 @@ void Renderer::RenderAndClearAllText(SDL_Renderer *renderer) {
         SDL_FRect dest = {static_cast<float>(req.x), static_cast<float>(req.y),
                           static_cast<float>(cache_it->second.width),
                           static_cast<float>(cache_it->second.height)};
-        SDLRenderHelper::SDL_RenderCopyEx(-1, "", renderer,
+        SDLRenderHelper::SDL_RenderCopyEx(Actor::kInvalidUID, "", renderer,
                                           cache_it->second.texture, nullptr,
                                           &dest, 0.0f, nullptr, SDL_FLIP_NONE);
     }
