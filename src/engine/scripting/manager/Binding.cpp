@@ -18,27 +18,25 @@ using namespace ManagerDetail;
 namespace {
 
 std::uint64_t AllocateRuntimeGeneratedActorUID(const std::deque<Actor> &actors) {
-    static std::uint64_t next_runtime_uid =
-        Actor::kRuntimeGeneratedEditorActorUIDStart;
+    // start from 10000 to avoid colliding with typical editor-assigned UIDs, usually small integers.
+    static std::uint64_t next_runtime_uid = Actor::kRuntimeGeneratedEditorActorUIDStart;
 
     auto uid_is_taken = [&](std::uint64_t candidate_uid) {
-        return std::any_of(actors.begin(), actors.end(),
-                           [&](const Actor &actor) {
-                               return !actor.runtime_destroyed &&
-                                      actor.editor_actor_uid == candidate_uid;
-                           });
+        return std::any_of(actors.begin(), actors.end(), 
+            [&](const Actor &actor) {
+                return !actor.runtime_destroyed && actor.editor_actor_uid == candidate_uid;
+            }
+        );
     };
 
-    while (uid_is_taken(next_runtime_uid)) {
-        ++next_runtime_uid;
-    }
+    while (uid_is_taken(next_runtime_uid)) ++next_runtime_uid;
+
     return next_runtime_uid++;
 }
 
 void RotateClockwise(float x, float y, float rotation_degrees, float &out_x,
                      float &out_y) {
-    const float radians =
-        rotation_degrees * (3.14159265358979323846f / 180.0f);
+    const float radians = rotation_degrees * (3.14159265358979323846f / 180.0f);
     const float cos_theta = std::cos(radians);
     const float sin_theta = std::sin(radians);
     out_x = cos_theta * x + sin_theta * y;
@@ -118,8 +116,7 @@ void SyncTransformAndRigidbodyAfterPropertyEdit(
 
     if (edited_component.type != "Rigidbody") return;
 
-    ComponentRecord *transform_component =
-        FindPrimaryComponentByType(actor_id, "Transform");
+    ComponentRecord *transform_component = FindPrimaryComponentByType(actor_id, "Transform");
     if (transform_component == nullptr) return;
 
     Transform *transform = nullptr;
@@ -451,8 +448,7 @@ luabridge::LuaRef ComponentManager::InstantiateActor(
 
     Actor actor = Actor::LoadTemplate(template_name);
     actor.id = Scene::AllocateActorID();
-    actor.editor_actor_uid =
-        AllocateRuntimeGeneratedActorUID(*g_runtime.scene_actors);
+    actor.editor_actor_uid = AllocateRuntimeGeneratedActorUID(*g_runtime.scene_actors);
     actor.scene_backed = false;
     actor.parent_editor_actor_uid = Actor::kInvalidEditorActorUID;
     actor.parent_id = -1;
@@ -466,12 +462,10 @@ luabridge::LuaRef ComponentManager::InstantiateActor(
     Actor *actor_ptr = &g_runtime.scene_actors->back();
     g_runtime.actor_by_id[actor_ptr->id] = actor_ptr;
     g_runtime.actors_by_name[actor_ptr->actor_name].push_back(actor_ptr);
-    g_runtime.actor_order_by_id[actor_ptr->id] =
-        g_runtime.scene_actors->empty() ? 0 : (g_runtime.scene_actors->size() - 1);
+    g_runtime.actor_order_by_id[actor_ptr->id] = g_runtime.scene_actors->empty() ? 0 : (g_runtime.scene_actors->size() - 1);
     g_runtime.pending_actor_ids_to_activate.push_back(actor_ptr->id);
 
-    for (const Actor::ComponentSpec &component_spec :
-         actor_ptr->component_specs) {
+    for (const Actor::ComponentSpec &component_spec : actor_ptr->component_specs) {
         InstantiateComponentForActor(actor_ptr->id, component_spec);
     }
     SortComponentsForActor(actor_ptr->id);

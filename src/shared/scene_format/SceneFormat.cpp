@@ -417,26 +417,22 @@ Actor ApplyActorRecordToActor(Actor actor, const ActorRecord &actor_record) {
         actor.actor_name = actor_record.name;
     }
 
-    for (const Actor::ComponentSpec &raw_component_spec :
-         actor_record.component_specs) {
+    for (const Actor::ComponentSpec &raw_component_spec : actor_record.component_specs) {
         if (raw_component_spec.type == kDeletedComponentType) {
             actor.component_specs.erase(
-                std::remove_if(actor.component_specs.begin(),
-                               actor.component_specs.end(),
+                            std::remove_if(actor.component_specs.begin(), actor.component_specs.end(),
                                [&](const Actor::ComponentSpec &component_spec) {
-                                   return component_spec.key ==
-                                          raw_component_spec.key;
-                               }),
+                                   return component_spec.key == raw_component_spec.key;
+                               }
+                            ),
                 actor.component_specs.end());
             continue;
         }
-        Actor::ComponentSpec &component_spec =
-            FindOrCreateComponentSpec(actor.component_specs, raw_component_spec.key);
+        Actor::ComponentSpec &component_spec = FindOrCreateComponentSpec(actor.component_specs, raw_component_spec.key);
         if (!raw_component_spec.type.empty()) {
             component_spec.type = raw_component_spec.type;
         }
-        for (const Actor::ComponentProperty &property :
-             raw_component_spec.overrides) {
+        for (const Actor::ComponentProperty &property: raw_component_spec.overrides) {
             UpsertComponentProperty(component_spec, property.name, property.value);
         }
     }

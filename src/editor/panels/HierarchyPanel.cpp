@@ -524,14 +524,16 @@ bool RenderHierarchyPanel(Engine &engine, SceneDocument &scene_document,
                     out_edit_commands->emplace_back(std::move(command));
                 }
             }
-        } else if (play_mode_active && runtime_only_actor_selected) {
+        } 
+        else if (play_mode_active && runtime_only_actor_selected) {
             int duplicated_runtime_actor_id = -1;
-            if (engine.DuplicateRuntimeActorByID(selected_runtime_actor_id,
-                                                 &duplicated_runtime_actor_id)) {
+            if (engine.DuplicateRuntimeActorByID(selected_runtime_actor_id, &duplicated_runtime_actor_id)) {
                 selected_runtime_actor_id = duplicated_runtime_actor_id;
                 selected_actor_index = -1;
             }
-        } else if (selected_actor_index >= 0) {
+        } 
+        // not in play mode 
+        else if (selected_actor_index >= 0) {
             std::size_t duplicated_actor_index = 0;
             SceneFormat::SceneEditCommand command;
             if (scene_document.DuplicateActor(static_cast<std::size_t>(selected_actor_index), duplicated_actor_index, &command)) {

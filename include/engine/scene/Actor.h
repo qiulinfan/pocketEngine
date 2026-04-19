@@ -17,13 +17,11 @@ public:
     // Zero means "no identity". Both scene-backed actors and runtime-only
     // actors may own non-zero UIDs; provenance is tracked separately.
     static inline constexpr std::uint64_t kInvalidEditorActorUID = 0;
-    static inline constexpr std::uint64_t
-        kRuntimeGeneratedEditorActorUIDStart = 10000;
+    static inline constexpr std::uint64_t kRuntimeGeneratedEditorActorUIDStart = 10000;
 
     // supported json value types for component property overrides
     // 组件属性支持的 JSON 值类型
-    using ComponentPropertyValue =
-        std::variant<bool, int, double, std::string>;
+    using ComponentPropertyValue = std::variant<bool, int, double, std::string>;
 
     // property: name and value. this is for overrides
     // 仅供 override default property
