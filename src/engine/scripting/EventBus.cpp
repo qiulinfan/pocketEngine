@@ -226,8 +226,7 @@ void RemoveSubscriptionsForComponent(const luabridge::LuaRef &component_ref,
 void ApplyPendingOperations() {
     if (g_pending_event_operations.empty()) return;
 
-    std::vector<PendingEventOperation> pending_operations =
-        std::move(g_pending_event_operations);
+    std::vector<PendingEventOperation> pending_operations = std::move(g_pending_event_operations);
     g_pending_event_operations.clear();
 
     for (const PendingEventOperation &operation : pending_operations) {
@@ -237,8 +236,7 @@ void ApplyPendingOperations() {
         if (!operation.is_subscribe) {
             if (subscriptions_it == g_event_subscriptions.end()) continue;
 
-            std::vector<EventSubscription> &subscriptions =
-                subscriptions_it->second;
+            std::vector<EventSubscription> &subscriptions = subscriptions_it->second;
             subscriptions.erase(
                 std::remove_if(
                     subscriptions.begin(), subscriptions.end(),
@@ -263,8 +261,7 @@ void ApplyPendingOperations() {
             continue;
         }
 
-        std::vector<EventSubscription> &subscriptions =
-            g_event_subscriptions[operation.event_type];
+        std::vector<EventSubscription> &subscriptions = g_event_subscriptions[operation.event_type];
         // 同一个 component-function pair 只保留一份正式订阅
         const bool already_subscribed = std::any_of(
             subscriptions.begin(), subscriptions.end(),

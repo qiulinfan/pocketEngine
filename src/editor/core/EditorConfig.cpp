@@ -12,8 +12,7 @@
 
 namespace {
 
-const std::filesystem::path kEditorConfigPath =
-    ResourcePath::EditorConfigPath();
+const std::filesystem::path kEditorConfigPath = ResourcePath::EditorConfigPath();
 const std::filesystem::path kLegacyEditorConfigPath = "resources/editor.config";
 
 void ReadJsonFile(const std::string &path, rapidjson::Document &out_document) {
@@ -149,8 +148,7 @@ void ReadExternalEditorConfig(const rapidjson::Document &editor_config,
         if (!external_editors.HasMember(key) || !external_editors[key].IsString()) {
             continue;
         }
-        *GetExternalEditorCommandPtr(config, type) =
-            external_editors[key].GetString();
+        *GetExternalEditorCommandPtr(config, type) = external_editors[key].GetString();
     }
 }
 

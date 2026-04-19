@@ -104,8 +104,7 @@ void ParticleSystem::InitializeIfNeeded() {
     emit_radius_distribution = RandomEngine(emit_radius_min, emit_radius_max, 404);
     rotation_distribution = RandomEngine(rotation_min, rotation_max, 440);
     speed_distribution = RandomEngine(start_speed_min, start_speed_max, 498);
-    rotation_speed_distribution =
-        RandomEngine(rotation_speed_min, rotation_speed_max, 305);
+    rotation_speed_distribution = RandomEngine(rotation_speed_min, rotation_speed_max, 305);
     scale_distribution = RandomEngine(start_scale_min, start_scale_max, 494);
 
     // 创建 emitter, claim emitter_id, 初始化 local_frame_number

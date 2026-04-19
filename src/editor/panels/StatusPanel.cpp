@@ -94,8 +94,7 @@ void RenderStatusPanel(const Engine &engine, const SceneDocument &scene_document
     ImGui::Separator();
     ImGui::TextUnformatted("Selection");
     if (play_mode_active && selected_runtime_actor_id >= 0) {
-        const Actor *runtime_actor =
-            engine.GetRuntimeActorByID(selected_runtime_actor_id);
+        const Actor *runtime_actor = engine.GetRuntimeActorByID(selected_runtime_actor_id);
         if (runtime_actor != nullptr) {
             const std::string actor_name =
                 runtime_actor->actor_name.empty() ? "Unnamed Actor"
@@ -108,8 +107,7 @@ void RenderStatusPanel(const Engine &engine, const SceneDocument &scene_document
     } else if (selected_actor_index >= 0 &&
                selected_actor_index <
                    static_cast<int>(scene_document.GetActorCount())) {
-        const std::size_t actor_index =
-            static_cast<std::size_t>(selected_actor_index);
+                       const std::size_t actor_index = static_cast<std::size_t>(selected_actor_index);
         ImGui::Text("Actor: %s",
                     scene_document.GetActorDisplayName(actor_index).c_str());
         RenderPhysicsHierarchySummary(

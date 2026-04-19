@@ -93,8 +93,7 @@ private:
                 recording_file_ << event_type << ",";
 
                 if (event_type == SDL_KEYDOWN || event_type == SDL_KEYUP) {
-                    const SDL_Scancode keycode =
-                        relevant_events[i].key.keysym.scancode;
+                    const SDL_Scancode keycode = relevant_events[i].key.keysym.scancode;
                     recording_file_ << keycode;
                 } else if (event_type == SDL_MOUSEMOTION) {
                     const Sint32 x = relevant_events[i].motion.x;
@@ -102,8 +101,7 @@ private:
                     recording_file_ << x << "," << y;
                 } else if (event_type == SDL_MOUSEBUTTONDOWN ||
                            event_type == SDL_MOUSEBUTTONUP) {
-                    const int button_index =
-                        static_cast<int>(relevant_events[i].button.button);
+                               const int button_index = static_cast<int>(relevant_events[i].button.button);
                     recording_file_ << button_index;
                 } else if (event_type == SDL_MOUSEWHEEL) {
                     const float scroll_amount = relevant_events[i].wheel.preciseY;
@@ -149,8 +147,7 @@ private:
                     event_type_string.end());
                 if (event_type_string.empty()) continue;
 
-                const Uint32 event_type =
-                    static_cast<Uint32>(std::stoi(event_type_string));
+                const Uint32 event_type = static_cast<Uint32>(std::stoi(event_type_string));
                 SDL_Event fabricated_sdl_event;
                 fabricated_sdl_event.type = event_type;
 
@@ -158,31 +155,26 @@ private:
                     std::string keycode;
                     std::getline(event_stream, keycode, ',');
                     if (keycode.empty()) continue;
-                    fabricated_sdl_event.key.keysym.scancode =
-                        static_cast<SDL_Scancode>(std::stoi(keycode));
+                    fabricated_sdl_event.key.keysym.scancode = static_cast<SDL_Scancode>(std::stoi(keycode));
                 } else if (event_type == SDL_MOUSEMOTION) {
                     std::string x_string;
                     std::string y_string;
                     std::getline(event_stream, x_string, ',');
                     std::getline(event_stream, y_string, ',');
                     if (x_string.empty() || y_string.empty()) continue;
-                    fabricated_sdl_event.motion.x =
-                        static_cast<Sint32>(std::stoi(x_string));
-                    fabricated_sdl_event.motion.y =
-                        static_cast<Sint32>(std::stoi(y_string));
+                    fabricated_sdl_event.motion.x = static_cast<Sint32>(std::stoi(x_string));
+                    fabricated_sdl_event.motion.y = static_cast<Sint32>(std::stoi(y_string));
                 } else if (event_type == SDL_MOUSEBUTTONDOWN ||
                            event_type == SDL_MOUSEBUTTONUP) {
                     std::string mouse_button_index_string;
                     std::getline(event_stream, mouse_button_index_string, ',');
                     if (mouse_button_index_string.empty()) continue;
-                    fabricated_sdl_event.button.button =
-                        static_cast<Uint8>(std::stoi(mouse_button_index_string));
+                    fabricated_sdl_event.button.button = static_cast<Uint8>(std::stoi(mouse_button_index_string));
                 } else if (event_type == SDL_MOUSEWHEEL) {
                     std::string mouse_wheel_string;
                     std::getline(event_stream, mouse_wheel_string, ',');
                     if (mouse_wheel_string.empty()) continue;
-                    fabricated_sdl_event.wheel.preciseY =
-                        std::stof(mouse_wheel_string);
+                    fabricated_sdl_event.wheel.preciseY = std::stof(mouse_wheel_string);
                 }
 
                 events_queue.push(fabricated_sdl_event);

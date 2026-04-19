@@ -87,8 +87,7 @@ void LoadComponentTypes() {
         }
 
         // Each valid component file must expose a table with the same name.
-        luabridge::LuaRef base_table =
-            luabridge::getGlobal(g_runtime.lua_state, component_type.c_str());
+        luabridge::LuaRef base_table = luabridge::getGlobal(g_runtime.lua_state, component_type.c_str());
         if (!base_table.isTable()) {
             std::cout << "problem with lua file " << component_type;
             std::exit(0);
@@ -136,8 +135,7 @@ void ComponentManager::Initialize() {
     EventBus::Hooks event_bus_hooks;
     event_bus_hooks.lua_state = g_runtime.lua_state;
     event_bus_hooks.are_same_ref = &AreSameLuaRef;
-    event_bus_hooks.try_extract_component_identity =
-        &TryExtractComponentIdentity;
+    event_bus_hooks.try_extract_component_identity = &TryExtractComponentIdentity;
     event_bus_hooks.is_component_ref_alive = &IsComponentRefAlive;
     event_bus_hooks.report_error = &ReportEventBusError;
     EventBus::Initialize(event_bus_hooks);

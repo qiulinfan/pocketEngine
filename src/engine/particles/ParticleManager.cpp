@@ -361,8 +361,7 @@ void ParticleManager::RenderEmitterBatch(int emitter_id, SDL_Renderer *renderer,
     if (!emitter.runtime_enabled) return;
     if (emitter.active_count == 0) return;
 
-    SDL_Texture *texture =
-        Renderer::LoadTexture(image_names[emitter.shared_image_id], renderer);
+    SDL_Texture *texture = Renderer::LoadTexture(image_names[emitter.shared_image_id], renderer);
     if (texture == nullptr) return;
 
     float texture_w = 0.0f;
@@ -370,10 +369,8 @@ void ParticleManager::RenderEmitterBatch(int emitter_id, SDL_Renderer *renderer,
     SDLRenderHelper::SDL_QueryTexture(texture, &texture_w, &texture_h);
 
     const float safe_zoom = (zoom_factor > 0.0f) ? zoom_factor : 1.0f;
-    const float viewport_width =
-        static_cast<float>(camera_width) * (1.0f / safe_zoom);
-    const float viewport_height =
-        static_cast<float>(camera_height) * (1.0f / safe_zoom);
+    const float viewport_width = static_cast<float>(camera_width) * (1.0f / safe_zoom);
+    const float viewport_height = static_cast<float>(camera_height) * (1.0f / safe_zoom);
     bool has_last_color_mod = false;
     bool has_last_alpha_mod = false;
     int last_r = 255;

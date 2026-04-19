@@ -46,8 +46,7 @@ inline std::filesystem::path NormalizeRelativePath( const std::filesystem::path 
 inline bool IsPathWithinDirectory(const std::filesystem::path &path,
                                   const std::filesystem::path &directory) {
     const std::filesystem::path normalized_path = path.lexically_normal();
-    const std::filesystem::path normalized_directory =
-        directory.lexically_normal();
+    const std::filesystem::path normalized_directory = directory.lexically_normal();
 
     auto path_it = normalized_path.begin();
     auto directory_it = normalized_directory.begin();
@@ -62,10 +61,8 @@ inline bool IsPathWithinDirectory(const std::filesystem::path &path,
 inline bool IsPathWithinPreferredSubdirectory(
     const std::filesystem::path &relative_parent,
     const std::filesystem::path &preferred_subdirectory) {
-    const std::filesystem::path normalized_parent =
-        NormalizeRelativePath(relative_parent);
-    const std::filesystem::path normalized_preferred =
-        NormalizeRelativePath(preferred_subdirectory);
+        const std::filesystem::path normalized_parent = NormalizeRelativePath(relative_parent);
+        const std::filesystem::path normalized_preferred = NormalizeRelativePath(preferred_subdirectory);
     if (normalized_preferred.empty()) return false;
 
     auto parent_it = normalized_parent.begin();
@@ -80,8 +77,7 @@ inline bool IsPathWithinPreferredSubdirectory(
 
 inline int PathPriority(const std::filesystem::path &relative_parent,
                         const std::filesystem::path &preferred_subdirectory) {
-    const std::filesystem::path normalized_parent =
-        NormalizeRelativePath(relative_parent);
+                            const std::filesystem::path normalized_parent = NormalizeRelativePath(relative_parent);
     if (IsPathWithinPreferredSubdirectory(normalized_parent,
                                           preferred_subdirectory)) {
         return 0;
@@ -98,10 +94,8 @@ inline bool ComparePathsWithPreference(
         NormalizeRelativePath(std::filesystem::relative(a.parent_path(), root));
     const std::filesystem::path b_relative_parent =
         NormalizeRelativePath(std::filesystem::relative(b.parent_path(), root));
-    const int a_priority =
-        PathPriority(a_relative_parent, preferred_subdirectory);
-    const int b_priority =
-        PathPriority(b_relative_parent, preferred_subdirectory);
+        const int a_priority = PathPriority(a_relative_parent, preferred_subdirectory);
+        const int b_priority = PathPriority(b_relative_parent, preferred_subdirectory);
     if (a_priority != b_priority) return a_priority < b_priority;
     return a.lexically_normal().string() < b.lexically_normal().string();
 }

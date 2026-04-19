@@ -179,8 +179,7 @@ SceneAsset LoadSceneAsset(const std::string &scene_name,
     SceneAsset scene_asset;
     scene_asset.scene_name = scene_name;
 
-    const std::string resolved_scene_path =
-        ResolveScenePath(scene_name, preferred_subdirectory);
+    const std::string resolved_scene_path = ResolveScenePath(scene_name, preferred_subdirectory);
     if (resolved_scene_path.empty()) {
         return scene_asset;
     }
@@ -308,8 +307,7 @@ ActorTemplateAsset LoadActorTemplateAsset(
         return template_asset;
     }
 
-    template_asset.actor =
-        ApplyActorRecordToActor(Actor(), ParseActorRecord(template_document));
+    template_asset.actor = ApplyActorRecordToActor(Actor(), ParseActorRecord(template_document));
     return template_asset;
 }
 
@@ -380,8 +378,7 @@ const Actor::ComponentSpec *FindComponentSpec(
 Actor::ComponentSpec &FindOrCreateComponentSpec(
     std::vector<Actor::ComponentSpec> &component_specs,
     const std::string &component_key) {
-    Actor::ComponentSpec *existing =
-        FindComponentSpec(component_specs, component_key);
+        Actor::ComponentSpec *existing = FindComponentSpec(component_specs, component_key);
     if (existing != nullptr) return *existing;
 
     Actor::ComponentSpec component_spec;

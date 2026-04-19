@@ -74,10 +74,8 @@ bool RunExternalCommand(const std::string &command,
 
     std::string expanded_command = command;
     bool used_placeholder = false;
-    used_placeholder |=
-        ReplaceAllInPlace(expanded_command, "{file}", quoted_file);
-    used_placeholder |=
-        ReplaceAllInPlace(expanded_command, "{resources}", quoted_resources);
+    used_placeholder |= ReplaceAllInPlace(expanded_command, "{file}", quoted_file);
+    used_placeholder |= ReplaceAllInPlace(expanded_command, "{resources}", quoted_resources);
 
     // Backward-compatible default: if no placeholders are present, pass the
     // clicked file path as the final argument so double-click opens that file.
@@ -186,8 +184,7 @@ bool OpenExternalEditor(const EditorConfigData &editor_config,
 void ApplyEditorWindowIcon(SDL_Window *window) {
     if (window == nullptr) return;
 
-    const std::filesystem::path primary_icon_path =
-        ResourcePath::EngineSystemIconPath();
+    const std::filesystem::path primary_icon_path = ResourcePath::EngineSystemIconPath();
     const std::filesystem::path fallback_icon_path = "docs/icon.png";
     const std::filesystem::path icon_path =
         std::filesystem::exists(primary_icon_path)
@@ -257,8 +254,7 @@ void EditorApp::ApplyEditorWindowSettings() {
     if (window == nullptr) return;
 
     const GameConfigData &runtime_config = engine_.GetConfig();
-    const WindowedPlacement placement =
-        BuildWindowedPlacement(editor_config_, runtime_config, window);
+    const WindowedPlacement placement = BuildWindowedPlacement(editor_config_, runtime_config, window);
 
     // The editor host window is independent from the runtime resolution.
     SDL_SetWindowResizable(window, SDL_TRUE);
@@ -431,8 +427,7 @@ void EditorApp::Run() {
 
         const bool play_mode_active = scene_session_.IsPlayModeActive();
         const bool play_mode_paused = scene_session_.IsPlayModePaused();
-        const bool advance_gameplay_frame =
-            play_mode_active && !play_mode_paused;
+        const bool advance_gameplay_frame = play_mode_active && !play_mode_paused;
         if (advance_gameplay_frame) {
             // Play mode advances simulation (OnUpdate + physics).
             engine_.RunSingleFrame(quit_requested_this_frame);

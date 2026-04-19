@@ -28,8 +28,7 @@ struct EditorOverlayResult {
     bool open_scene_requested = false;
     std::filesystem::path requested_scene_path;
     bool open_external_editor_requested = false;
-    EditorExternalFileType requested_external_file_type =
-        EditorExternalFileType::Generic;
+    EditorExternalFileType requested_external_file_type = EditorExternalFileType::Generic;
     std::filesystem::path requested_external_file_path;
     std::filesystem::path requested_external_resources_root;
     bool play_mode_start_requested = false;

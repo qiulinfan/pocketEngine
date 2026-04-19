@@ -19,8 +19,10 @@
 namespace EditorPanels {
 namespace {
 
-// keep scene-document selection stable while still allowing "no selection"
-// during blank-click / runtime-only selection flows.
+/*
+Keep scene-document selection stable while still allowing "no selection"
+during blank-click and runtime-only selection flows.
+*/
 void EnsureValidSceneSelection(SceneDocument &scene_document,
                                int &selected_actor_index) {
     if (scene_document.GetActorCount() == 0) {
@@ -29,11 +31,14 @@ void EnsureValidSceneSelection(SceneDocument &scene_document,
     }
     if (selected_actor_index >=
         static_cast<int>(scene_document.GetActorCount())) {
-        selected_actor_index =
-            static_cast<int>(scene_document.GetActorCount()) - 1;
+            selected_actor_index = static_cast<int>(scene_document.GetActorCount()) - 1;
     }
 }
 
+/*
+Runtime selection can outlive the actor when play-mode mutations destroy it.
+Clamp invalid selections back to "none" before the panel renders.
+*/
 void EnsureValidRuntimeSelection(const Engine &engine,
                                  int &selected_runtime_actor_id) {
     if (selected_runtime_actor_id < 0) return;
@@ -41,7 +46,7 @@ void EnsureValidRuntimeSelection(const Engine &engine,
     selected_runtime_actor_id = -1;
 }
 
-// string utils
+/* Small string helpers used by add-actor filtering and rename popups. */
 std::string ToLowerCopy(const std::string &value) {
     std::string lowered = value;
     std::transform(
@@ -70,6 +75,10 @@ bool InputTextString(const char *label, const std::string &current_value,
     return true;
 }
 
+/*
+Draw the scene/runtime provenance badge directly into the tree node row so the
+Hierarchy can distinguish authored actors from transient play-mode actors.
+*/
 void DrawRuntimeActorSourceBadge(ImDrawList *draw_list, const Actor &runtime_actor,
                                  const ImVec2 &item_min,
                                  const ImVec2 &item_max) {
@@ -99,7 +108,10 @@ void DrawRuntimeActorSourceBadge(ImDrawList *draw_list, const Actor &runtime_act
                        badge_text_color, badge_text);
 }
 
-// collect template names from resources/actor_templates
+/*
+Collect available actor templates for the add-actor popup and template drops.
+Template names are sorted with scene-local folders preferred over global ones.
+*/
 std::vector<std::string> CollectTemplateNames(const std::filesystem::path &scene_subdirectory) {
     const std::filesystem::path template_root("resources/actor_templates");
     std::vector<std::filesystem::path> template_files = ResourcePath::CollectFilesRecursively(template_root, ".template");
@@ -120,6 +132,11 @@ std::vector<std::string> CollectTemplateNames(const std::filesystem::path &scene
     return template_names;
 }
 
+/*
+Render the add-actor popup that can either create an empty actor or instantiate
+one from a template. All structural edits still flow through SceneDocument
+commands so runtime mirroring stays consistent.
+*/
 bool RenderAddActorPopup(
     SceneDocument &scene_document, int &selected_actor_index,
     std::vector<SceneFormat::SceneEditCommand> *out_edit_commands) {
@@ -128,7 +145,6 @@ bool RenderAddActorPopup(
         return false;
     }
 
-    // if user chose to create an empty actor:
     if (ImGui::MenuItem("Empty Actor")) {
         std::size_t new_actor_index = 0;
         SceneFormat::SceneEditCommand command;
@@ -144,7 +160,6 @@ bool RenderAddActorPopup(
 
     ImGui::Separator();
 
-    // if user chose to create from template, show template list
     ImGui::TextUnformatted("From Template");
     static char template_filter[128] = "";
     ImGui::SetNextItemWidth(-1.0f);
@@ -179,13 +194,20 @@ bool RenderAddActorPopup(
     return scene_changed;
 }
 
+/*
+Render the explicit template drop zone kept at the top of Hierarchy. This
+matches the scene-panel template drop feature but stays focused on list-level
+object management.
+*/
 bool RenderHierarchyTemplateDropTarget(
     SceneDocument &scene_document, int &selected_actor_index,
     std::vector<SceneFormat::SceneEditCommand> *out_edit_commands) {
     bool scene_changed = false;
 
-    // Keep the drop zone explicit so template instancing feels predictable even
-    // before we expand drag-and-drop to the full panel surface.
+    /*
+    Keep the drop zone explicit so template instancing feels predictable even
+    before we expand drag-and-drop to the full panel surface.
+    */
     ImGui::Button("Drop Actor Template Here",
                   ImVec2(ImGui::GetContentRegionAvail().x, 0.0f));
     if (ImGui::BeginDragDropTarget()) {
@@ -221,8 +243,7 @@ void SelectRuntimeActor(SceneDocument &scene_document,
 
     const std::optional<std::size_t> actor_index =
         scene_document.FindActorIndexByUID(runtime_actor.editor_actor_uid);
-    selected_actor_index =
-        actor_index.has_value() ? static_cast<int>(*actor_index) : -1;
+        selected_actor_index = actor_index.has_value() ? static_cast<int>(*actor_index) : -1;
 }
 
 bool BeginSceneActorDragSource(SceneDocument::ActorUID actor_uid,
@@ -237,6 +258,11 @@ bool BeginSceneActorDragSource(SceneDocument::ActorUID actor_uid,
     return true;
 }
 
+/*
+Accept one scene-backed actor drag and convert it into a reparent command. The
+Hierarchy only emits scene-document mutations here; runtime-only actors keep
+their own editing path and are not reparented from this panel.
+*/
 bool HandleSceneActorReparentDropTarget(
     SceneDocument &scene_document, std::optional<std::size_t> parent_actor_index,
     int &selected_actor_index,
@@ -250,8 +276,7 @@ bool HandleSceneActorReparentDropTarget(
             payload->Data != nullptr) {
             const SceneDocument::ActorUID actor_uid =
                 *static_cast<const SceneDocument::ActorUID *>(payload->Data);
-            const std::optional<std::size_t> actor_index =
-                scene_document.FindActorIndexByUID(actor_uid);
+                const std::optional<std::size_t> actor_index = scene_document.FindActorIndexByUID(actor_uid);
             if (actor_index.has_value()) {
                 SceneFormat::SceneEditCommand command;
                 if (scene_document.SetActorParent(*actor_index,
@@ -271,6 +296,7 @@ bool HandleSceneActorReparentDropTarget(
     return scene_changed;
 }
 
+/* Recursively mark a collapsed scene subtree as already accounted for. */
 void MarkSceneHierarchySubtreeVisited(
     SceneDocument &scene_document, std::size_t actor_index,
     std::unordered_set<std::size_t> &visited_actor_indices) {
@@ -283,6 +309,11 @@ void MarkSceneHierarchySubtreeVisited(
     }
 }
 
+/*
+Render one scene-backed hierarchy node, including drag source, drop target, and
+recursive child rendering. The tree itself is a derived view over the flat
+SceneDocument actor list.
+*/
 void RenderSceneHierarchyNode(SceneDocument &scene_document,
                               std::size_t actor_index,
                               int &selected_actor_index,
@@ -297,8 +328,7 @@ void RenderSceneHierarchyNode(SceneDocument &scene_document,
     const std::vector<std::size_t> child_actor_indices =
         scene_document.GetChildActorIndices(actor_index);
     const bool has_children = !child_actor_indices.empty();
-    const std::string actor_label =
-        scene_document.GetActorDisplayName(actor_index);
+    const std::string actor_label = scene_document.GetActorDisplayName(actor_index);
 
     ImGui::PushID(static_cast<int>(actor_index));
     ImGuiTreeNodeFlags flags =
@@ -316,8 +346,10 @@ void RenderSceneHierarchyNode(SceneDocument &scene_document,
         selected_actor_index = static_cast<int>(actor_index);
     }
 
-    // Hierarchy drag/drop uses stable scene actor UIDs so reparenting still
-    // works after list reorderings and while the tree is partially collapsed.
+    /*
+    Hierarchy drag/drop uses stable scene actor UIDs so reparenting still
+    works after list reorderings and while the tree is partially collapsed.
+    */
     if (scene_editing_enabled) {
         BeginSceneActorDragSource(scene_document.GetActorUID(actor_index),
                                   actor_label);
@@ -349,6 +381,11 @@ struct RuntimeHierarchyTree {
     std::unordered_map<int, std::vector<const Actor *>> children_by_parent_id;
 };
 
+/*
+Build a temporary runtime tree view from the flat live actor container. Runtime
+does not maintain a permanent children array here; the UI derives it from
+parent_id each frame it needs to draw the hierarchy.
+*/
 RuntimeHierarchyTree BuildRuntimeHierarchyTree(const Engine &engine) {
     RuntimeHierarchyTree tree;
 
@@ -363,8 +400,7 @@ RuntimeHierarchyTree BuildRuntimeHierarchyTree(const Engine &engine) {
 
         const bool has_valid_parent =
             runtime_actor.parent_id >= 0 && runtime_actor.parent_id != runtime_actor.id &&
-            runtime_actor_by_id.find(runtime_actor.parent_id) !=
-                runtime_actor_by_id.end();
+            runtime_actor_by_id.find(runtime_actor.parent_id) != runtime_actor_by_id.end();
         if (!has_valid_parent) {
             tree.root_actors.emplace_back(&runtime_actor);
             continue;
@@ -375,6 +411,7 @@ RuntimeHierarchyTree BuildRuntimeHierarchyTree(const Engine &engine) {
     return tree;
 }
 
+/* Recursively mark a collapsed runtime subtree as already accounted for. */
 void MarkRuntimeHierarchySubtreeVisited(
     const RuntimeHierarchyTree &tree, int actor_id,
     std::unordered_set<int> &visited_actor_ids) {
@@ -389,6 +426,11 @@ void MarkRuntimeHierarchySubtreeVisited(
     }
 }
 
+/*
+Render one live runtime node in play mode. Scene-backed runtime actors can
+still participate in authoring-side reparent commands, while runtime-spawned
+actors are displayed and selectable but remain transient.
+*/
 void RenderRuntimeHierarchyNode(
     SceneDocument &scene_document, const Actor &runtime_actor,
     const RuntimeHierarchyTree &tree, int &selected_actor_index,
@@ -460,8 +502,9 @@ void RenderRuntimeHierarchyNode(
 } // namespace
 
 /*
-Hierarchy owns actor selection plus actor creation entrypoints.
-It mutates only scene-document structure (append actor), never runtime state.
+Hierarchy owns actor selection plus actor creation entrypoints. In edit mode it
+renders the scene-document tree; in play mode it switches to a live runtime
+tree, while still routing scene-backed structural edits through SceneDocument.
 */
 bool RenderHierarchyPanel(Engine &engine, SceneDocument &scene_document,
                           int &selected_actor_index,
@@ -492,8 +535,10 @@ bool RenderHierarchyPanel(Engine &engine, SceneDocument &scene_document,
         ImGui::TextDisabled( "Runtime-spawned actor selected. Duplicate/Delete affect only the live runtime.");
     }
 
-    // Actor creation entrypoint. The popup provides both empty actor and
-    // template-based creation paths.
+    /*
+    Actor creation entrypoint. The popup provides both empty actor and
+    template-based creation paths.
+    */
     ImGui::BeginDisabled(!scene_editing_enabled);
     if (ImGui::Button("+ Add Actor")) {
         ImGui::OpenPopup("add_actor_popup");
@@ -505,8 +550,10 @@ bool RenderHierarchyPanel(Engine &engine, SceneDocument &scene_document,
     ImGui::EndDisabled();
     ImGui::Separator();
 
-    // Actor-level edit operations stay in hierarchy so users can manage object
-    // list shape quickly without switching to inspector first.
+    /*
+    Actor-level edit operations stay in hierarchy so users can manage object
+    list shape quickly without switching to inspector first.
+    */
     ImGui::BeginDisabled(!scene_editing_enabled || !duplicate_delete_available);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f, 3.0f));
     if (ImGui::SmallButton("Duplicate")) {
@@ -553,8 +600,7 @@ bool RenderHierarchyPanel(Engine &engine, SceneDocument &scene_document,
                     selected_actor_index = -1;
                 } else if (selected_actor_index >=
                            static_cast<int>(scene_document.GetActorCount())) {
-                    selected_actor_index =
-                        static_cast<int>(scene_document.GetActorCount()) - 1;
+                               selected_actor_index = static_cast<int>(scene_document.GetActorCount()) - 1;
                 }
                 scene_changed = true;
                 if (out_edit_commands != nullptr) {
@@ -674,8 +720,7 @@ bool RenderHierarchyPanel(Engine &engine, SceneDocument &scene_document,
         }
     } else {
         std::unordered_set<std::size_t> visited_actor_indices;
-        const std::vector<std::size_t> root_actor_indices =
-            scene_document.GetRootActorIndices();
+        const std::vector<std::size_t> root_actor_indices = scene_document.GetRootActorIndices();
         for (std::size_t actor_index : root_actor_indices) {
             RenderSceneHierarchyNode(scene_document, actor_index,
                                      selected_actor_index,

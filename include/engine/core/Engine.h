@@ -53,8 +53,7 @@ private:
     SDL_Texture *scene_preview_render_target_ = nullptr;
     int scene_preview_render_target_width_ = 0;
     int scene_preview_render_target_height_ = 0;
-    std::uint64_t next_runtime_generated_actor_uid_ =
-        Actor::kRuntimeGeneratedEditorActorUIDStart;
+    std::uint64_t next_runtime_generated_actor_uid_ = Actor::kRuntimeGeneratedEditorActorUIDStart;
     std::unordered_map<std::uint64_t, Actor *> runtime_actor_by_editor_uid_;
     mutable bool runtime_physics_hierarchy_cache_dirty_ = true;
     mutable std::unordered_map<std::uint64_t, PhysicsHierarchy::State>

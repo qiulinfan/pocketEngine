@@ -67,8 +67,7 @@ class Renderer {
 public:
     // used when particles do not specify an image
     // 粒子没有指定图片时使用
-    static inline constexpr const char *kDefaultParticleTextureName =
-        "__default_particle__";
+    static inline constexpr const char *kDefaultParticleTextureName = "__default_particle__";
 
     static void Init();
     static void Shutdown();

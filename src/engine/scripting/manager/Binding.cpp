@@ -67,8 +67,7 @@ void SyncTransformAndRigidbodyAfterPropertyEdit(
     }
 
     if (edited_component.type == "Transform") {
-        ComponentRecord *rigidbody_component =
-            FindPrimaryComponentByType(actor_id, "Rigidbody");
+        ComponentRecord *rigidbody_component = FindPrimaryComponentByType(actor_id, "Rigidbody");
         if (rigidbody_component == nullptr) return;
 
         Transform *transform = nullptr;
@@ -188,13 +187,11 @@ void ComponentManager::InstantiateComponentForActor( int actor_id, const Actor::
         if (component_spec.type == "Rigidbody") {
             instance_table = luabridge::LuaRef(g_runtime.lua_state, Rigidbody());
         } else if (component_spec.type == "ParticleSystem") {
-            instance_table =
-                luabridge::LuaRef(g_runtime.lua_state, ParticleSystem());
+            instance_table = luabridge::LuaRef(g_runtime.lua_state, ParticleSystem());
         } else if (component_spec.type == "Transform") {
             instance_table = luabridge::LuaRef(g_runtime.lua_state, Transform());
         } else if (component_spec.type == "SpriteRenderer") {
-            instance_table =
-                luabridge::LuaRef(g_runtime.lua_state, SpriteRenderer());
+            instance_table = luabridge::LuaRef(g_runtime.lua_state, SpriteRenderer());
         }
     } else {
         auto type_it = g_runtime.component_type_tables.find(component_spec.type);
@@ -225,14 +222,10 @@ void ComponentManager::InstantiateComponentForActor( int actor_id, const Actor::
     const bool has_on_destroy = instance_table["OnDestroy"].isFunction();
     const bool has_on_update = instance_table["OnUpdate"].isFunction();
     const bool has_on_late_update = instance_table["OnLateUpdate"].isFunction();
-    const bool has_on_collision_enter =
-        instance_table["OnCollisionEnter"].isFunction();
-    const bool has_on_collision_exit =
-        instance_table["OnCollisionExit"].isFunction();
-    const bool has_on_trigger_enter =
-        instance_table["OnTriggerEnter"].isFunction();
-    const bool has_on_trigger_exit =
-        instance_table["OnTriggerExit"].isFunction();
+    const bool has_on_collision_enter = instance_table["OnCollisionEnter"].isFunction();
+    const bool has_on_collision_exit = instance_table["OnCollisionExit"].isFunction();
+    const bool has_on_trigger_enter = instance_table["OnTriggerEnter"].isFunction();
+    const bool has_on_trigger_exit = instance_table["OnTriggerExit"].isFunction();
 
     auto actor_it = g_runtime.actor_components.try_emplace(actor_id).first;
     actor_it->second.emplace_back(std::make_unique<ComponentRecord>(
@@ -265,8 +258,7 @@ luabridge::LuaRef ComponentManager::AddComponent( int actor_id, const std::strin
     Actor::ComponentSpec component_spec;
     component_spec.type = type_name;
     // 运行时组件 key: r<n>
-    component_spec.key =
-        "r" + std::to_string(g_runtime.runtime_add_component_counter++);
+    component_spec.key = "r" + std::to_string(g_runtime.runtime_add_component_counter++);
     InstantiateComponentForActor(actor_id, component_spec);
     SortComponentsForActor(actor_id);
 
@@ -354,8 +346,7 @@ bool ComponentManager::SetComponentPropertyValue(
         }, value);
 
         if (component->type == "ParticleSystem" && property_name == "enabled") {
-            ParticleSystem *system =
-                component->instance_table.cast<ParticleSystem *>();
+            ParticleSystem *system = component->instance_table.cast<ParticleSystem *>();
             if (system != nullptr) {
                 system->SyncRuntimeState();
             }

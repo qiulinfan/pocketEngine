@@ -17,8 +17,7 @@ void EditorSceneSession::LoadInitialScene(const Engine &engine) {
         return;
     }
 
-    authoring_scene_document_loaded_ =
-        authoring_scene_document_.LoadFromSceneName(initial_scene_name);
+    authoring_scene_document_loaded_ = authoring_scene_document_.LoadFromSceneName(initial_scene_name);
     runtime_scene_dirty_ = authoring_scene_document_loaded_;
 }
 

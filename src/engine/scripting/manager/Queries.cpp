@@ -24,15 +24,13 @@ bool TryReadScalarValueFromLuaRef(const luabridge::LuaRef &value_ref,
         break;
     case LUA_TNUMBER:
         if (lua_isinteger(g_runtime.lua_state, -1)) {
-            out_value =
-                static_cast<int>(lua_tointeger(g_runtime.lua_state, -1));
+            out_value = static_cast<int>(lua_tointeger(g_runtime.lua_state, -1));
         } else {
             out_value = lua_tonumber(g_runtime.lua_state, -1);
         }
         break;
     case LUA_TSTRING:
-        out_value =
-            std::string(lua_tostring(g_runtime.lua_state, -1));
+    out_value = std::string(lua_tostring(g_runtime.lua_state, -1));
         break;
     default:
         converted = false;
@@ -205,13 +203,11 @@ void MergeDynamicLuaTableProperties(
         if (value_type == LUA_TBOOLEAN) {
             property.value = lua_toboolean(g_runtime.lua_state, -1) != 0;
         } else if (lua_isinteger(g_runtime.lua_state, -1)) {
-            property.value =
-                static_cast<int>(lua_tointeger(g_runtime.lua_state, -1));
+            property.value = static_cast<int>(lua_tointeger(g_runtime.lua_state, -1));
         } else if (lua_isnumber(g_runtime.lua_state, -1)) {
             property.value = lua_tonumber(g_runtime.lua_state, -1);
         } else if (value_type == LUA_TSTRING) {
-            property.value =
-                std::string(lua_tostring(g_runtime.lua_state, -1));
+            property.value = std::string(lua_tostring(g_runtime.lua_state, -1));
         } else {
             lua_pop(g_runtime.lua_state, 1);
             continue;
@@ -292,8 +288,7 @@ luabridge::LuaRef ComponentManager::FindAllActorsByName( const std::string &name
 
     const std::vector<Actor *> &matched_actors = it->second;
     for (size_t i = 0; i < matched_actors.size(); i++) {
-        result_table[static_cast<int>(i + 1)] =
-            luabridge::LuaRef(g_runtime.lua_state, matched_actors[i]);
+        result_table[static_cast<int>(i + 1)] = luabridge::LuaRef(g_runtime.lua_state, matched_actors[i]);
     }
     return result_table;
 }
@@ -349,8 +344,7 @@ ComponentManager::GetComponentTypeDefaultProperties( const std::string &type_nam
         } else if (lua_isnumber(g_runtime.lua_state, -1)) {
             property.value = lua_tonumber(g_runtime.lua_state, -1);
         } else if (lua_type(g_runtime.lua_state, -1) == LUA_TSTRING) {
-            property.value =
-                std::string(lua_tostring(g_runtime.lua_state, -1));
+            property.value = std::string(lua_tostring(g_runtime.lua_state, -1));
         } else {
             lua_pop(g_runtime.lua_state, 1);
             continue;

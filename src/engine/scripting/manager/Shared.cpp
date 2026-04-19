@@ -38,8 +38,7 @@ ComponentRecord *FindComponentRecord(int actor_id,
     }
 
     // Fallback:: 索引缺失或过期时线性扫描并自愈索引
-    std::vector<std::unique_ptr<ComponentRecord>> &components =
-        actor_it->second;
+    std::vector<std::unique_ptr<ComponentRecord>> &components = actor_it->second;
     for (size_t i = 0; i < components.size(); i++) {
         ComponentRecord &component = *components[i];
         if (component.removed) continue;
@@ -57,8 +56,7 @@ void RebuildComponentIndexForActor(int actor_id) {
         return;
     }
 
-    std::unordered_map<std::string, size_t> &key_index =
-        g_runtime.component_index_by_key[actor_id];
+    std::unordered_map<std::string, size_t> &key_index = g_runtime.component_index_by_key[actor_id];
     key_index.clear();
     key_index.reserve(actor_it->second.size());
     for (size_t i = 0; i < actor_it->second.size(); i++) {
@@ -84,8 +82,7 @@ void RebuildTypeIndexForActor(int actor_id) {
     keys_by_type.clear();
 
     // 组件容器按 key 有序, 因此这里构建出来的 type 列表也天然按 key 有序
-    const std::vector<std::unique_ptr<ComponentRecord>> &components =
-        actor_it->second;
+    const std::vector<std::unique_ptr<ComponentRecord>> &components = actor_it->second;
     for (const std::unique_ptr<ComponentRecord> &component_ptr : components) {
         const ComponentRecord &component = *component_ptr;
         if (component.removed) continue;
@@ -111,10 +108,8 @@ bool CompareLifecycleComponentRef(const LifecycleComponentRef &a,
             : b_order_it->second;
     if (a_order != b_order) return a_order < b_order;
     if (a.actor_id != b.actor_id) return a.actor_id < b.actor_id;
-    const std::string a_key =
-        (a.component == nullptr) ? std::string() : a.component->key;
-    const std::string b_key =
-        (b.component == nullptr) ? std::string() : b.component->key;
+    const std::string a_key = (a.component == nullptr) ? std::string() : a.component->key;
+    const std::string b_key = (b.component == nullptr) ? std::string() : b.component->key;
     return a_key < b_key;
 }
 
@@ -198,8 +193,7 @@ ComponentRecord *FindPrimaryComponentByType(int actor_id,
 
 void RotateClockwise(float x, float y, float rotation_degrees, float &out_x,
                      float &out_y) {
-    const float radians =
-        rotation_degrees * (3.14159265358979323846f / 180.0f);
+                         const float radians = rotation_degrees * (3.14159265358979323846f / 180.0f);
     const float cos_theta = std::cos(radians);
     const float sin_theta = std::sin(radians);
     out_x = cos_theta * x + sin_theta * y;
@@ -226,8 +220,7 @@ void QueueBuiltinSpriteRendererDraws(bool scene_backed_only) {
             if (!IsComponentEnabled(component)) continue;
             if (component.type != "SpriteRenderer") continue;
 
-            SpriteRenderer *sprite_renderer =
-                component.instance_table.cast<SpriteRenderer *>();
+            SpriteRenderer *sprite_renderer = component.instance_table.cast<SpriteRenderer *>();
             if (sprite_renderer == nullptr) continue;
             sprite_renderer->QueueDraw();
         }
@@ -375,8 +368,7 @@ void ComponentManager::ResolveTransformHierarchy() {
                 ManagerDetail::FindPrimaryComponentByType(actor_id,
                                                           "Transform");
             if (transform_component != nullptr) {
-                Transform *transform =
-                    transform_component->instance_table.cast<Transform *>();
+                Transform *transform = transform_component->instance_table.cast<Transform *>();
                 if (transform != nullptr) {
                     if (actor == nullptr || actor->parent_id < 0 ||
                         actor->parent_id == actor_id) {
@@ -403,10 +395,8 @@ void ComponentManager::ResolveTransformHierarchy() {
                                 transform->x, transform->y,
                                 parent_transform->world_rotation,
                                 rotated_local_x, rotated_local_y);
-                            transform->world_x =
-                                parent_transform->world_x + rotated_local_x;
-                            transform->world_y =
-                                parent_transform->world_y + rotated_local_y;
+                                transform->world_x = parent_transform->world_x + rotated_local_x;
+                                transform->world_y = parent_transform->world_y + rotated_local_y;
                             transform->world_rotation =
                                 parent_transform->world_rotation +
                                 transform->rotation;

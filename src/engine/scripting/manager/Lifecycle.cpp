@@ -36,8 +36,7 @@ struct PendingTriggerEvent {
 };
 
 ComponentRecord *FindRuntimeRigidbodyComponent(int actor_id) {
-    ComponentRecord *rigidbody_component =
-        FindComponentRecord(actor_id, "Rigidbody");
+    ComponentRecord *rigidbody_component = FindComponentRecord(actor_id, "Rigidbody");
     if (rigidbody_component != nullptr) return rigidbody_component;
 
     auto type_it = g_runtime.component_first_key_by_type.find(actor_id);
@@ -87,8 +86,7 @@ bool TryCastRuntimeTransform(ComponentRecord *component, Transform *&out_transfo
 
 void RotateClockwiseLocal(float x, float y, float rotation_degrees,
                           float &out_x, float &out_y) {
-    const float radians =
-        rotation_degrees * (3.14159265358979323846f / 180.0f);
+                              const float radians = rotation_degrees * (3.14159265358979323846f / 180.0f);
     const float cos_theta = std::cos(radians);
     const float sin_theta = std::sin(radians);
     out_x = cos_theta * x + sin_theta * y;
@@ -106,8 +104,7 @@ void ResolveLocalTransformFromWorld(Actor *actor, float world_x, float world_y,
         return;
     }
 
-    ComponentRecord *parent_transform_component =
-        FindRuntimeTransformComponent(actor->parent_id);
+    ComponentRecord *parent_transform_component = FindRuntimeTransformComponent(actor->parent_id);
     Transform *parent_transform = nullptr;
     if (!TryCastRuntimeTransform(parent_transform_component, parent_transform) ||
         parent_transform == nullptr) {
@@ -194,8 +191,7 @@ void ComponentManager::ApplyEffectiveRigidbodyBodyTypes() {
 
     for (const auto &actor_components_entry : g_runtime.actor_components) {
         const int actor_id = actor_components_entry.first;
-        ComponentRecord *rigidbody_component =
-            FindRuntimeRigidbodyComponent(actor_id);
+        ComponentRecord *rigidbody_component = FindRuntimeRigidbodyComponent(actor_id);
         Rigidbody *rigidbody = nullptr;
         if (!TryCastRuntimeRigidbody(rigidbody_component, rigidbody) ||
             rigidbody == nullptr) {
@@ -219,13 +215,11 @@ void ComponentManager::ProcessPendingOnStart() {
     // 关键点：先把队列 move 到局部变量
     // 这样 OnStart 里新增的组件会留在 g_runtime.pending_on_start
     // 自动延后到下一帧处理
-    std::vector<PendingOnStartRecord> pending_records =
-        std::move(g_runtime.pending_on_start);
+    std::vector<PendingOnStartRecord> pending_records = std::move(g_runtime.pending_on_start);
     g_runtime.pending_on_start.clear();
 
     for (const PendingOnStartRecord &pending : pending_records) {
-        ComponentRecord *component =
-            FindComponentRecord(pending.actor_id, pending.component_key);
+        ComponentRecord *component = FindComponentRecord(pending.actor_id, pending.component_key);
         if (component == nullptr) continue;
         if (component->on_start_called) continue;
 
@@ -270,8 +264,7 @@ void ComponentManager::ProcessOnUpdate() {
 // per-frame lifecycle entry points
 void ComponentManager::ProcessOnLateUpdate() {
     // 只遍历“声明了 OnLateUpdate 的组件”，不再全量扫 + isFunction()
-    const size_t late_update_component_count =
-        g_runtime.on_late_update_components.size();
+    const size_t late_update_component_count = g_runtime.on_late_update_components.size();
     for (size_t i = 0; i < late_update_component_count; i++) {
         const LifecycleComponentRef &entry = g_runtime.on_late_update_components[i];
         ComponentRecord *component = entry.component;
@@ -301,8 +294,7 @@ void ComponentManager::StepPhysics() {
         ComponentManager::ResolveTransformHierarchy();
         for (const auto &actor_components_entry : g_runtime.actor_components) {
             const int actor_id = actor_components_entry.first;
-            ComponentRecord *rigidbody_component =
-                FindRuntimeRigidbodyComponent(actor_id);
+            ComponentRecord *rigidbody_component = FindRuntimeRigidbodyComponent(actor_id);
             Rigidbody *rigidbody = nullptr;
             if (!TryCastRuntimeRigidbody(rigidbody_component, rigidbody) ||
                 rigidbody == nullptr) {
@@ -316,8 +308,7 @@ void ComponentManager::StepPhysics() {
                 continue;
             }
 
-            ComponentRecord *transform_component =
-                FindRuntimeTransformComponent(actor_id);
+            ComponentRecord *transform_component = FindRuntimeTransformComponent(actor_id);
             Transform *transform = nullptr;
             if (!TryCastRuntimeTransform(transform_component, transform) ||
                 transform == nullptr) {
@@ -334,16 +325,14 @@ void ComponentManager::StepPhysics() {
 
     for (const auto &actor_components_entry : g_runtime.actor_components) {
         const int actor_id = actor_components_entry.first;
-        ComponentRecord *rigidbody_component =
-            FindRuntimeRigidbodyComponent(actor_id);
+        ComponentRecord *rigidbody_component = FindRuntimeRigidbodyComponent(actor_id);
         Rigidbody *rigidbody = nullptr;
         if (!TryCastRuntimeRigidbody(rigidbody_component, rigidbody) ||
             rigidbody == nullptr) {
             continue;
         }
 
-        ComponentRecord *transform_component =
-            FindRuntimeTransformComponent(actor_id);
+        ComponentRecord *transform_component = FindRuntimeTransformComponent(actor_id);
         Transform *transform = nullptr;
         if (!TryCastRuntimeTransform(transform_component, transform) ||
             transform == nullptr) {
@@ -381,8 +370,7 @@ void ComponentManager::StepPhysics() {
 // per-frame lifecycle entry points
 void ComponentManager::FinalizePrePhysicsDestructions() {
     while (true) {
-        std::unordered_set<int> dirty_actor_ids =
-            g_runtime.pending_destroy_actor_ids;
+        std::unordered_set<int> dirty_actor_ids = g_runtime.pending_destroy_actor_ids;
         for (int actor_id : g_runtime.dirty_component_actor_ids) {
             if (dirty_actor_ids.find(actor_id) != dirty_actor_ids.end()) continue;
 
@@ -400,8 +388,7 @@ void ComponentManager::FinalizePrePhysicsDestructions() {
                 dirty_actor_ids.insert(actor_id);
             }
         }
-        const std::unordered_set<int> destroyed_actor_ids =
-            g_runtime.pending_destroy_actor_ids;
+        const std::unordered_set<int> destroyed_actor_ids = g_runtime.pending_destroy_actor_ids;
 
         if (dirty_actor_ids.empty() && destroyed_actor_ids.empty()) {
             return;
@@ -411,8 +398,7 @@ void ComponentManager::FinalizePrePhysicsDestructions() {
             auto actor_it = g_runtime.actor_components.find(actor_id);
             if (actor_it == g_runtime.actor_components.end()) continue;
 
-            std::vector<std::unique_ptr<ComponentRecord>> &components =
-                actor_it->second;
+            std::vector<std::unique_ptr<ComponentRecord>> &components = actor_it->second;
             for (std::unique_ptr<ComponentRecord> &component_ptr : components) {
                 if (!component_ptr->removed) continue;
                 RunComponentOnDestroyIfNeeded(*component_ptr, actor_id);
@@ -437,8 +423,7 @@ void ComponentManager::FinalizePrePhysicsDestructions() {
                     g_runtime.pending_on_start.begin(),
                     g_runtime.pending_on_start.end(),
                     [&](const PendingOnStartRecord &pending) {
-                        return destroyed_actor_ids.find(pending.actor_id) !=
-                               destroyed_actor_ids.end();
+                        return destroyed_actor_ids.find(pending.actor_id) != destroyed_actor_ids.end();
                     }),
                 g_runtime.pending_on_start.end());
 
@@ -447,8 +432,7 @@ void ComponentManager::FinalizePrePhysicsDestructions() {
                     g_runtime.pending_actor_ids_to_activate.begin(),
                     g_runtime.pending_actor_ids_to_activate.end(),
                     [&](int actor_id) {
-                        return destroyed_actor_ids.find(actor_id) !=
-                               destroyed_actor_ids.end();
+                        return destroyed_actor_ids.find(actor_id) != destroyed_actor_ids.end();
                     }),
                 g_runtime.pending_actor_ids_to_activate.end());
         }
@@ -534,8 +518,7 @@ void ComponentManager::FinalizeFrameMutations() {
         return;
     }
 
-    std::unordered_set<int> dirty_actor_ids =
-        g_runtime.dirty_component_actor_ids;
+    std::unordered_set<int> dirty_actor_ids = g_runtime.dirty_component_actor_ids;
 
     for (int actor_id : g_runtime.pending_actor_ids_to_activate) {
         if (g_runtime.pending_destroy_actor_ids.find(actor_id) !=

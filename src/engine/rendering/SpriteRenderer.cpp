@@ -81,7 +81,6 @@ void SpriteRenderer::QueueDraw() const {
     request.g = g;
     request.b = b;
     request.a = a;
-    request.sorting_order =
-        auto_sorting_order ? static_cast<int>(world_y) : sorting_order;
+    request.sorting_order = auto_sorting_order ? static_cast<int>(world_y) : sorting_order;
     Renderer::QueueSceneImageDraw(request);
 }

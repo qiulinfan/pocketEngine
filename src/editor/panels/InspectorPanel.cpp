@@ -14,6 +14,10 @@
 namespace EditorPanels {
 namespace {
 
+/*
+Inspector keeps a scene-backed selection valid while still allowing the empty
+selection state used by runtime-only actor inspection and blank clicks.
+*/
 void EnsureValidSelection(SceneDocument &scene_document,  int &selected_actor_index) {
     if (scene_document.GetActorCount() == 0) {
         selected_actor_index = -1;
@@ -24,9 +28,7 @@ void EnsureValidSelection(SceneDocument &scene_document,  int &selected_actor_in
     }
 }
 
-/*
-Check whether the user edited a property value
-*/
+/* Edit one string input buffer and report whether the value changed. */
 bool InputTextString(const char *label, const std::string &current_value, std::string &updated_value) {
     std::vector<char> buffer(std::max<std::size_t>(256, current_value.size() + 64), '\0');
     std::memcpy(buffer.data(), current_value.c_str(), current_value.size());
@@ -38,8 +40,9 @@ bool InputTextString(const char *label, const std::string &current_value, std::s
 }
 
 /*
-If user ever edited the property value, update the value and return true.
-Otherwise return false.
+Render one scalar property editor and return true only when the user committed
+an actual value change. Inspector uses this helper for both scene-backed and
+runtime-only property editing paths.
 */
 bool EditPropertyValue(const char *label,
                        const Actor::ComponentPropertyValue &current_value,
@@ -75,7 +78,7 @@ bool EditPropertyValue(const char *label,
     return false;
 }
 
-// string utils
+/* Small string helpers shared by the inspector's filtering UI. */
 std::string ToLowerCopy(const std::string &value) {
     std::string lowered = value;
     std::transform(
@@ -93,13 +96,19 @@ bool MatchesFilter(const std::string &value, const std::string &filter) {
     return ToLowerCopy(value).find(ToLowerCopy(filter)) != std::string::npos;
 }
 
+/*
+Inspector accepts dragged Lua component types so authors can add components
+directly from the Project panel without opening a separate add dialog first.
+*/
 bool RenderLuaComponentDropTarget(
     SceneDocument &scene_document, std::size_t actor_index,
     std::vector<SceneFormat::SceneEditCommand> *out_edit_commands) {
     bool scene_changed = false;
 
-    // Inspector accepts project-side Lua component types as an alternative to
-    // the add-component popup so authors can work more directly from Project.
+    /*
+    Inspector accepts project-side Lua component types as an alternative to
+    the add-component popup so authors can work more directly from Project.
+    */
     ImGui::Button("Drop Lua Component Here",
                   ImVec2(ImGui::GetContentRegionAvail().x, 0.0f));
     if (ImGui::BeginDragDropTarget()) {
@@ -120,6 +129,10 @@ bool RenderLuaComponentDropTarget(
     return scene_changed;
 }
 
+/*
+Show the derived Rigidbody hierarchy state that explains whether a dynamic body
+is active, overridden, or attached under another dynamic physics root.
+*/
 void RenderPhysicsHierarchyInfo(const PhysicsHierarchy::State &physics_state) {
     if (!physics_state.has_rigidbody_self) return;
 
@@ -150,6 +163,11 @@ void RenderPhysicsHierarchyInfo(const PhysicsHierarchy::State &physics_state) {
     }
 }
 
+/*
+Render the runtime-only inspector path. This is used for transient actors that
+exist only during play mode and therefore cannot write changes back to the
+authoring SceneDocument.
+*/
 void RenderRuntimeOnlyActorInspector(const Engine &engine,
                                      const Actor &runtime_actor) {
     ImGui::Text("Runtime ID: %d", runtime_actor.id);
@@ -212,8 +230,11 @@ bool RenderInspectorPanel(const Engine &engine, SceneDocument &scene_document,
                           bool play_mode_active,
                           bool scene_editing_enabled,
                           std::vector<SceneFormat::SceneEditCommand> *out_edit_commands) {
-    // Inspector edits the editor-owned SceneDocument cache. Runtime will decide
-    // later when to mirror those document changes into its live copy.
+    /*
+    Inspector edits the editor-owned SceneDocument cache. Runtime decides later
+    when to mirror those document changes into its live copy, except for the
+    dedicated runtime-only branch used for transient play-mode actors.
+    */
     bool scene_changed = false;
 
     ImGui::Begin("Inspector");
@@ -221,8 +242,7 @@ bool RenderInspectorPanel(const Engine &engine, SceneDocument &scene_document,
 
     if (selected_actor_index < 0) {
         if (play_mode_active && selected_runtime_actor_id >= 0) {
-            const Actor *runtime_actor =
-                engine.GetRuntimeActorByID(selected_runtime_actor_id);
+            const Actor *runtime_actor = engine.GetRuntimeActorByID(selected_runtime_actor_id);
             if (runtime_actor != nullptr) {
                 RenderRuntimeOnlyActorInspector(engine, *runtime_actor);
                 ImGui::End();
@@ -234,7 +254,7 @@ bool RenderInspectorPanel(const Engine &engine, SceneDocument &scene_document,
         ImGui::End();
         return false;
     }
-    // get the effective actor data
+    /* Build the effective actor view shown by inspector controls. */
     const std::size_t actor_index = static_cast<std::size_t>(selected_actor_index);
     const Actor effective_actor = scene_document.BuildEffectiveActor(actor_index);
 
@@ -265,8 +285,7 @@ bool RenderInspectorPanel(const Engine &engine, SceneDocument &scene_document,
     for (std::size_t component_index = 0;
          component_index < effective_actor.component_specs.size();
          ++component_index) {
-        const Actor::ComponentSpec &component_spec =
-            effective_actor.component_specs[component_index];
+             const Actor::ComponentSpec &component_spec = effective_actor.component_specs[component_index];
         ImGui::PushID(component_spec.key.c_str());
 
         std::ostringstream header_label;
@@ -282,8 +301,10 @@ bool RenderInspectorPanel(const Engine &engine, SceneDocument &scene_document,
             rename_button_width + style.ItemSpacing.x + delete_button_width +
             10.0f;
 
-        // Split header row into dedicated columns so action buttons do not share
-        // hitbox space with the collapsing header widget.
+        /*
+        Split the header row into dedicated columns so action buttons do not
+        share hitbox space with the collapsing header widget.
+        */
         const ImGuiTableFlags header_table_flags = ImGuiTableFlags_SizingStretchProp;
         if (ImGui::BeginTable("component_header_row", 2, header_table_flags)) {
             ImGui::TableSetupColumn("Header", ImGuiTableColumnFlags_WidthStretch, 1.0f);
@@ -296,8 +317,10 @@ bool RenderInspectorPanel(const Engine &engine, SceneDocument &scene_document,
 
             ImGui::TableSetColumnIndex(1);
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, action_button_padding);
-            // Right-align the compact action row so scaling changes do not
-            // squeeze the trailing Delete button.
+            /*
+            Right-align the compact action row so scaling changes do not
+            squeeze the trailing Delete button.
+            */
             const float remaining_width = ImGui::GetContentRegionAvail().x;
             if (remaining_width > actions_column_width) {
                 ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (remaining_width - actions_column_width));
@@ -326,8 +349,10 @@ bool RenderInspectorPanel(const Engine &engine, SceneDocument &scene_document,
             ImGui::EndTable();
         }
 
-        // Component add/remove/rename changes the key list. Stop processing this
-        // stale snapshot entry and let the next frame redraw from fresh state.
+        /*
+        Component add/remove/rename changes the key list. Stop processing this
+        stale snapshot entry and let the next frame redraw from fresh state.
+        */
         if (component_structure_changed) {
             ImGui::PopID();
             continue;
@@ -365,8 +390,10 @@ bool RenderInspectorPanel(const Engine &engine, SceneDocument &scene_document,
 
         ImGui::PopID();
 
-        // Give each component block a subtle visual boundary so long
-        // inspectors stay readable as component counts grow.
+        /*
+        Give each component block a subtle visual boundary so long inspectors
+        stay readable as component counts grow.
+        */
         if (component_index + 1 < effective_actor.component_specs.size()) {
             ImGui::Spacing();
             ImGui::Separator();
@@ -374,14 +401,14 @@ bool RenderInspectorPanel(const Engine &engine, SceneDocument &scene_document,
         }
     }
 
-    // handle the rename component popup if rename was requested.
+    /* Handle the rename-component popup if rename was requested. */
     if (component_rename_open_requested) {
-        // Open popup from stable ID scope (outside component PushID) so it appears.
+        /* Open popup from stable ID scope (outside component PushID) so it appears. */
         ImGui::OpenPopup("rename_component_popup_global");
         component_rename_open_requested = false;
     }
     if (component_rename_anchor_valid) {
-        // Place popup slightly above the selected component header row.
+        /* Place popup slightly above the selected component header row. */
         ImGui::SetNextWindowPos(
             ImVec2(component_rename_anchor.x, component_rename_anchor.y - 6.0f),
             ImGuiCond_Appearing, ImVec2(0.0f, 1.0f));
@@ -420,7 +447,7 @@ bool RenderInspectorPanel(const Engine &engine, SceneDocument &scene_document,
         ImGui::EndPopup();
     }
 
-    // final: handle add component button and popup
+    /* Final section: add-component button and popup. */
     ImGui::Separator();
     ImGui::TextUnformatted("Components");
     scene_changed |= RenderLuaComponentDropTarget(scene_document, actor_index, out_edit_commands);

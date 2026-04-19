@@ -308,10 +308,8 @@ void Renderer::RenderAndClearAllImages(SDL_Renderer *renderer, float camera_x,
     }
 
     const float safe_zoom = (zoom_factor > 0.0f) ? zoom_factor : 1.0f;
-    const float viewport_width =
-        static_cast<float>(camera_width) * (1.0f / safe_zoom);
-    const float viewport_height =
-        static_cast<float>(camera_height) * (1.0f / safe_zoom);
+    const float viewport_width = static_cast<float>(camera_width) * (1.0f / safe_zoom);
+    const float viewport_height = static_cast<float>(camera_height) * (1.0f / safe_zoom);
 
     const auto render_scene_request = [&](const ImageDrawRequest &request) {
         SDL_Texture *texture = LoadTexture(request.image_name, renderer);
@@ -433,8 +431,7 @@ void Renderer::RenderAndClearAllText(SDL_Renderer *renderer) {
             TTF_Font *font = GetFont(req.font_name, req.font_size);
             if (font == nullptr) continue;
 
-            SDL_Surface *surface =
-                TTF_RenderText_Solid(font, req.text.c_str(), req.color);
+            SDL_Surface *surface = TTF_RenderText_Solid(font, req.text.c_str(), req.color);
             if (surface == nullptr) continue;
 
             SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
@@ -514,8 +511,7 @@ void Engine::render() {
     ComponentManager::QueueBuiltinRenderers();
     ParticleManager::QueueRenderBatches();
 
-    const float zoom_factor =
-        std::clamp(runtime_zoom_factor, kMinZoomFactor, kMaxZoomFactor);
+    const float zoom_factor = std::clamp(runtime_zoom_factor, kMinZoomFactor, kMaxZoomFactor);
     Renderer::RenderFrame(renderer, camera_position.x, camera_position.y,
                           zoom_factor, config_.window_width,
                           config_.window_height);

@@ -168,8 +168,7 @@ public:
     }
 
 private:
-    inline static RenderLoggerStatus render_logger_mode_ =
-        RenderLoggerStatus::NotInitialized;
+inline static RenderLoggerStatus render_logger_mode_ = RenderLoggerStatus::NotInitialized;
     inline static std::ofstream render_logging_file_;
     inline static bool frame_capture_initialized_ = false;
     inline static SDL_Surface *frame_capture_surface_ = nullptr;
@@ -242,8 +241,7 @@ private:
         std::stringstream filename_stream;
         filename_stream << "frame_" << std::setw(5) << std::setfill('0')
                         << FrameClock::GetFrameNumber() << ".bmp";
-        const std::string output_file_path =
-            frame_directory_relative_path + "/" + filename_stream.str();
+                        const std::string output_file_path = frame_directory_relative_path + "/" + filename_stream.str();
         if (SDL_SaveBMP(frame_capture_surface_, output_file_path.c_str()) != 0) {
             SDL_Log("SDL_SaveBMP() failed: %s", SDL_GetError());
         }

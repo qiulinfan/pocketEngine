@@ -67,14 +67,11 @@ SceneViewCameraState g_scene_camera_state;
 
 ImVec2 FitPreviewImage(const ImVec2 &available_size, int texture_width,
                        int texture_height) {
-    const float safe_texture_width =
-        static_cast<float>(std::max(1, texture_width));
-    const float safe_texture_height =
-        static_cast<float>(std::max(1, texture_height));
+                           const float safe_texture_width = static_cast<float>(std::max(1, texture_width));
+                           const float safe_texture_height = static_cast<float>(std::max(1, texture_height));
     const float width_scale = available_size.x / safe_texture_width;
     const float height_scale = available_size.y / safe_texture_height;
-    const float image_scale =
-        std::max(0.0f, std::min(width_scale, height_scale));
+    const float image_scale = std::max(0.0f, std::min(width_scale, height_scale));
     return ImVec2(safe_texture_width * image_scale,
                   safe_texture_height * image_scale);
 }
@@ -181,8 +178,7 @@ bool ReadPropertyAsString(
 
 void RotateClockwise(float x, float y, float rotation_degrees, float &out_x,
                      float &out_y) {
-    const float radians =
-        rotation_degrees * (3.14159265358979323846f / 180.0f);
+                         const float radians = rotation_degrees * (3.14159265358979323846f / 180.0f);
     const float cos_theta = std::cos(radians);
     const float sin_theta = std::sin(radians);
     out_x = cos_theta * x + sin_theta * y;
@@ -232,10 +228,8 @@ ImVec2 ScenePanelPixelsToWorldPosition(const Engine &engine,
         static_cast<float>(std::max(1, engine.GetScenePreviewRenderTargetWidth()));
     const float runtime_height =
         static_cast<float>(std::max(1, engine.GetScenePreviewRenderTargetHeight()));
-    const float normalized_x =
-        (panel_position.x - image_min.x) / std::max(1.0f, image_size.x);
-    const float normalized_y =
-        (panel_position.y - image_min.y) / std::max(1.0f, image_size.y);
+        const float normalized_x = (panel_position.x - image_min.x) / std::max(1.0f, image_size.x);
+        const float normalized_y = (panel_position.y - image_min.y) / std::max(1.0f, image_size.y);
     const float runtime_pixel_x = normalized_x * runtime_width;
     const float runtime_pixel_y = normalized_y * runtime_height;
 
@@ -252,6 +246,11 @@ void ResetSceneDragState() {
     g_scene_drag_state = SceneDragState{};
 }
 
+/*
+Choose which component a scene drag should actually manipulate. We prefer the
+authored Transform when available, then fall back to Rigidbody or any generic
+x/y-bearing component so older content can still be picked and moved.
+*/
 std::optional<ActorDragTarget> BuildActorDragTarget(
     const std::vector<Actor::ComponentSpec> &component_specs,
     const std::function<std::vector<Actor::ComponentProperty>( const std::string &component_key)> &property_lookup,
@@ -262,13 +261,9 @@ std::optional<ActorDragTarget> BuildActorDragTarget(
     target.runtime_actor_id = runtime_actor_id;
     target.editor_actor_uid = editor_actor_uid;
 
-    // Scene editing should prefer the authored Transform component when one is
-    // present, instead of whichever arbitrary x/y-bearing component happens to
-    // appear first in key order.
     for (const Actor::ComponentSpec &component_spec : component_specs) {
         if (component_spec.type != "Transform") continue;
-        const std::vector<Actor::ComponentProperty> properties =
-            property_lookup(component_spec.key);
+        const std::vector<Actor::ComponentProperty> properties = property_lookup(component_spec.key);
         if (!ReadPropertyAsFloat(properties, "x", 0.0f, target.world_x) ||
             !ReadPropertyAsFloat(properties, "y", 0.0f, target.world_y)) {
             continue;
@@ -279,8 +274,7 @@ std::optional<ActorDragTarget> BuildActorDragTarget(
 
     for (const Actor::ComponentSpec &component_spec : component_specs) {
         if (component_spec.type != "Rigidbody") continue;
-        const std::vector<Actor::ComponentProperty> properties =
-            property_lookup(component_spec.key);
+        const std::vector<Actor::ComponentProperty> properties = property_lookup(component_spec.key);
         if (!ReadPropertyAsFloat(properties, "x", 0.0f, target.world_x) ||
             !ReadPropertyAsFloat(properties, "y", 0.0f, target.world_y)) {
             continue;
@@ -291,8 +285,7 @@ std::optional<ActorDragTarget> BuildActorDragTarget(
     }
 
     for (const Actor::ComponentSpec &component_spec : component_specs) {
-        const std::vector<Actor::ComponentProperty> properties =
-            property_lookup(component_spec.key);
+        const std::vector<Actor::ComponentProperty> properties = property_lookup(component_spec.key);
         if (!ReadPropertyAsFloat(properties, "x", 0.0f, target.world_x) ||
             !ReadPropertyAsFloat(properties, "y", 0.0f, target.world_y)) {
             continue;
@@ -336,6 +329,11 @@ ActorScreenBounds BuildTransformAnchorBounds(
     return bounds;
 }
 
+/*
+Build one pickable screen-space bounding shape for an actor. Scene picking uses
+Rigidbody extents first, then Transform anchors, then a generic x/y fallback so
+both gameplay actors and non-physics editor anchors remain selectable.
+*/
 std::optional<ActorScreenBounds> BuildActorScreenBounds(
     const Engine &engine, const SceneViewCameraState &scene_camera,
     const std::vector<Actor::ComponentSpec> &component_specs,
@@ -348,13 +346,10 @@ std::optional<ActorScreenBounds> BuildActorScreenBounds(
     bounds.runtime_actor_id = runtime_actor_id;
     bounds.editor_actor_uid = editor_actor_uid;
 
-    // v1 picking uses Rigidbody-derived bounds because they already carry a
-    // stable position and shape in engine world units.
     for (const Actor::ComponentSpec &component_spec : component_specs) {
         if (component_spec.type != "Rigidbody") continue;
 
-        const std::vector<Actor::ComponentProperty> properties =
-            property_lookup(component_spec.key);
+        const std::vector<Actor::ComponentProperty> properties = property_lookup(component_spec.key);
 
         float x = 0.0f;
         float y = 0.0f;
@@ -407,8 +402,7 @@ std::optional<ActorScreenBounds> BuildActorScreenBounds(
     for (const Actor::ComponentSpec &component_spec : component_specs) {
         if (component_spec.type != "Transform") continue;
 
-        const std::vector<Actor::ComponentProperty> properties =
-            property_lookup(component_spec.key);
+        const std::vector<Actor::ComponentProperty> properties = property_lookup(component_spec.key);
         float x = 0.0f;
         float y = 0.0f;
         const bool has_x = ReadPropertyAsFloat(properties, "x", 0.0f, x);
@@ -425,11 +419,8 @@ std::optional<ActorScreenBounds> BuildActorScreenBounds(
         return bounds;
     }
 
-    // Fallback for non-physics actors: if any component exposes scalar x/y
-    // properties, offer a small clickable handle around that anchor point.
     for (const Actor::ComponentSpec &component_spec : component_specs) {
-        const std::vector<Actor::ComponentProperty> properties =
-            property_lookup(component_spec.key);
+        const std::vector<Actor::ComponentProperty> properties = property_lookup(component_spec.key);
         float x = 0.0f;
         float y = 0.0f;
         const bool has_x = ReadPropertyAsFloat(properties, "x", 0.0f, x);
@@ -574,15 +565,17 @@ std::optional<ActorDragTarget> BuildRuntimeActorDragTarget( SceneDocument &scene
         actor_index, runtime_actor.id, runtime_actor.editor_actor_uid);
 }
 
+/*
+Collect the exact pick list needed for a click on the current frame. In play
+mode we inspect the live runtime world; in edit mode we stay on the document
+cache so scene editing works even while runtime is stopped.
+*/
 std::vector<ActorScreenBounds> BuildPickBoundsForClick(
     const Engine &engine, const SceneViewCameraState &scene_camera,
     SceneDocument &scene_document, bool play_mode_active,
     const ImVec2 &image_min, const ImVec2 &image_size) {
     std::vector<ActorScreenBounds> pick_bounds;
 
-    // Full pick lists are only needed on the exact click frame. Building them
-    // every frame is expensive because runtime lookups walk live Lua-backed
-    // component state for every actor.
     if (play_mode_active) {
         const std::deque<Actor> &runtime_actors = engine.GetRuntimeActors();
         pick_bounds.reserve(runtime_actors.size());
@@ -617,8 +610,7 @@ std::optional<ActorDragTarget> BuildSelectedActorDragTarget(
     bool play_mode_active) {
     if (play_mode_active) {
         if (selected_runtime_actor_id < 0) return std::nullopt;
-        const Actor *runtime_actor =
-            engine.GetRuntimeActorByID(selected_runtime_actor_id);
+        const Actor *runtime_actor = engine.GetRuntimeActorByID(selected_runtime_actor_id);
         if (runtime_actor == nullptr || runtime_actor->runtime_destroyed) {
             return std::nullopt;
         }
@@ -639,8 +631,7 @@ std::optional<ActorScreenBounds> BuildSelectedActorBounds(
     bool play_mode_active, const ImVec2 &image_min, const ImVec2 &image_size) {
     if (play_mode_active) {
         if (selected_runtime_actor_id < 0) return std::nullopt;
-        const Actor *runtime_actor =
-            engine.GetRuntimeActorByID(selected_runtime_actor_id);
+        const Actor *runtime_actor = engine.GetRuntimeActorByID(selected_runtime_actor_id);
         if (runtime_actor == nullptr || runtime_actor->runtime_destroyed) {
             return std::nullopt;
         }
@@ -706,6 +697,11 @@ void DrawActorSelectionOutline(ImDrawList *draw_list,
                        kSelectionStrokeThickness);
 }
 
+/*
+Translate one click on the scene canvas into the editor's dual selection
+model: scene-backed selection for authoring, plus runtime selection during play
+for transient actors that do not map back into the scene document.
+*/
 void HandleSceneSelectionClick(const ImVec2 &mouse_position,
                                const std::vector<ActorScreenBounds> &pick_bounds,
                                SceneDocument &scene_document,
@@ -735,6 +731,11 @@ void HandleSceneSelectionClick(const ImVec2 &mouse_position,
     selected_runtime_actor_id = -1;
 }
 
+/*
+Drop an actor template directly into scene space. The actor is created through
+the normal scene mutation path first, then its Transform is rewritten so the
+new instance appears exactly where the user dropped it.
+*/
 bool HandleSceneTemplateDrop(
     const Engine &engine, const SceneViewCameraState &scene_camera,
     SceneDocument &scene_document, const ImVec2 &image_min,
@@ -862,6 +863,11 @@ void ConvertSceneWorldPositionToLocal(SceneDocument &scene_document,
                     out_local_x, out_local_y);
 }
 
+/*
+Write a dragged position back to the appropriate source of truth. Scene-backed
+Transform edits go through SceneDocument commands; runtime-only movement writes
+directly into live component state.
+*/
 bool ApplyDraggedActorPosition(
     SceneDocument &scene_document, const ActorDragTarget &drag_target,
     bool play_mode_active, float world_x, float world_y,
@@ -906,6 +912,7 @@ bool ApplyDraggedActorPosition(
                                   out_edit_commands);
 }
 
+/* Start one scene drag by capturing the actor and the mouse-to-world offset. */
 void BeginSelectedActorDrag(const Engine &engine,
                             const SceneViewCameraState &scene_camera,
                             SceneDocument &scene_document,
@@ -931,12 +938,15 @@ void BeginSelectedActorDrag(const Engine &engine,
     g_scene_drag_state.runtime_actor_id = drag_target->runtime_actor_id;
     g_scene_drag_state.editor_actor_uid = drag_target->editor_actor_uid;
     g_scene_drag_state.component_key = drag_target->component_key;
-    g_scene_drag_state.world_offset_x =
-        drag_target->world_x - mouse_world_position.x;
-    g_scene_drag_state.world_offset_y =
-        drag_target->world_y - mouse_world_position.y;
+    g_scene_drag_state.world_offset_x = drag_target->world_x - mouse_world_position.x;
+    g_scene_drag_state.world_offset_y = drag_target->world_y - mouse_world_position.y;
 }
 
+/*
+Continue an active drag while the left mouse button stays down. Drag state is
+validated against the latest selection so stale targets cannot keep moving
+after the underlying actor or selection changed.
+*/
 bool UpdateSelectedActorDrag(
     const Engine &engine, const SceneViewCameraState &scene_camera,
     SceneDocument &scene_document,
@@ -972,15 +982,14 @@ bool UpdateSelectedActorDrag(
 
     const ImVec2 mouse_world_position = ScenePanelPixelsToWorldPosition(
         engine, scene_camera, image_min, image_size, ImGui::GetMousePos());
-    const float target_world_x =
-        mouse_world_position.x + g_scene_drag_state.world_offset_x;
-    const float target_world_y =
-        mouse_world_position.y + g_scene_drag_state.world_offset_y;
+        const float target_world_x = mouse_world_position.x + g_scene_drag_state.world_offset_x;
+        const float target_world_y = mouse_world_position.y + g_scene_drag_state.world_offset_y;
     return ApplyDraggedActorPosition(scene_document, *drag_target,
                                      play_mode_active, target_world_x,
                                      target_world_y, out_edit_commands);
 }
 
+/* Pan the editor-owned scene camera without affecting the runtime camera. */
 void PanSceneCamera(const Engine &engine, const ImVec2 &image_size,
                     const ImVec2 &mouse_delta) {
     const float runtime_width =
@@ -999,6 +1008,10 @@ void PanSceneCamera(const Engine &engine, const ImVec2 &image_size,
     g_scene_camera_state.world_y -= world_delta_y;
 }
 
+/*
+Zoom the editor scene camera around the current mouse cursor. The camera origin
+is adjusted after the zoom so the world point under the cursor stays fixed.
+*/
 void ZoomSceneCameraAtCursor(const Engine &engine, const ImVec2 &image_min,
                              const ImVec2 &image_size,
                              const ImVec2 &mouse_position,
@@ -1007,8 +1020,7 @@ void ZoomSceneCameraAtCursor(const Engine &engine, const ImVec2 &image_min,
 
     const ImVec2 world_before_zoom = ScenePanelPixelsToWorldPosition( engine, g_scene_camera_state, image_min, image_size, mouse_position);
     const float zoom_scale = std::pow(1.15f, wheel_delta);
-    g_scene_camera_state.zoom =
-        ClampSceneCameraZoom(g_scene_camera_state.zoom * zoom_scale);
+    g_scene_camera_state.zoom = ClampSceneCameraZoom(g_scene_camera_state.zoom * zoom_scale);
     const ImVec2 world_after_zoom = ScenePanelPixelsToWorldPosition( engine, g_scene_camera_state, image_min, image_size, mouse_position);
     g_scene_camera_state.world_x += world_before_zoom.x - world_after_zoom.x;
     g_scene_camera_state.world_y += world_before_zoom.y - world_after_zoom.y;
@@ -1028,8 +1040,12 @@ ScenePanelResult RenderScenePanel(
         (out_edit_commands != nullptr) ? out_edit_commands->size() : 0;
     bool scene_panel_commands_applied_immediately = false;
 
-    // Scene view is now the interactive home for the embedded runtime image.
-    // Selection and gizmos will be layered on top of this same surface next.
+    /*
+    Scene view is the editor-facing canvas built on top of the dedicated scene
+    preview render target. It owns its own camera, picking, drag editing, and
+    template drop flow, while still reusing the engine's runtime-facing render
+    stack underneath.
+    */
     ImGui::Begin("Scene", nullptr,
                  ImGuiWindowFlags_NoScrollbar |
                      ImGuiWindowFlags_NoScrollWithMouse);
@@ -1198,8 +1214,7 @@ ScenePanelResult RenderScenePanel(
         available_size.x,
         std::max(0.0f, available_size.y - image_size.y)));
     if (scene_panel_commands_applied_immediately && out_edit_commands != nullptr) {
-        controls_result.immediate_apply_begin_index =
-            scene_panel_command_begin_index;
+        controls_result.immediate_apply_begin_index = scene_panel_command_begin_index;
         controls_result.immediate_apply_end_index = out_edit_commands->size();
     }
     ImGui::End();

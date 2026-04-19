@@ -170,14 +170,10 @@ void BuildMainMenuBar(bool &show_metrics_window,
 
 float ComputeEffectiveUiScale(const EditorConfigData &config, int window_width,
                               int window_height) {
-    const float safe_reference_width =
-        static_cast<float>(std::max(1, config.reference_width));
-    const float safe_reference_height =
-        static_cast<float>(std::max(1, config.reference_height));
-    const float width_scale =
-        static_cast<float>(std::max(1, window_width)) / safe_reference_width;
-    const float height_scale =
-        static_cast<float>(std::max(1, window_height)) / safe_reference_height;
+                                  const float safe_reference_width = static_cast<float>(std::max(1, config.reference_width));
+                                  const float safe_reference_height = static_cast<float>(std::max(1, config.reference_height));
+                                  const float width_scale = static_cast<float>(std::max(1, window_width)) / safe_reference_width;
+                                  const float height_scale = static_cast<float>(std::max(1, window_height)) / safe_reference_height;
     const float auto_scale = std::min(width_scale, height_scale);
     return std::max(0.5f, config.ui_scale * auto_scale);
 }
@@ -351,8 +347,7 @@ void RenderExternalEditorsWindow(EditorConfigData &editor_config,
                                 EditorConfig::ExternalEditorConfigKey(type));
 
             ImGui::TableNextColumn();
-            std::string &command =
-                EditorConfig::ExternalEditorCommand(editor_config, type);
+            std::string &command = EditorConfig::ExternalEditorCommand(editor_config, type);
             const std::string input_id = std::string("##external_editor_cmd_") +
                                          EditorConfig::ExternalEditorConfigKey(type);
             if (InputTextString(input_id.c_str(), command,
@@ -423,8 +418,7 @@ void EditorOverlay::ApplyConfig(const EditorConfigData &config, int window_width
                                 int window_height) {
     if (!initialized_) return;
 
-    const float effective_ui_scale =
-        ComputeEffectiveUiScale(config, window_width, window_height);
+    const float effective_ui_scale = ComputeEffectiveUiScale(config, window_width, window_height);
     if (std::fabs(effective_ui_scale - applied_ui_scale_) < 0.001f) {
         return;
     }
@@ -436,8 +430,7 @@ void EditorOverlay::ApplyConfig(const EditorConfigData &config, int window_width
     style.SeparatorTextBorderSize = std::max(style.SeparatorTextBorderSize, 1.0f);
     style.DockingSeparatorSize = std::max(style.DockingSeparatorSize, 1.0f);
     // Dear ImGui sanity checks require this value to remain strictly positive
-    style.WindowBorderHoverPadding =
-        std::max(style.WindowBorderHoverPadding, 1.0f);
+    style.WindowBorderHoverPadding = std::max(style.WindowBorderHoverPadding, 1.0f);
     // Since Dear ImGui 1.92, global font scaling lives on style.FontScaleMain
     style.FontScaleMain = effective_ui_scale;
     ImGuiIO &io = ImGui::GetIO();
@@ -557,8 +550,7 @@ EditorOverlayResult EditorOverlay::Render(Engine &engine,
     // Global save should stay out of the way while the user is typing into
     // rename fields, editor settings, or other focused widgets.
     const ImGuiIO &io = ImGui::GetIO();
-    const bool allow_global_save_shortcut =
-        !io.WantTextInput && !ImGui::IsAnyItemActive();
+    const bool allow_global_save_shortcut = !io.WantTextInput && !ImGui::IsAnyItemActive();
 
     // Ctrl+S: shortcut key for save scene
     if (scene_save_enabled && allow_global_save_shortcut &&
@@ -612,8 +604,7 @@ EditorOverlayResult EditorOverlay::Render(Engine &engine,
         selected_runtime_actor_id_ = -1;
     }
     if (project_panel_result.open_external_editor_requested) {
-        const EditorExternalFileType file_type =
-            project_panel_result.requested_external_file_type;
+        const EditorExternalFileType file_type = project_panel_result.requested_external_file_type;
         const std::string &configured_command =
             EditorConfig::ExternalEditorCommand(editor_config, file_type);
         // Missing command should never block the editor loop. Surface a short
@@ -623,10 +614,8 @@ EditorOverlayResult EditorOverlay::Render(Engine &engine,
         } else {
             result.open_external_editor_requested = true;
             result.requested_external_file_type = file_type;
-            result.requested_external_file_path =
-                project_panel_result.requested_external_file_path;
-            result.requested_external_resources_root =
-                project_panel_result.requested_external_resources_root;
+            result.requested_external_file_path = project_panel_result.requested_external_file_path;
+            result.requested_external_resources_root = project_panel_result.requested_external_resources_root;
         }
     }
     if (!play_mode_active) {
@@ -635,14 +624,11 @@ EditorOverlayResult EditorOverlay::Render(Engine &engine,
                selected_actor_index_ <
                    static_cast<int>(scene_document.GetActorCount())) {
         const SceneDocument::ActorUID selected_actor_uid = scene_document.GetActorUID( static_cast<std::size_t>(selected_actor_index_));
-        const Actor *selected_runtime_actor =
-            engine.GetRuntimeActorByID(selected_runtime_actor_id_);
+        const Actor *selected_runtime_actor = engine.GetRuntimeActorByID(selected_runtime_actor_id_);
         if (selected_runtime_actor == nullptr ||
             selected_runtime_actor->editor_actor_uid != selected_actor_uid) {
-            const Actor *runtime_actor =
-                engine.GetRuntimeActorByEditorUID(selected_actor_uid);
-            selected_runtime_actor_id_ =
-                (runtime_actor != nullptr) ? runtime_actor->id : -1;
+                const Actor *runtime_actor = engine.GetRuntimeActorByEditorUID(selected_actor_uid);
+                selected_runtime_actor_id_ = (runtime_actor != nullptr) ? runtime_actor->id : -1;
         }
     }
 
@@ -663,15 +649,13 @@ EditorOverlayResult EditorOverlay::Render(Engine &engine,
     result.scene_changed |= scene_panel_result.scene_changed;
     result.scene_edit_commands_runtime_synced_begin_index =
         scene_panel_result.immediate_apply_begin_index;
-    result.scene_edit_commands_runtime_synced_end_index =
-        scene_panel_result.immediate_apply_end_index;
+        result.scene_edit_commands_runtime_synced_end_index = scene_panel_result.immediate_apply_end_index;
 
     const EditorPanels::ViewportControlsResult viewport_controls =
         EditorPanels::RenderViewportPanel(engine, play_mode_active,
                                           play_mode_paused);
     result.play_mode_start_requested |= viewport_controls.play_mode_start_requested;
-    result.play_mode_pause_toggle_requested |=
-        viewport_controls.play_mode_pause_toggle_requested;
+    result.play_mode_pause_toggle_requested |= viewport_controls.play_mode_pause_toggle_requested;
     result.play_mode_stop_requested |= viewport_controls.play_mode_stop_requested;
 
     // Runtime input routing should continue to follow the game viewport,
@@ -826,16 +810,14 @@ void EditorOverlay::RenderProjectConfigWindows() {
                 "Game Title", project_config_cache_.game_title,
                 "Shown by the standalone runtime window");
 
-            const std::vector<std::string> scene_names =
-                CollectAvailableSceneNames();
+                const std::vector<std::string> scene_names = CollectAvailableSceneNames();
             const char *preview_text =
                 project_config_cache_.initial_scene_name.empty()
                     ? "<none>"
                     : project_config_cache_.initial_scene_name.c_str();
             if (ImGui::BeginCombo("Initial Scene", preview_text)) {
                 for (const std::string &scene_name : scene_names) {
-                    const bool selected =
-                        project_config_cache_.initial_scene_name == scene_name;
+                    const bool selected = project_config_cache_.initial_scene_name == scene_name;
                     if (ImGui::Selectable(scene_name.c_str(), selected)) {
                         project_config_cache_.initial_scene_name = scene_name;
                         config_changed = true;
@@ -886,8 +868,7 @@ void EditorOverlay::RenderProjectConfigWindows() {
             }
             if (ImGui::InputFloat("Zoom Factor", &zoom_factor, 0.1f, 0.5f,
                                   "%.2f")) {
-                project_config_cache_.zoom_factor =
-                    std::max(0.05f, zoom_factor);
+                                      project_config_cache_.zoom_factor = std::max(0.05f, zoom_factor);
                 config_changed = true;
             }
             if (ImGui::ColorEdit3("Clear Color", clear_color,

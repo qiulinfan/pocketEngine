@@ -98,8 +98,7 @@ void InjectCollisionAPI() {
 
 luabridge::LuaRef CppPhysicsRaycast(const b2Vec2 &position,
                                     const b2Vec2 &direction, float distance) {
-    std::optional<RayCast::HitResult> hit =
-        RayCast::Cast(position, direction, distance);
+                                        std::optional<RayCast::HitResult> hit = RayCast::Cast(position, direction, distance);
     if (!hit.has_value()) return luabridge::LuaRef(g_lua_state);
     return luabridge::LuaRef(g_lua_state, *hit);
 }
@@ -108,8 +107,7 @@ luabridge::LuaRef CppPhysicsRaycastAll(const b2Vec2 &position,
                                        const b2Vec2 &direction,
                                        float distance) {
     luabridge::LuaRef results = luabridge::newTable(g_lua_state);
-    const std::vector<RayCast::HitResult> hits =
-        RayCast::CastAll(position, direction, distance);
+    const std::vector<RayCast::HitResult> hits = RayCast::CastAll(position, direction, distance);
     for (size_t i = 0; i < hits.size(); i++) {
         results[static_cast<int>(i + 1)] = hits[i];
     }

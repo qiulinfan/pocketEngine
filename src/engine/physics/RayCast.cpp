@@ -28,8 +28,7 @@ public:
         candidate.hit.actor = metadata->actor;
         candidate.hit.point = point;
         candidate.hit.normal = normal;
-        candidate.hit.is_trigger =
-            metadata->kind == RayCast::FixtureKind::Trigger;
+        candidate.hit.is_trigger = metadata->kind == RayCast::FixtureKind::Trigger;
         candidate.fraction = fraction;
         hits_.push_back(candidate);
         return 1.0f;
@@ -102,8 +101,7 @@ const FixtureMetadata *FindFixtureMetadata(const b2Fixture *fixture) {
 // nearest hit only
 std::optional<HitResult> Cast(const b2Vec2 &position, const b2Vec2 &direction,
                               float distance) {
-    const std::vector<RaycastHitCandidate> hits =
-        CollectHits(position, direction, distance);
+                                  const std::vector<RaycastHitCandidate> hits = CollectHits(position, direction, distance);
     if (hits.empty()) return std::nullopt;
     return hits.front().hit;
 }
@@ -111,8 +109,7 @@ std::optional<HitResult> Cast(const b2Vec2 &position, const b2Vec2 &direction,
 // return all hits, sorted by distance
 std::vector<HitResult> CastAll(const b2Vec2 &position, const b2Vec2 &direction,
                                float distance) {
-    const std::vector<RaycastHitCandidate> hit_candidates =
-        CollectHits(position, direction, distance);
+                                   const std::vector<RaycastHitCandidate> hit_candidates = CollectHits(position, direction, distance);
 
     std::vector<HitResult> hits;
     hits.reserve(hit_candidates.size());

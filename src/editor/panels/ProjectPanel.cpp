@@ -60,7 +60,7 @@ std::string ToLower(std::string text) {
 
 /*
 Read one directory and return entries in a stable UI order:
- directories first, then files, both alphabetically.
+directories first, then files, both alphabetically.
 */
 std::vector<ProjectEntry> CollectSortedEntries(const std::filesystem::path &directory_path) {
     std::vector<ProjectEntry> entries;

@@ -24,10 +24,8 @@ private:
         b2Fixture *fixture_b = contact->GetFixtureB();
         if (fixture_a == nullptr || fixture_b == nullptr) return;
 
-        const RayCast::FixtureMetadata *metadata_a =
-            RayCast::FindFixtureMetadata(fixture_a);
-        const RayCast::FixtureMetadata *metadata_b =
-            RayCast::FindFixtureMetadata(fixture_b);
+        const RayCast::FixtureMetadata *metadata_a = RayCast::FindFixtureMetadata(fixture_a);
+        const RayCast::FixtureMetadata *metadata_b = RayCast::FindFixtureMetadata(fixture_b);
         if (metadata_a == nullptr || metadata_b == nullptr) return;
         if (metadata_a->actor == nullptr || metadata_b->actor == nullptr) return;
 
@@ -303,8 +301,7 @@ void Rigidbody::SetUpDirection(b2Vec2 direction) {
 void Rigidbody::SetRightDirection(b2Vec2 direction) {
     if (direction.Normalize() == 0.0f) return;
 
-    const float new_angle_radians =
-        glm::atan(direction.x, -direction.y) - (b2_pi / 2.0f);
+    const float new_angle_radians = glm::atan(direction.x, -direction.y) - (b2_pi / 2.0f);
     rotation = Box2DRadiansToClockwiseDegrees(new_angle_radians);
 
     if (body == nullptr) return;
