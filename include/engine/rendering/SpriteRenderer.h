@@ -28,6 +28,10 @@ public:
     int sorting_order = 0;
     bool auto_sorting_order = false;
 
+    // Convenience API for Lua/gameplay code that wants to select one spritesheet
+    // cell without assigning the two indices separately.
+    void SetSpriteCell(int row, int column);
+
     // Queue one world-space draw using either Transform or Rigidbody data from
     // the owning actor. This runs during the render phase, so editor frozen
     // frames still show sprites.

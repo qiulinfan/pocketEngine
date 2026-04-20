@@ -142,6 +142,7 @@ void InjectSpriteRendererAPI() {
         .addProperty("sprite_column", &SpriteRenderer::sprite_column)
         .addProperty("sorting_order", &SpriteRenderer::sorting_order)
         .addProperty("auto_sorting_order", &SpriteRenderer::auto_sorting_order)
+        .addFunction("SetSpriteCell", &SpriteRenderer::SetSpriteCell)
         .endClass();
 }
 

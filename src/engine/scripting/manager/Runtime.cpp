@@ -102,12 +102,10 @@ void ApplyPropertyOverrides(
     const std::vector<Actor::ComponentProperty> &property_overrides) {
     // 把 JSON override 覆盖写入实例 table
     for (const Actor::ComponentProperty &property : property_overrides) {
-        std::visit(
-            [&](const auto &value) {
-                // Write JSON override into Lua instance table before lifecycle
-                instance_table[property.name] = value;
-            },
-            property.value);
+        // Reuse the same property writer used by runtime inspector edits so
+        // arrays and scalar overrides produce identical Lua-side values.
+        AssignPropertyValueToLuaField(instance_table, property.name,
+                                      property.value);
     }
 }
 

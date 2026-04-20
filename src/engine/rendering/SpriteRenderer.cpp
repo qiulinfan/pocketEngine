@@ -56,6 +56,11 @@ bool TryReadRigidbodyState(const Actor *actor, float &out_x, float &out_y,
 
 } // namespace
 
+void SpriteRenderer::SetSpriteCell(int row, int column) {
+    sprite_row = std::max(row, 1);
+    sprite_column = std::max(column, 1);
+}
+
 void SpriteRenderer::QueueDraw() const {
     if (!enabled || actor == nullptr || sprite.empty()) return;
 

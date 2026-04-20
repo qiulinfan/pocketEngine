@@ -152,6 +152,9 @@ void LoadComponentTypes();
 void ApplyPropertyOverrides(
     luabridge::LuaRef &instance_table,
     const std::vector<Actor::ComponentProperty> &property_overrides);
+bool AssignPropertyValueToLuaField(luabridge::LuaRef &instance_table,
+                                   const std::string &property_name,
+                                   const Actor::ComponentPropertyValue &value);
 
 // -----------------------------------------------------------------------------
 // Component / actor indexing helpers

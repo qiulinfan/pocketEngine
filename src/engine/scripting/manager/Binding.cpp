@@ -37,6 +37,10 @@ luabridge::LuaRef BuildLuaBoolArrayTable(const Actor::BoolArray &values) {
     return table;
 }
 
+} // namespace
+
+namespace ManagerDetail {
+
 bool AssignPropertyValueToLuaField(luabridge::LuaRef &instance_table,
                                    const std::string &property_name,
                                    const Actor::ComponentPropertyValue &value) {
@@ -58,6 +62,10 @@ bool AssignPropertyValueToLuaField(luabridge::LuaRef &instance_table,
         value);
     return true;
 }
+
+} // namespace ManagerDetail
+
+namespace {
 
 void RotateClockwise(float x, float y, float rotation_degrees, float &out_x,
                      float &out_y) {
