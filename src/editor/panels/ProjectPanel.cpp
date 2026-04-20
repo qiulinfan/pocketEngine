@@ -50,6 +50,29 @@ struct TileRenderResult {
     bool double_clicked = false;
 };
 
+struct TextureDrawRect {
+    ImVec2 min;
+    ImVec2 max;
+    bool valid = false;
+};
+
+struct ImageTextureCache {
+    SDL_Renderer *renderer = nullptr;
+    std::unordered_map<std::string, SDL_Texture *> textures;
+};
+
+struct SpritesheetGridSpec {
+    int rows = 1;
+    int columns = 1;
+};
+
+struct SpritesheetPopupState {
+    bool open_requested = false;
+    std::filesystem::path image_path;
+    int rows = 1;
+    int columns = 1;
+};
+
 std::string ToLower(std::string text) {
     std::transform(text.begin(), text.end(), text.begin(),
                    [](unsigned char ch) {
@@ -169,6 +192,30 @@ IconTextureCache &GetIconTextureCache() {
     return cache;
 }
 
+ImageTextureCache &GetImageTextureCache() {
+    static ImageTextureCache cache;
+    return cache;
+}
+
+SpritesheetPopupState &GetSpritesheetPopupState() {
+    static SpritesheetPopupState state;
+    return state;
+}
+
+std::unordered_map<std::string, SpritesheetGridSpec> &GetSpritesheetGridSpecCache() {
+    static std::unordered_map<std::string, SpritesheetGridSpec> cache;
+    return cache;
+}
+
+void DestroyTextureCache(ImageTextureCache &cache) {
+    for (const auto &entry : cache.textures) {
+        if (entry.second != nullptr) {
+            SDL_DestroyTexture(entry.second);
+        }
+    }
+    cache.textures.clear();
+}
+
 void ResetIconTextureCacheIfRendererChanged(SDL_Renderer *renderer) {
     IconTextureCache &cache = GetIconTextureCache();
     if (cache.renderer == renderer) return;
@@ -179,6 +226,14 @@ void ResetIconTextureCacheIfRendererChanged(SDL_Renderer *renderer) {
         }
     }
     cache.textures.clear();
+    cache.renderer = renderer;
+}
+
+void ResetImageTextureCacheIfRendererChanged(SDL_Renderer *renderer) {
+    ImageTextureCache &cache = GetImageTextureCache();
+    if (cache.renderer == renderer) return;
+
+    DestroyTextureCache(cache);
     cache.renderer = renderer;
 }
 
@@ -219,27 +274,172 @@ SDL_Texture *GetIconTexture(SDL_Renderer *renderer, const std::string &icon_asse
     return texture;
 }
 
-void DrawTextureFitCentered(ImDrawList *draw_list, SDL_Texture *texture,
-                            const ImVec2 &min_point,
-                            const ImVec2 &max_point) {
-    if (draw_list == nullptr || texture == nullptr) return;
+SDL_Texture *GetImageTexture(SDL_Renderer *renderer, const std::filesystem::path &image_path) {
+    if (renderer == nullptr || image_path.empty()) return nullptr;
+
+    ResetImageTextureCacheIfRendererChanged(renderer);
+    ImageTextureCache &cache = GetImageTextureCache();
+    const std::string cache_key = image_path.lexically_normal().string();
+
+    const auto found = cache.textures.find(cache_key);
+    if (found != cache.textures.end()) {
+        return found->second;
+    }
+
+    SDL_Texture *texture = IMG_LoadTexture(renderer, cache_key.c_str());
+    cache.textures.emplace(cache_key, texture);
+    return texture;
+}
+
+TextureDrawRect BuildTextureFitRect(SDL_Texture *texture, const ImVec2 &min_point,
+                                    const ImVec2 &max_point) {
+    TextureDrawRect draw_rect;
+    if (texture == nullptr) return draw_rect;
+
     int texture_width_i = 0;
     int texture_height_i = 0;
     SDL_QueryTexture(texture, nullptr, nullptr, &texture_width_i, &texture_height_i);
     const float texture_width = static_cast<float>(texture_width_i);
     const float texture_height = static_cast<float>(texture_height_i);
-    if (texture_width <= 0.0f || texture_height <= 0.0f) return;
+    if (texture_width <= 0.0f || texture_height <= 0.0f) return draw_rect;
 
     const float available_width = max_point.x - min_point.x;
     const float available_height = max_point.y - min_point.y;
-    if (available_width <= 0.0f || available_height <= 0.0f) return;
+    if (available_width <= 0.0f || available_height <= 0.0f) return draw_rect;
 
     const float scale = std::min(available_width / texture_width, available_height / texture_height);
     const float draw_width = texture_width * scale;
     const float draw_height = texture_height * scale;
-    const ImVec2 draw_min(min_point.x + (available_width - draw_width) * 0.5f, min_point.y + (available_height - draw_height) * 0.5f);
-    const ImVec2 draw_max(draw_min.x + draw_width, draw_min.y + draw_height);
-    draw_list->AddImage(ImTextureRef((ImTextureID)(intptr_t)texture), draw_min, draw_max);
+    draw_rect.min = ImVec2(min_point.x + (available_width - draw_width) * 0.5f,
+                           min_point.y + (available_height - draw_height) * 0.5f);
+    draw_rect.max = ImVec2(draw_rect.min.x + draw_width, draw_rect.min.y + draw_height);
+    draw_rect.valid = true;
+    return draw_rect;
+}
+
+void DrawTextureFitCentered(ImDrawList *draw_list, SDL_Texture *texture,
+                            const ImVec2 &min_point,
+                            const ImVec2 &max_point) {
+    if (draw_list == nullptr || texture == nullptr) return;
+
+    const TextureDrawRect draw_rect = BuildTextureFitRect(texture, min_point, max_point);
+    if (!draw_rect.valid) return;
+
+    draw_list->AddImage(ImTextureRef((ImTextureID)(intptr_t)texture), draw_rect.min, draw_rect.max);
+}
+
+void DrawSpritesheetGridOverlay(ImDrawList *draw_list,
+                                const TextureDrawRect &draw_rect, int rows,
+                                int columns) {
+    if (draw_list == nullptr || !draw_rect.valid) return;
+    rows = std::max(rows, 1);
+    columns = std::max(columns, 1);
+
+    const ImU32 line_color = IM_COL32(120, 210, 255, 210);
+    const float width = draw_rect.max.x - draw_rect.min.x;
+    const float height = draw_rect.max.y - draw_rect.min.y;
+
+    for (int row = 1; row < rows; ++row) {
+        const float y = draw_rect.min.y + height * (static_cast<float>(row) / static_cast<float>(rows));
+        draw_list->AddLine(ImVec2(draw_rect.min.x, y), ImVec2(draw_rect.max.x, y),
+                           line_color, 1.5f);
+    }
+    for (int column = 1; column < columns; ++column) {
+        const float x = draw_rect.min.x + width * (static_cast<float>(column) / static_cast<float>(columns));
+        draw_list->AddLine(ImVec2(x, draw_rect.min.y), ImVec2(x, draw_rect.max.y),
+                           line_color, 1.5f);
+    }
+    draw_list->AddRect(draw_rect.min, draw_rect.max, line_color, 0.0f, 0, 1.5f);
+}
+
+void OpenSpritesheetPopupForImage(const std::filesystem::path &image_path) {
+    SpritesheetPopupState &popup_state = GetSpritesheetPopupState();
+    std::unordered_map<std::string, SpritesheetGridSpec> &grid_specs = GetSpritesheetGridSpecCache();
+    const std::string cache_key = image_path.lexically_normal().string();
+    const auto found = grid_specs.find(cache_key);
+
+    popup_state.image_path = image_path.lexically_normal();
+    popup_state.rows = (found != grid_specs.end()) ? found->second.rows : 1;
+    popup_state.columns = (found != grid_specs.end()) ? found->second.columns : 1;
+    popup_state.open_requested = true;
+}
+
+void RenderSpritesheetPopup(SDL_Renderer *renderer) {
+    SpritesheetPopupState &popup_state = GetSpritesheetPopupState();
+    if (popup_state.open_requested) {
+        ImGui::OpenPopup("Spritesheet Editor");
+        popup_state.open_requested = false;
+    }
+
+    ImGui::SetNextWindowSize(ImVec2(860.0f, 760.0f), ImGuiCond_Appearing);
+    if (!ImGui::BeginPopupModal("Spritesheet Editor", nullptr,
+                                ImGuiWindowFlags_NoSavedSettings)) {
+        return;
+    }
+
+    SDL_Texture *texture = GetImageTexture(renderer, popup_state.image_path);
+    if (texture == nullptr) {
+        ImGui::TextUnformatted("Unable to load this image.");
+    } else {
+        int texture_width = 0;
+        int texture_height = 0;
+        SDL_QueryTexture(texture, nullptr, nullptr, &texture_width, &texture_height);
+
+        ImGui::Text("Image: %s", popup_state.image_path.filename().string().c_str());
+        ImGui::TextDisabled("%d x %d px", texture_width, texture_height);
+        ImGui::Separator();
+
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::InputInt("Rows", &popup_state.rows, 1, 4)) {
+            popup_state.rows = std::max(popup_state.rows, 1);
+        }
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.0f);
+        if (ImGui::InputInt("Columns", &popup_state.columns, 1, 4)) {
+            popup_state.columns = std::max(popup_state.columns, 1);
+        }
+
+        std::unordered_map<std::string, SpritesheetGridSpec> &grid_specs = GetSpritesheetGridSpecCache();
+        grid_specs[popup_state.image_path.lexically_normal().string()] = {
+            popup_state.rows, popup_state.columns};
+
+        const int sprite_width = std::max(1, texture_width / std::max(popup_state.columns, 1));
+        const int sprite_height = std::max(1, texture_height / std::max(popup_state.rows, 1));
+        ImGui::TextDisabled("Each sprite: %d x %d px | Total sprites: %d",
+                            sprite_width, sprite_height,
+                            popup_state.rows * popup_state.columns);
+        ImGui::Separator();
+
+        const float preview_height = std::max(260.0f, ImGui::GetContentRegionAvail().y - 48.0f);
+        ImGui::BeginChild("spritesheet_preview_child",
+                          ImVec2(0.0f, preview_height), true,
+                          ImGuiWindowFlags_NoScrollbar |
+                              ImGuiWindowFlags_NoScrollWithMouse);
+        const ImVec2 preview_min = ImGui::GetCursorScreenPos();
+        const ImVec2 preview_size = ImGui::GetContentRegionAvail();
+        const ImVec2 preview_max(preview_min.x + preview_size.x,
+                                 preview_min.y + preview_size.y);
+        ImGui::InvisibleButton("spritesheet_preview_canvas", preview_size);
+
+        ImDrawList *draw_list = ImGui::GetWindowDrawList();
+        draw_list->AddRectFilled(preview_min, preview_max,
+                                 IM_COL32(24, 27, 33, 255), 8.0f);
+        const TextureDrawRect draw_rect = BuildTextureFitRect(
+            texture, ImVec2(preview_min.x + 12.0f, preview_min.y + 12.0f),
+            ImVec2(preview_max.x - 12.0f, preview_max.y - 12.0f));
+        if (draw_rect.valid) {
+            draw_list->AddImage(ImTextureRef((ImTextureID)(intptr_t)texture),
+                                draw_rect.min, draw_rect.max);
+            DrawSpritesheetGridOverlay(draw_list, draw_rect, popup_state.rows,
+                                       popup_state.columns);
+        }
+        ImGui::EndChild();
+    }
+
+    if (ImGui::Button("Close", ImVec2(120.0f, 0.0f))) {
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
 }
 
 // Scene files are handled by the editor itself instead of an external app.
@@ -432,9 +632,19 @@ TileRenderResult RenderEntryTile(const ProjectEntry &entry,
     const ImVec2 icon_min(tile_min.x + 10.0f, tile_min.y + 10.0f);
     const ImVec2 icon_max(tile_max.x - 10.0f, tile_min.y + tile_height * 0.60f);
     draw_list->AddRectFilled(icon_min, icon_max, ImGui::GetColorU32(style.color), 6.0f);
+    SDL_Texture *image_texture = nullptr;
+    if (entry_kind == EntryKind::Image) {
+        image_texture = GetImageTexture(renderer, entry.path);
+    }
     SDL_Texture *icon_texture = GetIconTexture(renderer, style.icon_asset);
 
-    if (icon_texture != nullptr) {
+    if (image_texture != nullptr) {
+        const ImVec2 image_min(icon_min.x + 6.0f, icon_min.y + 6.0f);
+        const ImVec2 image_max(icon_max.x - 6.0f, icon_max.y - 6.0f);
+        draw_list->AddRectFilled(image_min, image_max, IM_COL32(20, 23, 29, 230),
+                                 4.0f);
+        DrawTextureFitCentered(draw_list, image_texture, image_min, image_max);
+    } else if (icon_texture != nullptr) {
         const ImVec2 image_min(icon_min.x + 8.0f, icon_min.y + 6.0f);
         const ImVec2 image_max(icon_max.x - 8.0f, icon_max.y - 22.0f);
         DrawTextureFitCentered(draw_list, icon_texture, image_min, image_max);
@@ -517,6 +727,8 @@ void RenderDirectoryGrid(const std::filesystem::path &resources_root,
             } else if (IsSceneFile(entry)) {
                 result.open_scene_requested = true;
                 result.requested_scene_path = entry.path.lexically_normal();
+            } else if (entry_kind == EntryKind::Image) {
+                OpenSpritesheetPopupForImage(entry.path);
             } else {
                 result.open_external_editor_requested = true;
                 result.requested_external_file_type = ToExternalFileType(entry_kind);
@@ -542,6 +754,8 @@ ProjectPanelResult RenderProjectPanel( const std::filesystem::path &resources_ro
     static std::filesystem::path selected_directory;
     static std::filesystem::path selected_entry;
     ProjectPanelResult result;
+    ResetIconTextureCacheIfRendererChanged(renderer);
+    ResetImageTextureCacheIfRendererChanged(renderer);
 
     ImGui::Begin("Project");
 
@@ -601,6 +815,7 @@ ProjectPanelResult RenderProjectPanel( const std::filesystem::path &resources_ro
         selected_entry.clear();
     }
 
+    RenderSpritesheetPopup(renderer);
     ImGui::End();
     return result;
 }
