@@ -74,6 +74,8 @@ public:
                                                 const std::string &type_name);
     static luabridge::LuaRef GetComponentsByType(Actor::UID actor_uid,
                                                  const std::string &type_name);
+    static int GetChildCount(Actor::UID actor_uid);
+    static luabridge::LuaRef GetChildren(Actor::UID actor_uid);
     static luabridge::LuaRef GetComponentInChildrenByType(
         Actor::UID actor_uid, const std::string &type_name);
     static luabridge::LuaRef GetComponentsInChildrenByType(

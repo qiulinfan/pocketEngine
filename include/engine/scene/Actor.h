@@ -89,6 +89,8 @@ public:
     // returns all component instances of the given type as a Lua array.
     // 返回所有 given type 的 component instances
     luabridge::LuaRef GetComponents(const std::string &type_name) const;
+    int GetChildCount() const;
+    luabridge::LuaRef GetChildren() const;
     // Unity-style child queries: inspect self first, then descendants.
     luabridge::LuaRef GetComponentInChildren(const std::string &type_name) const;
     luabridge::LuaRef GetComponentsInChildren(

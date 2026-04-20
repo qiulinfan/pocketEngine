@@ -11,6 +11,27 @@ using namespace ManagerDetail;
 
 namespace {
 
+luabridge::LuaRef BuildChildrenResult(Actor::UID actor_uid) {
+    if (actor_uid == Actor::kInvalidUID) return MakeEmptyArrayTable();
+
+    luabridge::LuaRef result_table = MakeEmptyArrayTable();
+    int lua_index = 1;
+    for (Actor::UID candidate_uid : g_runtime.actor_uids_sorted) {
+        auto actor_it = g_runtime.actor_by_uid.find(candidate_uid);
+        if (actor_it == g_runtime.actor_by_uid.end() ||
+            actor_it->second == nullptr) {
+            continue;
+        }
+
+        const Actor *candidate_actor = actor_it->second;
+        if (candidate_actor->parent_uid != actor_uid) continue;
+        result_table[lua_index++] =
+            luabridge::LuaRef(g_runtime.lua_state, actor_it->second);
+    }
+
+    return result_table;
+}
+
 bool IsActorSelfOrDescendantOf(Actor::UID candidate_uid, Actor::UID root_uid) {
     if (candidate_uid == Actor::kInvalidUID || root_uid == Actor::kInvalidUID) {
         return false;
@@ -461,6 +482,34 @@ luabridge::LuaRef ComponentManager::GetComponentsByType(Actor::UID actor_uid,
         result_table[lua_index++] = component->instance_table;
     }
     return result_table;
+}
+
+int ComponentManager::GetChildCount(Actor::UID actor_uid) {
+    if (actor_uid == Actor::kInvalidUID) return 0;
+
+    int child_count = 0;
+    for (Actor::UID candidate_uid : g_runtime.actor_uids_sorted) {
+        auto actor_it = g_runtime.actor_by_uid.find(candidate_uid);
+        if (actor_it == g_runtime.actor_by_uid.end() ||
+            actor_it->second == nullptr) {
+            continue;
+        }
+
+        if (actor_it->second->parent_uid == actor_uid) {
+            ++child_count;
+        }
+    }
+
+    return child_count;
+}
+
+luabridge::LuaRef ComponentManager::GetChildren(Actor::UID actor_uid) {
+    /*
+    This is the direct-child query that pairs with GetChildCount. It does not
+    recurse; callers that want descendants should use GetChildren recursively
+    or the GetComponent(s)InChildren helpers above.
+    */
+    return BuildChildrenResult(actor_uid);
 }
 
 luabridge::LuaRef ComponentManager::GetComponentInChildrenByType(

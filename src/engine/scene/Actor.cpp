@@ -59,6 +59,14 @@ luabridge::LuaRef Actor::GetComponents(const std::string &type_name) const {
     return ComponentManager::GetComponentsByType(uid, type_name);
 }
 
+int Actor::GetChildCount() const {
+    return ComponentManager::GetChildCount(uid);
+}
+
+luabridge::LuaRef Actor::GetChildren() const {
+    return ComponentManager::GetChildren(uid);
+}
+
 luabridge::LuaRef Actor::GetComponentInChildren(
     const std::string &type_name) const {
     return ComponentManager::GetComponentInChildrenByType(uid, type_name);

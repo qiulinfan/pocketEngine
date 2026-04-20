@@ -18,6 +18,8 @@ void InjectActorAPI() {
         .addFunction("GetComponentByKey", &Actor::GetComponentByKey)
         .addFunction("GetComponent", &Actor::GetComponent)
         .addFunction("GetComponents", &Actor::GetComponents)
+        .addFunction("GetChildCount", &Actor::GetChildCount)
+        .addFunction("GetChildren", &Actor::GetChildren)
         .addFunction("GetComponentInChildren", &Actor::GetComponentInChildren)
         .addFunction("GetComponentsInChildren",
                      &Actor::GetComponentsInChildren)
