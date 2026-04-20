@@ -3,6 +3,7 @@
 #include "editor/documents/SceneDocument.h"
 #include "engine/core/Engine.h"
 #include "scripting/ComponentManager.h"
+#include "shared/resources/SpriteAssetReference.h"
 #include "imgui.h"
 #include <algorithm>
 #include <cctype>
@@ -322,13 +323,28 @@ bool IsSpriteRendererSpriteProperty(const Actor::ComponentSpec &component_spec,
     return component_spec.type == "SpriteRenderer" && property_name == "sprite";
 }
 
+std::string EncodeDroppedAssetStringValue(
+    const Actor::ComponentSpec &component_spec, const std::string &property_name,
+    const PropertyAssetDrop &drop) {
+    if (drop.resource_name.empty()) return {};
+    if (!drop.has_sprite_cell ||
+        IsSpriteRendererSpriteProperty(component_spec, property_name)) {
+        return drop.resource_name;
+    }
+
+    return SpriteAssetReference::Encode(drop.resource_name, drop.sprite_row,
+                                        drop.sprite_column);
+}
+
 bool ApplyRuntimePropertyAssetDrop(Actor::UID actor_uid,
                                    const Actor::ComponentSpec &component_spec,
                                    const std::string &property_name,
                                    const PropertyAssetDrop &drop) {
     bool changed = false;
+    const std::string dropped_value = EncodeDroppedAssetStringValue(
+        component_spec, property_name, drop);
     changed |= ComponentManager::SetRuntimeComponentPropertyValue(
-        actor_uid, component_spec.key, property_name, drop.resource_name);
+        actor_uid, component_spec.key, property_name, dropped_value);
 
     if (IsSpriteRendererSpriteProperty(component_spec, property_name)) {
         const int sprite_row = drop.has_sprite_cell ? drop.sprite_row : 1;
@@ -349,8 +365,10 @@ bool ApplyScenePropertyAssetDrop(
     std::vector<SceneFormat::SceneEditCommand> *out_edit_commands) {
     bool changed = false;
     SceneFormat::SceneEditCommand command;
+    const std::string dropped_value = EncodeDroppedAssetStringValue(
+        component_spec, property_name, drop);
     if (scene_document.SetComponentProperty(actor_index, component_spec.key,
-                                            property_name, drop.resource_name,
+                                            property_name, dropped_value,
                                             &command)) {
         changed = true;
         if (out_edit_commands != nullptr) {
@@ -391,7 +409,12 @@ bool AppendAssetToStringArrayValue(const Actor::ComponentPropertyValue &current_
     if (typed_value == nullptr || drop.resource_name.empty()) return false;
 
     Actor::StringArray next_value = *typed_value;
-    next_value.emplace_back(drop.resource_name);
+    if (drop.has_sprite_cell) {
+        next_value.emplace_back(SpriteAssetReference::Encode(
+            drop.resource_name, drop.sprite_row, drop.sprite_column));
+    } else {
+        next_value.emplace_back(drop.resource_name);
+    }
     updated_value = std::move(next_value);
     return true;
 }
