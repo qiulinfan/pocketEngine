@@ -1,13 +1,18 @@
 #include "editor/panels/ProjectPanel.h"
 #include "editor/core/EditorDragDrop.h"
 #include "imgui.h"
+#include "rapidjson/document.h"
+#include "rapidjson/prettywriter.h"
+#include "rapidjson/stringbuffer.h"
 #include "shared/resources/ResourcePath.h"
 #include "SDL2/SDL.h"
 #include "SDL2_image/SDL_image.h"
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <fstream>
 #include <filesystem>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -68,9 +73,17 @@ struct SpritesheetGridSpec {
 
 struct SpritesheetPopupState {
     bool open_requested = false;
+    std::filesystem::path resources_root;
     std::filesystem::path image_path;
     int rows = 1;
     int columns = 1;
+};
+
+struct SpritesheetMetadataStore {
+    std::filesystem::path loaded_resources_root;
+    bool loaded = false;
+    bool dirty = false;
+    std::unordered_map<std::string, SpritesheetGridSpec> grid_specs;
 };
 
 std::string ToLower(std::string text) {
@@ -202,9 +215,9 @@ SpritesheetPopupState &GetSpritesheetPopupState() {
     return state;
 }
 
-std::unordered_map<std::string, SpritesheetGridSpec> &GetSpritesheetGridSpecCache() {
-    static std::unordered_map<std::string, SpritesheetGridSpec> cache;
-    return cache;
+SpritesheetMetadataStore &GetSpritesheetMetadataStore() {
+    static SpritesheetMetadataStore store;
+    return store;
 }
 
 void DestroyTextureCache(ImageTextureCache &cache) {
@@ -214,6 +227,155 @@ void DestroyTextureCache(ImageTextureCache &cache) {
         }
     }
     cache.textures.clear();
+}
+
+std::filesystem::path SpritesheetMetadataPath() {
+    return ResourcePath::EngineRootPath() / "project" / "spritesheets.json";
+}
+
+std::string BuildSpritesheetMetadataKey(const std::filesystem::path &resources_root,
+                                        const std::filesystem::path &image_path) {
+    std::error_code relative_error;
+    std::filesystem::path relative_path = std::filesystem::relative(
+        image_path.lexically_normal(), resources_root.lexically_normal(),
+        relative_error);
+    if (relative_error || relative_path.empty()) {
+        return image_path.lexically_normal().generic_string();
+    }
+    return relative_path.generic_string();
+}
+
+rapidjson::Document BuildDefaultSpritesheetMetadataDocument() {
+    rapidjson::Document document;
+    document.SetObject();
+    rapidjson::Value spritesheets(rapidjson::kObjectType);
+    document.AddMember("spritesheets", spritesheets, document.GetAllocator());
+    return document;
+}
+
+rapidjson::Document ReadSpritesheetMetadataDocument() {
+    const std::filesystem::path metadata_path = SpritesheetMetadataPath();
+    if (!std::filesystem::exists(metadata_path)) {
+        return BuildDefaultSpritesheetMetadataDocument();
+    }
+
+    std::ifstream input_file(metadata_path, std::ios::in);
+    if (!input_file.is_open()) {
+        return BuildDefaultSpritesheetMetadataDocument();
+    }
+
+    std::stringstream content_stream;
+    content_stream << input_file.rdbuf();
+    rapidjson::Document document;
+    document.Parse(content_stream.str().c_str());
+    if (!document.IsObject()) {
+        return BuildDefaultSpritesheetMetadataDocument();
+    }
+    if (!document.HasMember("spritesheets") ||
+        !document["spritesheets"].IsObject()) {
+        return BuildDefaultSpritesheetMetadataDocument();
+    }
+    return document;
+}
+
+bool WriteSpritesheetMetadataDocument(const rapidjson::Document &document) {
+    const std::filesystem::path metadata_path = SpritesheetMetadataPath();
+    if (!ResourcePath::EnsureDirectoryExists(metadata_path.parent_path())) {
+        return false;
+    }
+
+    rapidjson::StringBuffer buffer;
+    rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
+    document.Accept(writer);
+
+    std::ofstream output_file(metadata_path, std::ios::out | std::ios::trunc);
+    if (!output_file.is_open()) {
+        return false;
+    }
+    output_file << buffer.GetString() << std::endl;
+    return true;
+}
+
+void EnsureSpritesheetMetadataLoaded(const std::filesystem::path &resources_root) {
+    SpritesheetMetadataStore &store = GetSpritesheetMetadataStore();
+    const std::filesystem::path normalized_root = resources_root.lexically_normal();
+    if (store.loaded && store.loaded_resources_root == normalized_root) return;
+
+    store.loaded_resources_root = normalized_root;
+    store.loaded = true;
+    store.dirty = false;
+    store.grid_specs.clear();
+
+    const rapidjson::Document document = ReadSpritesheetMetadataDocument();
+    const rapidjson::Value &spritesheets = document["spritesheets"];
+    for (auto it = spritesheets.MemberBegin(); it != spritesheets.MemberEnd();
+         ++it) {
+        if (!it->name.IsString() || !it->value.IsObject()) continue;
+        if (!it->value.HasMember("rows") || !it->value["rows"].IsInt()) continue;
+        if (!it->value.HasMember("columns") ||
+            !it->value["columns"].IsInt()) {
+            continue;
+        }
+
+        SpritesheetGridSpec spec;
+        spec.rows = std::max(1, it->value["rows"].GetInt());
+        spec.columns = std::max(1, it->value["columns"].GetInt());
+        store.grid_specs[it->name.GetString()] = spec;
+    }
+}
+
+void PersistSpritesheetMetadataIfDirty() {
+    SpritesheetMetadataStore &store = GetSpritesheetMetadataStore();
+    if (!store.loaded || !store.dirty) return;
+
+    rapidjson::Document document;
+    document.SetObject();
+    rapidjson::Value spritesheets(rapidjson::kObjectType);
+    for (const auto &entry : store.grid_specs) {
+        rapidjson::Value spec_object(rapidjson::kObjectType);
+        spec_object.AddMember("rows", entry.second.rows, document.GetAllocator());
+        spec_object.AddMember("columns", entry.second.columns,
+                              document.GetAllocator());
+        spritesheets.AddMember(
+            rapidjson::Value(entry.first.c_str(), document.GetAllocator()).Move(),
+            spec_object, document.GetAllocator());
+    }
+    document.AddMember("spritesheets", spritesheets, document.GetAllocator());
+    if (WriteSpritesheetMetadataDocument(document)) {
+        store.dirty = false;
+    }
+}
+
+SpritesheetGridSpec GetSpritesheetGridSpec(const std::filesystem::path &resources_root,
+                                           const std::filesystem::path &image_path) {
+    EnsureSpritesheetMetadataLoaded(resources_root);
+    const SpritesheetMetadataStore &store = GetSpritesheetMetadataStore();
+    const std::string metadata_key = BuildSpritesheetMetadataKey(resources_root,
+                                                                 image_path);
+    const auto found = store.grid_specs.find(metadata_key);
+    if (found != store.grid_specs.end()) {
+        return found->second;
+    }
+    return {};
+}
+
+void SetSpritesheetGridSpec(const std::filesystem::path &resources_root,
+                            const std::filesystem::path &image_path,
+                            const SpritesheetGridSpec &spec) {
+    EnsureSpritesheetMetadataLoaded(resources_root);
+    SpritesheetMetadataStore &store = GetSpritesheetMetadataStore();
+    const std::string metadata_key = BuildSpritesheetMetadataKey(resources_root,
+                                                                 image_path);
+    const auto found = store.grid_specs.find(metadata_key);
+    if (found != store.grid_specs.end() &&
+        found->second.rows == spec.rows &&
+        found->second.columns == spec.columns) {
+        return;
+    }
+
+    store.grid_specs[metadata_key] = spec;
+    store.dirty = true;
+    PersistSpritesheetMetadataIfDirty();
 }
 
 void ResetIconTextureCacheIfRendererChanged(SDL_Renderer *renderer) {
@@ -352,15 +514,16 @@ void DrawSpritesheetGridOverlay(ImDrawList *draw_list,
     draw_list->AddRect(draw_rect.min, draw_rect.max, line_color, 0.0f, 0, 1.5f);
 }
 
-void OpenSpritesheetPopupForImage(const std::filesystem::path &image_path) {
+void OpenSpritesheetPopupForImage(const std::filesystem::path &resources_root,
+                                  const std::filesystem::path &image_path) {
     SpritesheetPopupState &popup_state = GetSpritesheetPopupState();
-    std::unordered_map<std::string, SpritesheetGridSpec> &grid_specs = GetSpritesheetGridSpecCache();
-    const std::string cache_key = image_path.lexically_normal().string();
-    const auto found = grid_specs.find(cache_key);
+    const SpritesheetGridSpec spec =
+        GetSpritesheetGridSpec(resources_root, image_path);
 
+    popup_state.resources_root = resources_root.lexically_normal();
     popup_state.image_path = image_path.lexically_normal();
-    popup_state.rows = (found != grid_specs.end()) ? found->second.rows : 1;
-    popup_state.columns = (found != grid_specs.end()) ? found->second.columns : 1;
+    popup_state.rows = spec.rows;
+    popup_state.columns = spec.columns;
     popup_state.open_requested = true;
 }
 
@@ -392,16 +555,18 @@ void RenderSpritesheetPopup(SDL_Renderer *renderer) {
         ImGui::SetNextItemWidth(120.0f);
         if (ImGui::InputInt("Rows", &popup_state.rows, 1, 4)) {
             popup_state.rows = std::max(popup_state.rows, 1);
+            SetSpritesheetGridSpec(
+                popup_state.resources_root, popup_state.image_path,
+                {popup_state.rows, popup_state.columns});
         }
         ImGui::SameLine();
         ImGui::SetNextItemWidth(120.0f);
         if (ImGui::InputInt("Columns", &popup_state.columns, 1, 4)) {
             popup_state.columns = std::max(popup_state.columns, 1);
+            SetSpritesheetGridSpec(
+                popup_state.resources_root, popup_state.image_path,
+                {popup_state.rows, popup_state.columns});
         }
-
-        std::unordered_map<std::string, SpritesheetGridSpec> &grid_specs = GetSpritesheetGridSpecCache();
-        grid_specs[popup_state.image_path.lexically_normal().string()] = {
-            popup_state.rows, popup_state.columns};
 
         const int sprite_width = std::max(1, texture_width / std::max(popup_state.columns, 1));
         const int sprite_height = std::max(1, texture_height / std::max(popup_state.rows, 1));
@@ -728,7 +893,7 @@ void RenderDirectoryGrid(const std::filesystem::path &resources_root,
                 result.open_scene_requested = true;
                 result.requested_scene_path = entry.path.lexically_normal();
             } else if (entry_kind == EntryKind::Image) {
-                OpenSpritesheetPopupForImage(entry.path);
+                OpenSpritesheetPopupForImage(resources_root, entry.path);
             } else {
                 result.open_external_editor_requested = true;
                 result.requested_external_file_type = ToExternalFileType(entry_kind);
@@ -754,6 +919,7 @@ ProjectPanelResult RenderProjectPanel( const std::filesystem::path &resources_ro
     static std::filesystem::path selected_directory;
     static std::filesystem::path selected_entry;
     ProjectPanelResult result;
+    EnsureSpritesheetMetadataLoaded(resources_root);
     ResetIconTextureCacheIfRendererChanged(renderer);
     ResetImageTextureCacheIfRendererChanged(renderer);
 
