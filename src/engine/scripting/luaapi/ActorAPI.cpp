@@ -18,6 +18,9 @@ void InjectActorAPI() {
         .addFunction("GetComponentByKey", &Actor::GetComponentByKey)
         .addFunction("GetComponent", &Actor::GetComponent)
         .addFunction("GetComponents", &Actor::GetComponents)
+        .addFunction("GetComponentInChildren", &Actor::GetComponentInChildren)
+        .addFunction("GetComponentsInChildren",
+                     &Actor::GetComponentsInChildren)
         .endClass();
 
     luabridge::getGlobalNamespace(g_lua_state)

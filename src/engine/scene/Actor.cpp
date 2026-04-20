@@ -59,6 +59,16 @@ luabridge::LuaRef Actor::GetComponents(const std::string &type_name) const {
     return ComponentManager::GetComponentsByType(uid, type_name);
 }
 
+luabridge::LuaRef Actor::GetComponentInChildren(
+    const std::string &type_name) const {
+    return ComponentManager::GetComponentInChildrenByType(uid, type_name);
+}
+
+luabridge::LuaRef Actor::GetComponentsInChildren(
+    const std::string &type_name) const {
+    return ComponentManager::GetComponentsInChildrenByType(uid, type_name);
+}
+
 // loads an actor data copy from an actor template file.
 Actor Actor::LoadTemplate(const std::string &template_name) {
     // Template parsing now lives in shared/scene_format so runtime scene loads

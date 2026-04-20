@@ -11,6 +11,68 @@ using namespace ManagerDetail;
 
 namespace {
 
+bool IsActorSelfOrDescendantOf(Actor::UID candidate_uid, Actor::UID root_uid) {
+    if (candidate_uid == Actor::kInvalidUID || root_uid == Actor::kInvalidUID) {
+        return false;
+    }
+
+    Actor::UID current_uid = candidate_uid;
+    std::unordered_set<Actor::UID> visited_uids;
+    while (current_uid != Actor::kInvalidUID &&
+           visited_uids.insert(current_uid).second) {
+        if (current_uid == root_uid) return true;
+
+        auto actor_it = g_runtime.actor_by_uid.find(current_uid);
+        if (actor_it == g_runtime.actor_by_uid.end() ||
+            actor_it->second == nullptr) {
+            break;
+        }
+
+        const Actor *actor = actor_it->second;
+        if (actor->parent_uid == current_uid) break;
+        current_uid = actor->parent_uid;
+    }
+
+    return false;
+}
+
+luabridge::LuaRef BuildComponentsInChildrenResult(Actor::UID actor_uid,
+                                                  const std::string &type_name,
+                                                  bool first_only) {
+    if (actor_uid == Actor::kInvalidUID || type_name.empty()) {
+        return first_only ? MakeNilRef() : MakeEmptyArrayTable();
+    }
+
+    luabridge::LuaRef result_table = MakeEmptyArrayTable();
+    int lua_index = 1;
+
+    for (Actor::UID candidate_uid : g_runtime.actor_uids_sorted) {
+        if (!IsActorSelfOrDescendantOf(candidate_uid, actor_uid)) continue;
+
+        luabridge::LuaRef components =
+            ComponentManager::GetComponentsByType(candidate_uid, type_name);
+        if (!components.isTable()) continue;
+
+        components.push(g_runtime.lua_state);
+        const int components_stack_index = lua_absindex(g_runtime.lua_state, -1);
+        const int component_count = static_cast<int>(
+            lua_rawlen(g_runtime.lua_state, components_stack_index));
+        for (int component_index = 1; component_index <= component_count;
+             ++component_index) {
+            luabridge::LuaRef component_ref = components[component_index];
+            if (component_ref.isNil()) continue;
+            if (first_only) {
+                lua_pop(g_runtime.lua_state, 1);
+                return component_ref;
+            }
+            result_table[lua_index++] = component_ref;
+        }
+        lua_pop(g_runtime.lua_state, 1);
+    }
+
+    return first_only ? MakeNilRef() : result_table;
+}
+
 enum class LuaArrayType {
     Bool,
     Int,
@@ -399,6 +461,25 @@ luabridge::LuaRef ComponentManager::GetComponentsByType(Actor::UID actor_uid,
         result_table[lua_index++] = component->instance_table;
     }
     return result_table;
+}
+
+luabridge::LuaRef ComponentManager::GetComponentInChildrenByType(
+    Actor::UID actor_uid, const std::string &type_name) {
+    /*
+    Match the familiar Unity-style query shape: inspect this actor first, then
+    walk descendants in current runtime scene order until the first component
+    of the requested type is found.
+    */
+    return BuildComponentsInChildrenResult(actor_uid, type_name, true);
+}
+
+luabridge::LuaRef ComponentManager::GetComponentsInChildrenByType(
+    Actor::UID actor_uid, const std::string &type_name) {
+    /*
+    The runtime stores only parent links, so child queries are derived on
+    demand by scanning the live actor order and checking ancestry chains.
+    */
+    return BuildComponentsInChildrenResult(actor_uid, type_name, false);
 }
 
 // actor-level helpers exposed through Actor static APIs

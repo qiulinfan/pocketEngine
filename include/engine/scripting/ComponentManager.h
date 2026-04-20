@@ -74,6 +74,10 @@ public:
                                                 const std::string &type_name);
     static luabridge::LuaRef GetComponentsByType(Actor::UID actor_uid,
                                                  const std::string &type_name);
+    static luabridge::LuaRef GetComponentInChildrenByType(
+        Actor::UID actor_uid, const std::string &type_name);
+    static luabridge::LuaRef GetComponentsInChildrenByType(
+        Actor::UID actor_uid, const std::string &type_name);
 
     // editor-facing metadata queries for available component types/defaults
     // 给编辑器使用的组件元数据查询接口

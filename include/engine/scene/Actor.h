@@ -89,6 +89,10 @@ public:
     // returns all component instances of the given type as a Lua array.
     // 返回所有 given type 的 component instances
     luabridge::LuaRef GetComponents(const std::string &type_name) const;
+    // Unity-style child queries: inspect self first, then descendants.
+    luabridge::LuaRef GetComponentInChildren(const std::string &type_name) const;
+    luabridge::LuaRef GetComponentsInChildren(
+        const std::string &type_name) const;
 
     // loads an actor data copy from an actor template file.
     static Actor LoadTemplate(const std::string &template_name);
