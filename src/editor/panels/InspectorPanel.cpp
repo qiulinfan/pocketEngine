@@ -4,15 +4,10 @@
 #include "engine/core/Engine.h"
 #include "scripting/ComponentManager.h"
 #include "imgui.h"
-#include "rapidjson/document.h"
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/writer.h"
 #include <algorithm>
 #include <cctype>
 #include <cstring>
-#include <limits>
 #include <sstream>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -44,192 +39,104 @@ bool InputTextString(const char *label, const std::string &current_value, std::s
     return true;
 }
 
-bool SerializeArrayPropertyValueToString(
-    const Actor::ComponentPropertyValue &value, std::string &out_serialized) {
-    rapidjson::StringBuffer buffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-    bool serialized = true;
+template <typename ArrayType, typename DefaultFactory, typename ElementEditor>
+bool EditArrayElements(const char *label, const ArrayType &current_values,
+                       ArrayType &updated_values,
+                       DefaultFactory &&default_factory,
+                       ElementEditor &&element_editor) {
+    updated_values = current_values;
+    bool changed = false;
 
-    std::visit(
-        [&](const auto &typed_value) {
-            using ValueType = std::decay_t<decltype(typed_value)>;
-            if constexpr (std::is_same_v<ValueType, Actor::BoolArray>) {
-                writer.StartArray();
-                for (bool element : typed_value) {
-                    writer.Bool(element);
-                }
-                writer.EndArray();
-            } else if constexpr (std::is_same_v<ValueType, Actor::IntArray>) {
-                writer.StartArray();
-                for (int element : typed_value) {
-                    writer.Int(element);
-                }
-                writer.EndArray();
-            } else if constexpr (std::is_same_v<ValueType, Actor::DoubleArray>) {
-                writer.StartArray();
-                for (double element : typed_value) {
-                    writer.Double(element);
-                }
-                writer.EndArray();
-            } else if constexpr (std::is_same_v<ValueType, Actor::StringArray>) {
-                writer.StartArray();
-                for (const std::string &element : typed_value) {
-                    writer.String(element.c_str());
-                }
-                writer.EndArray();
-            } else {
-                serialized = false;
+    ImGui::PushID(label);
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("%s", label);
+    ImGui::SameLine();
+    if (ImGui::SmallButton("+ Add Element")) {
+        updated_values.emplace_back(default_factory());
+        changed = true;
+    }
+
+    ImGui::Indent(16.0f);
+    if (updated_values.empty()) {
+        ImGui::TextDisabled("Empty array");
+    }
+
+    for (std::size_t index = 0; index < updated_values.size();) {
+        ImGui::PushID(static_cast<int>(index));
+        bool remove_requested = ImGui::SmallButton("-");
+        ImGui::SameLine();
+        ImGui::Text("[%zu]", index);
+        ImGui::SameLine();
+        changed |= element_editor(updated_values, index);
+
+        if (remove_requested) {
+            updated_values.erase(updated_values.begin() +
+                                 static_cast<std::ptrdiff_t>(index));
+            changed = true;
+            ImGui::PopID();
+            continue;
+        }
+
+        ImGui::PopID();
+        ++index;
+    }
+
+    ImGui::Unindent(16.0f);
+    ImGui::PopID();
+    return changed;
+}
+
+bool EditBoolArrayPropertyValue(const char *label,
+                                const Actor::BoolArray &current_value,
+                                Actor::BoolArray &updated_value) {
+    return EditArrayElements(
+        label, current_value, updated_value, []() { return false; },
+        [](Actor::BoolArray &values, std::size_t index) {
+            bool edited_value = values[index];
+            if (!ImGui::Checkbox("##value", &edited_value)) return false;
+            values[index] = edited_value;
+            return true;
+        });
+}
+
+bool EditIntArrayPropertyValue(const char *label, const Actor::IntArray &current_value,
+                               Actor::IntArray &updated_value) {
+    return EditArrayElements(
+        label, current_value, updated_value, []() { return 0; },
+        [](Actor::IntArray &values, std::size_t index) {
+            int edited_value = values[index];
+            if (!ImGui::InputInt("##value", &edited_value)) return false;
+            values[index] = edited_value;
+            return true;
+        });
+}
+
+bool EditDoubleArrayPropertyValue(const char *label,
+                                  const Actor::DoubleArray &current_value,
+                                  Actor::DoubleArray &updated_value) {
+    return EditArrayElements(
+        label, current_value, updated_value, []() { return 0.0; },
+        [](Actor::DoubleArray &values, std::size_t index) {
+            double edited_value = values[index];
+            if (!ImGui::InputDouble("##value", &edited_value)) return false;
+            values[index] = edited_value;
+            return true;
+        });
+}
+
+bool EditStringArrayPropertyValue(const char *label,
+                                  const Actor::StringArray &current_value,
+                                  Actor::StringArray &updated_value) {
+    return EditArrayElements(
+        label, current_value, updated_value, []() { return std::string(); },
+        [](Actor::StringArray &values, std::size_t index) {
+            std::string edited_value;
+            if (!InputTextString("##value", values[index], edited_value)) {
+                return false;
             }
-        },
-        value);
-
-    if (!serialized) return false;
-    out_serialized = buffer.GetString();
-    return true;
-}
-
-template <typename ArrayType, typename ValuePredicate, typename ValueReader>
-bool TryParseJsonArrayTyped(const rapidjson::Value &value, ArrayType &out_values,
-                            ValuePredicate &&predicate,
-                            ValueReader &&reader) {
-    if (!value.IsArray()) return false;
-
-    out_values.clear();
-    out_values.reserve(value.Size());
-    for (rapidjson::SizeType index = 0; index < value.Size(); ++index) {
-        const rapidjson::Value &element = value[index];
-        if (!predicate(element)) return false;
-        out_values.emplace_back(reader(element));
-    }
-    return true;
-}
-
-bool TryParseArrayPropertyValueText(const std::string &text,
-                                    const Actor::ComponentPropertyValue &current_value,
-                                    Actor::ComponentPropertyValue &updated_value) {
-    rapidjson::Document document;
-    document.Parse(text.c_str());
-    if (document.HasParseError() || !document.IsArray()) {
-        return false;
-    }
-
-    if (std::holds_alternative<Actor::BoolArray>(current_value)) {
-        Actor::BoolArray values;
-        if (!TryParseJsonArrayTyped(
-                document, values,
-                [](const rapidjson::Value &element) { return element.IsBool(); },
-                [](const rapidjson::Value &element) { return element.GetBool(); })) {
-            return false;
-        }
-        updated_value = std::move(values);
-        return true;
-    }
-
-    if (std::holds_alternative<Actor::IntArray>(current_value)) {
-        Actor::IntArray values;
-        if (!TryParseJsonArrayTyped(
-                document, values,
-                [](const rapidjson::Value &element) {
-                    if (element.IsInt64()) {
-                        const int64_t value = element.GetInt64();
-                        return value >=
-                                   static_cast<int64_t>(
-                                       std::numeric_limits<int>::min()) &&
-                               value <=
-                                   static_cast<int64_t>(
-                                       std::numeric_limits<int>::max());
-                    }
-                    if (element.IsUint64()) {
-                        return element.GetUint64() <=
-                               static_cast<uint64_t>(
-                                   std::numeric_limits<int>::max());
-                    }
-                    return false;
-                },
-                [](const rapidjson::Value &element) {
-                    if (element.IsInt64()) {
-                        return static_cast<int>(element.GetInt64());
-                    }
-                    return static_cast<int>(element.GetUint64());
-                })) {
-            return false;
-        }
-        updated_value = std::move(values);
-        return true;
-    }
-
-    if (std::holds_alternative<Actor::DoubleArray>(current_value)) {
-        Actor::DoubleArray values;
-        if (!TryParseJsonArrayTyped(
-                document, values,
-                [](const rapidjson::Value &element) {
-                    return element.IsNumber();
-                },
-                [](const rapidjson::Value &element) {
-                    return element.GetDouble();
-                })) {
-            return false;
-        }
-        updated_value = std::move(values);
-        return true;
-    }
-
-    if (std::holds_alternative<Actor::StringArray>(current_value)) {
-        Actor::StringArray values;
-        if (!TryParseJsonArrayTyped(
-                document, values,
-                [](const rapidjson::Value &element) {
-                    return element.IsString();
-                },
-                [](const rapidjson::Value &element) {
-                    return std::string(element.GetString());
-                })) {
-            return false;
-        }
-        updated_value = std::move(values);
-        return true;
-    }
-
-    return false;
-}
-
-bool EditArrayPropertyValue(const char *label,
-                            const Actor::ComponentPropertyValue &current_value,
-                            Actor::ComponentPropertyValue &updated_value) {
-    std::string serialized_current_value;
-    if (!SerializeArrayPropertyValueToString(current_value,
-                                             serialized_current_value)) {
-        return false;
-    }
-
-    static std::unordered_map<ImGuiID, std::string> drafts_by_id;
-    static std::unordered_map<ImGuiID, std::string> committed_by_id;
-    const ImGuiID draft_id = ImGui::GetID(label);
-
-    std::string &draft_value = drafts_by_id[draft_id];
-    std::string &committed_value = committed_by_id[draft_id];
-    if (draft_value.empty() || committed_value != serialized_current_value) {
-        draft_value = serialized_current_value;
-        committed_value = serialized_current_value;
-    }
-
-    std::vector<char> buffer(
-        std::max<std::size_t>(256, draft_value.size() + 64), '\0');
-    std::memcpy(buffer.data(), draft_value.c_str(), draft_value.size());
-    if (ImGui::InputText(label, buffer.data(), buffer.size())) {
-        draft_value = buffer.data();
-    }
-
-    if (!ImGui::IsItemDeactivatedAfterEdit()) return false;
-    if (!TryParseArrayPropertyValueText(draft_value, current_value,
-                                        updated_value)) {
-        draft_value = serialized_current_value;
-        committed_value = serialized_current_value;
-        return false;
-    }
-
-    committed_value = draft_value;
-    return true;
+            values[index] = edited_value;
+            return true;
+        });
 }
 
 /*
@@ -240,11 +147,44 @@ runtime-only property editing paths.
 bool EditPropertyValue(const char *label,
                        const Actor::ComponentPropertyValue &current_value,
                        Actor::ComponentPropertyValue &updated_value) {
-    if (std::holds_alternative<Actor::BoolArray>(current_value) ||
-        std::holds_alternative<Actor::IntArray>(current_value) ||
-        std::holds_alternative<Actor::DoubleArray>(current_value) ||
-        std::holds_alternative<Actor::StringArray>(current_value)) {
-        return EditArrayPropertyValue(label, current_value, updated_value);
+    if (const Actor::BoolArray *typed_value =
+            std::get_if<Actor::BoolArray>(&current_value)) {
+        Actor::BoolArray next_value;
+        if (!EditBoolArrayPropertyValue(label, *typed_value, next_value)) {
+            return false;
+        }
+        updated_value = std::move(next_value);
+        return true;
+    }
+
+    if (const Actor::IntArray *typed_value =
+            std::get_if<Actor::IntArray>(&current_value)) {
+        Actor::IntArray next_value;
+        if (!EditIntArrayPropertyValue(label, *typed_value, next_value)) {
+            return false;
+        }
+        updated_value = std::move(next_value);
+        return true;
+    }
+
+    if (const Actor::DoubleArray *typed_value =
+            std::get_if<Actor::DoubleArray>(&current_value)) {
+        Actor::DoubleArray next_value;
+        if (!EditDoubleArrayPropertyValue(label, *typed_value, next_value)) {
+            return false;
+        }
+        updated_value = std::move(next_value);
+        return true;
+    }
+
+    if (const Actor::StringArray *typed_value =
+            std::get_if<Actor::StringArray>(&current_value)) {
+        Actor::StringArray next_value;
+        if (!EditStringArrayPropertyValue(label, *typed_value, next_value)) {
+            return false;
+        }
+        updated_value = std::move(next_value);
+        return true;
     }
 
     if (const bool *typed_value = std::get_if<bool>(&current_value)) {
@@ -444,6 +384,18 @@ bool ApplyScenePropertyAssetDrop(
     return changed;
 }
 
+bool AppendAssetToStringArrayValue(const Actor::ComponentPropertyValue &current_value,
+                                   const PropertyAssetDrop &drop,
+                                   Actor::ComponentPropertyValue &updated_value) {
+    const auto *typed_value = std::get_if<Actor::StringArray>(&current_value);
+    if (typed_value == nullptr || drop.resource_name.empty()) return false;
+
+    Actor::StringArray next_value = *typed_value;
+    next_value.emplace_back(drop.resource_name);
+    updated_value = std::move(next_value);
+    return true;
+}
+
 /*
 Show the derived Rigidbody hierarchy state that explains whether a dynamic body
 is active, overridden, or attached under another dynamic physics root.
@@ -531,6 +483,21 @@ void RenderRuntimeOnlyActorInspector(const Engine &engine,
                         property_changed |= ApplyRuntimePropertyAssetDrop(
                             runtime_actor.uid, component_spec, property.name,
                             drop);
+                    }
+                } else if (std::holds_alternative<Actor::StringArray>(
+                               property.value)) {
+                    ImGui::Button("Drop Asset To Append",
+                                  ImVec2(ImGui::GetContentRegionAvail().x,
+                                         0.0f));
+                    PropertyAssetDrop drop;
+                    Actor::ComponentPropertyValue appended_value;
+                    if (AcceptPropertyAssetDrop(drop) &&
+                        AppendAssetToStringArrayValue(property.value, drop,
+                                                     appended_value)) {
+                        property_changed |=
+                            ComponentManager::SetRuntimeComponentPropertyValue(
+                                runtime_actor.uid, component_spec.key,
+                                property.name, appended_value);
                     }
                 }
                 ImGui::PopID();
@@ -722,6 +689,25 @@ bool RenderInspectorPanel(const Engine &engine, SceneDocument &scene_document,
                             scene_document, actor_index, component_spec,
                             property.name, drop, out_edit_commands);
                         scene_changed |= property_changed;
+                    }
+                } else if (std::holds_alternative<Actor::StringArray>(
+                               property.value)) {
+                    ImGui::Button("Drop Asset To Append",
+                                  ImVec2(ImGui::GetContentRegionAvail().x,
+                                         0.0f));
+                    PropertyAssetDrop drop;
+                    Actor::ComponentPropertyValue appended_value;
+                    if (AcceptPropertyAssetDrop(drop) &&
+                        AppendAssetToStringArrayValue(property.value, drop,
+                                                     appended_value)) {
+                        SceneFormat::SceneEditCommand command;
+                        property_changed |= scene_document.SetComponentProperty(
+                            actor_index, component_spec.key, property.name,
+                            appended_value, &command);
+                        scene_changed |= property_changed;
+                        if (property_changed && out_edit_commands != nullptr) {
+                            out_edit_commands->emplace_back(std::move(command));
+                        }
                     }
                 }
                 ImGui::PopID();
