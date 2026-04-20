@@ -1,4 +1,4 @@
-#include "editor/panels/ScenePanel.h"
+#include "editor/panels/SceneViewPanel.h"
 #include "editor/core/EditorDragDrop.h"
 #include "editor/documents/SceneDocument.h"
 #include "engine/core/Engine.h"
@@ -185,11 +185,11 @@ void RotateClockwise(float x, float y, float rotation_degrees, float &out_x,
     out_y = -sin_theta * x + cos_theta * y;
 }
 
-ImVec2 WorldToScenePanelPosition(const Engine &engine,
-                                 const SceneViewCameraState &scene_camera,
-                                 const ImVec2 &image_min,
-                                 const ImVec2 &image_size, float world_x,
-                                 float world_y) {
+ImVec2 WorldToSceneViewPanelPosition(const Engine &engine,
+                                     const SceneViewCameraState &scene_camera,
+                                     const ImVec2 &image_min,
+                                     const ImVec2 &image_size, float world_x,
+                                     float world_y) {
 
     const float safe_zoom = std::max(0.0001f, scene_camera.zoom);
     const float runtime_width = static_cast<float>(std::max(1, engine.GetScenePreviewRenderTargetWidth()));
@@ -201,21 +201,20 @@ ImVec2 WorldToScenePanelPosition(const Engine &engine,
                   image_min.y + (runtime_pixel_y / runtime_height) * image_size.y);
 }
 
-float WorldUnitsToScenePanelPixels(const Engine &engine,
-                                   const SceneViewCameraState &scene_camera,
-                                   const ImVec2 &image_size,
-                                   float world_units) {
+float WorldUnitsToSceneViewPanelPixels(const Engine &engine,
+                                       const SceneViewCameraState &scene_camera,
+                                       const ImVec2 &image_size,
+                                       float world_units) {
     const float safe_zoom = std::max(0.0001f, scene_camera.zoom);
     const float runtime_width = static_cast<float>(std::max(1, engine.GetScenePreviewRenderTargetWidth()));
     const float panel_pixels_per_runtime_pixel = image_size.x / runtime_width;
     return world_units * kPixelsPerUnit * safe_zoom * panel_pixels_per_runtime_pixel;
 }
 
-ImVec2 ScenePanelPixelsToWorldPosition(const Engine &engine,
-                                       const SceneViewCameraState &scene_camera,
-                                       const ImVec2 &image_min,
-                                       const ImVec2 &image_size,
-                                       const ImVec2 &panel_position) {
+ImVec2 SceneViewPanelPixelsToWorldPosition(
+    const Engine &engine, const SceneViewCameraState &scene_camera,
+    const ImVec2 &image_min, const ImVec2 &image_size,
+    const ImVec2 &panel_position) {
     const float safe_zoom = std::max(0.0001f, scene_camera.zoom);
     const float runtime_width = static_cast<float>(std::max(1, engine.GetScenePreviewRenderTargetWidth()));
     const float runtime_height = static_cast<float>(std::max(1, engine.GetScenePreviewRenderTargetHeight()));
@@ -310,11 +309,11 @@ ActorScreenBounds BuildTransformAnchorBounds(
     bounds.actor_uid = actor_uid;
     bounds.circular = true;
 
-    const ImVec2 panel_center = WorldToScenePanelPosition( engine, scene_camera, image_min, image_size, world_x, world_y);
+    const ImVec2 panel_center = WorldToSceneViewPanelPosition( engine, scene_camera, image_min, image_size, world_x, world_y);
 
     bounds.center_x = panel_center.x;
     bounds.center_y = panel_center.y;
-    bounds.half_width = WorldUnitsToScenePanelPixels( engine, scene_camera, image_size, kFallbackSelectionHalfExtentUnits);
+    bounds.half_width = WorldUnitsToSceneViewPanelPixels( engine, scene_camera, image_size, kFallbackSelectionHalfExtentUnits);
     bounds.half_height = bounds.half_width;
     return bounds;
 }
@@ -374,17 +373,17 @@ std::optional<ActorScreenBounds> BuildActorScreenBounds(
         }
 
         bounds.circular = (shape_type == "circle");
-        const ImVec2 panel_center = WorldToScenePanelPosition( engine, scene_camera, image_min, image_size, x, y);
+        const ImVec2 panel_center = WorldToSceneViewPanelPosition( engine, scene_camera, image_min, image_size, x, y);
         bounds.center_x = panel_center.x;
         bounds.center_y = panel_center.y;
 
         if (bounds.circular) {
-            const float pixel_radius = WorldUnitsToScenePanelPixels( engine, scene_camera, image_size, radius);
+            const float pixel_radius = WorldUnitsToSceneViewPanelPixels( engine, scene_camera, image_size, radius);
             bounds.half_width = pixel_radius;
             bounds.half_height = pixel_radius;
         } else {
-            bounds.half_width = WorldUnitsToScenePanelPixels( engine, scene_camera, image_size, width * 0.5f);
-            bounds.half_height = WorldUnitsToScenePanelPixels( engine, scene_camera, image_size, height * 0.5f);
+            bounds.half_width = WorldUnitsToSceneViewPanelPixels( engine, scene_camera, image_size, width * 0.5f);
+            bounds.half_height = WorldUnitsToSceneViewPanelPixels( engine, scene_camera, image_size, height * 0.5f);
         }
         return bounds;
     }
@@ -399,12 +398,12 @@ std::optional<ActorScreenBounds> BuildActorScreenBounds(
         const bool has_y = ReadPropertyAsFloat(properties, "y", 0.0f, y);
         if (!has_x || !has_y) continue;
 
-        const ImVec2 panel_center = WorldToScenePanelPosition(engine, scene_camera, image_min, image_size, x, y);
+        const ImVec2 panel_center = WorldToSceneViewPanelPosition(engine, scene_camera, image_min, image_size, x, y);
 
         bounds.circular = true;
         bounds.center_x = panel_center.x;
         bounds.center_y = panel_center.y;
-        bounds.half_width = WorldUnitsToScenePanelPixels(engine, scene_camera, image_size, kFallbackSelectionHalfExtentUnits);
+        bounds.half_width = WorldUnitsToSceneViewPanelPixels(engine, scene_camera, image_size, kFallbackSelectionHalfExtentUnits);
         bounds.half_height = bounds.half_width;
         return bounds;
     }
@@ -417,12 +416,12 @@ std::optional<ActorScreenBounds> BuildActorScreenBounds(
         const bool has_y = ReadPropertyAsFloat(properties, "y", 0.0f, y);
         if (!has_x || !has_y) continue;
 
-        const ImVec2 panel_center = WorldToScenePanelPosition(engine, scene_camera, image_min, image_size, x, y);
+        const ImVec2 panel_center = WorldToSceneViewPanelPosition(engine, scene_camera, image_min, image_size, x, y);
 
         bounds.circular = true;
         bounds.center_x = panel_center.x;
         bounds.center_y = panel_center.y;
-        bounds.half_width = WorldUnitsToScenePanelPixels(engine, scene_camera, image_size, kFallbackSelectionHalfExtentUnits);
+        bounds.half_width = WorldUnitsToSceneViewPanelPixels(engine, scene_camera, image_size, kFallbackSelectionHalfExtentUnits);
         bounds.half_height = bounds.half_width;
         return bounds;
     }
@@ -851,7 +850,7 @@ bool HandleSceneAssetDrop(
             ImGui::AcceptDragDropPayload(EditorDragDrop::kActorTemplatePayload)) {
         const char *template_name = static_cast<const char *>(payload->Data);
         if (template_name != nullptr && template_name[0] != '\0') {
-            const ImVec2 drop_world_position = ScenePanelPixelsToWorldPosition(
+            const ImVec2 drop_world_position = SceneViewPanelPixelsToWorldPosition(
                 engine, scene_camera, image_min, image_size,
                 ImGui::GetMousePos());
 
@@ -909,7 +908,7 @@ bool HandleSceneAssetDrop(
                     payload->Data);
             if (sprite_payload->image_resource_name[0] != '\0') {
                 const ImVec2 drop_world_position =
-                    ScenePanelPixelsToWorldPosition(
+                    SceneViewPanelPixelsToWorldPosition(
                         engine, scene_camera, image_min, image_size,
                         ImGui::GetMousePos());
                 scene_changed |= AppendSpriteActorAtWorldPosition(
@@ -925,7 +924,7 @@ bool HandleSceneAssetDrop(
         const char *image_resource_name =
             static_cast<const char *>(payload->Data);
         if (image_resource_name != nullptr && image_resource_name[0] != '\0') {
-            const ImVec2 drop_world_position = ScenePanelPixelsToWorldPosition(
+            const ImVec2 drop_world_position = SceneViewPanelPixelsToWorldPosition(
                 engine, scene_camera, image_min, image_size,
                 ImGui::GetMousePos());
             scene_changed |= AppendSpriteActorAtWorldPosition(
@@ -1065,7 +1064,7 @@ void BeginSelectedActorDrag(const Engine &engine,
         return;
     }
 
-    const ImVec2 mouse_world_position = ScenePanelPixelsToWorldPosition(engine, scene_camera, image_min, image_size, ImGui::GetMousePos());
+    const ImVec2 mouse_world_position = SceneViewPanelPixelsToWorldPosition(engine, scene_camera, image_min, image_size, ImGui::GetMousePos());
     g_scene_drag_state.active = true;
     g_scene_drag_state.play_mode_active = play_mode_active;
     g_scene_drag_state.actor_index = drag_target->actor_index;
@@ -1114,7 +1113,7 @@ bool UpdateSelectedActorDrag(
         return false;
     }
 
-    const ImVec2 mouse_world_position = ScenePanelPixelsToWorldPosition(
+    const ImVec2 mouse_world_position = SceneViewPanelPixelsToWorldPosition(
         engine, scene_camera, image_min, image_size, ImGui::GetMousePos());
         const float target_world_x = mouse_world_position.x + g_scene_drag_state.world_offset_x;
         const float target_world_y = mouse_world_position.y + g_scene_drag_state.world_offset_y;
@@ -1145,24 +1144,24 @@ void ZoomSceneCameraAtCursor(const Engine &engine, const ImVec2 &image_min,
                              float wheel_delta) {
     if (std::abs(wheel_delta) <= 0.0001f) return;
 
-    const ImVec2 world_before_zoom = ScenePanelPixelsToWorldPosition( engine, g_scene_camera_state, image_min, image_size, mouse_position);
+    const ImVec2 world_before_zoom = SceneViewPanelPixelsToWorldPosition( engine, g_scene_camera_state, image_min, image_size, mouse_position);
     const float zoom_scale = std::pow(1.15f, wheel_delta);
     g_scene_camera_state.zoom = ClampSceneCameraZoom(g_scene_camera_state.zoom * zoom_scale);
-    const ImVec2 world_after_zoom = ScenePanelPixelsToWorldPosition( engine, g_scene_camera_state, image_min, image_size, mouse_position);
+    const ImVec2 world_after_zoom = SceneViewPanelPixelsToWorldPosition( engine, g_scene_camera_state, image_min, image_size, mouse_position);
     g_scene_camera_state.world_x += world_before_zoom.x - world_after_zoom.x;
     g_scene_camera_state.world_y += world_before_zoom.y - world_after_zoom.y;
 }
 
 } // namespace
 
-ScenePanelResult RenderScenePanel(
+SceneViewPanelResult RenderSceneViewPanel(
         Engine &engine, SceneDocument &scene_document,
         int &selected_actor_index, Actor::UID &selected_runtime_actor_uid,
         int scene_view_width, int scene_view_height, bool play_mode_active,
         bool play_mode_paused, bool scene_editing_enabled,
         std::vector<SceneFormat::SceneEditCommand> *out_edit_commands) {
 
-    ScenePanelResult controls_result;
+    SceneViewPanelResult controls_result;
     EnsureSceneCameraInitialized(engine, scene_document);
     const std::size_t scene_panel_command_begin_index = (out_edit_commands != nullptr) ? out_edit_commands->size() : 0;
     bool scene_panel_commands_applied_immediately = false;

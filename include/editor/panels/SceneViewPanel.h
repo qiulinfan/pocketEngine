@@ -1,5 +1,5 @@
-#ifndef EDITOR_SCENE_PANEL_H
-#define EDITOR_SCENE_PANEL_H
+#ifndef EDITOR_SCENE_VIEW_PANEL_H
+#define EDITOR_SCENE_VIEW_PANEL_H
 
 #include <cstddef>
 #include "scene/Actor.h"
@@ -11,7 +11,7 @@ class SceneDocument;
 
 namespace EditorPanels {
 
-struct ScenePanelResult {
+struct SceneViewPanelResult {
     bool scene_changed = false;
     bool play_mode_start_requested = false;
     bool play_mode_pause_toggle_requested = false;
@@ -30,9 +30,9 @@ struct ScenePanelResult {
     std::size_t immediate_apply_end_index = 0;
 };
 
-// Render the editor-facing scene panel on top of the latest runtime texture.
+// Render the editor-facing scene view panel on top of the latest runtime texture.
 // This panel owns scene selection and transform-gizmo interactions.
-ScenePanelResult RenderScenePanel(
+SceneViewPanelResult RenderSceneViewPanel(
     Engine &engine, SceneDocument &scene_document,
     int &selected_actor_index, Actor::UID &selected_runtime_actor_uid,
     int scene_view_width, int scene_view_height, bool play_mode_active,

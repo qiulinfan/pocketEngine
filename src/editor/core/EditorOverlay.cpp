@@ -6,7 +6,7 @@
 #include "editor/panels/ProjectPanel.h"
 #include "editor/panels/StatusPanel.h"
 #include "editor/panels/ViewportPanel.h"
-#include "editor/panels/ScenePanel.h"
+#include "editor/panels/SceneViewPanel.h"
 #include "engine/core/Engine.h"
 #include "shared/resources/ResourcePath.h"
 #include "imgui.h"
@@ -645,17 +645,18 @@ EditorOverlayResult EditorOverlay::Render(Engine &engine,
         selected_runtime_actor_uid_,
         play_mode_active, scene_editing_enabled, &result.scene_edit_commands);
 
-    const EditorPanels::ScenePanelResult scene_panel_result =
-        EditorPanels::RenderScenePanel(
+    const EditorPanels::SceneViewPanelResult scene_view_panel_result =
+        EditorPanels::RenderSceneViewPanel(
             engine, scene_document, selected_actor_index_,
             selected_runtime_actor_uid_, editor_config.scene_view_width,
             editor_config.scene_view_height, play_mode_active,
             play_mode_paused, scene_editing_enabled,
             &result.scene_edit_commands);
-    result.scene_changed |= scene_panel_result.scene_changed;
+    result.scene_changed |= scene_view_panel_result.scene_changed;
     result.scene_edit_commands_runtime_synced_begin_index =
-        scene_panel_result.immediate_apply_begin_index;
-        result.scene_edit_commands_runtime_synced_end_index = scene_panel_result.immediate_apply_end_index;
+        scene_view_panel_result.immediate_apply_begin_index;
+    result.scene_edit_commands_runtime_synced_end_index =
+        scene_view_panel_result.immediate_apply_end_index;
 
     const EditorPanels::ViewportControlsResult viewport_controls =
         EditorPanels::RenderViewportPanel(engine, play_mode_active,
