@@ -11,31 +11,166 @@ using namespace ManagerDetail;
 
 namespace {
 
-bool TryReadScalarValueFromLuaRef(const luabridge::LuaRef &value_ref,
-                                  Actor::ComponentPropertyValue &out_value) {
+enum class LuaArrayType {
+    Bool,
+    Int,
+    Double,
+    String,
+    Unknown
+};
+
+LuaArrayType ExpectedArrayType(const Actor::ComponentPropertyValue *expected_value) {
+    if (expected_value == nullptr) return LuaArrayType::Unknown;
+    if (std::holds_alternative<Actor::BoolArray>(*expected_value)) {
+        return LuaArrayType::Bool;
+    }
+    if (std::holds_alternative<Actor::IntArray>(*expected_value)) {
+        return LuaArrayType::Int;
+    }
+    if (std::holds_alternative<Actor::DoubleArray>(*expected_value)) {
+        return LuaArrayType::Double;
+    }
+    if (std::holds_alternative<Actor::StringArray>(*expected_value)) {
+        return LuaArrayType::String;
+    }
+    return LuaArrayType::Unknown;
+}
+
+LuaArrayType InferArrayTypeFromFirstLuaElement(int table_index) {
+    lua_rawgeti(g_runtime.lua_state, table_index, 1);
+    LuaArrayType array_type = LuaArrayType::Unknown;
+    const int value_type = lua_type(g_runtime.lua_state, -1);
+    if (value_type == LUA_TBOOLEAN) {
+        array_type = LuaArrayType::Bool;
+    } else if (lua_isinteger(g_runtime.lua_state, -1)) {
+        array_type = LuaArrayType::Int;
+    } else if (lua_isnumber(g_runtime.lua_state, -1)) {
+        array_type = LuaArrayType::Double;
+    } else if (value_type == LUA_TSTRING) {
+        array_type = LuaArrayType::String;
+    }
+    lua_pop(g_runtime.lua_state, 1);
+    return array_type;
+}
+
+bool TryReadArrayValueFromLuaStack(int stack_index,
+                                   const Actor::ComponentPropertyValue *expected_value,
+                                   Actor::ComponentPropertyValue &out_value) {
+    const int table_index = lua_absindex(g_runtime.lua_state, stack_index);
+    if (!lua_istable(g_runtime.lua_state, table_index)) return false;
+
+    const int array_length =
+        static_cast<int>(lua_rawlen(g_runtime.lua_state, table_index));
+    LuaArrayType array_type = ExpectedArrayType(expected_value);
+    if (array_type == LuaArrayType::Unknown) {
+        if (array_length <= 0) return false;
+        array_type = InferArrayTypeFromFirstLuaElement(table_index);
+    }
+    if (array_type == LuaArrayType::Unknown) return false;
+
+    switch (array_type) {
+    case LuaArrayType::Bool: {
+        Actor::BoolArray values;
+        values.reserve(array_length);
+        for (int index = 1; index <= array_length; ++index) {
+            lua_rawgeti(g_runtime.lua_state, table_index, index);
+            if (lua_type(g_runtime.lua_state, -1) != LUA_TBOOLEAN) {
+                lua_pop(g_runtime.lua_state, 1);
+                return false;
+            }
+            values.emplace_back(lua_toboolean(g_runtime.lua_state, -1) != 0);
+            lua_pop(g_runtime.lua_state, 1);
+        }
+        out_value = std::move(values);
+        return true;
+    }
+    case LuaArrayType::Int: {
+        Actor::IntArray values;
+        values.reserve(array_length);
+        for (int index = 1; index <= array_length; ++index) {
+            lua_rawgeti(g_runtime.lua_state, table_index, index);
+            if (!lua_isinteger(g_runtime.lua_state, -1)) {
+                lua_pop(g_runtime.lua_state, 1);
+                return false;
+            }
+            values.emplace_back(
+                static_cast<int>(lua_tointeger(g_runtime.lua_state, -1)));
+            lua_pop(g_runtime.lua_state, 1);
+        }
+        out_value = std::move(values);
+        return true;
+    }
+    case LuaArrayType::Double: {
+        Actor::DoubleArray values;
+        values.reserve(array_length);
+        for (int index = 1; index <= array_length; ++index) {
+            lua_rawgeti(g_runtime.lua_state, table_index, index);
+            if (!lua_isnumber(g_runtime.lua_state, -1)) {
+                lua_pop(g_runtime.lua_state, 1);
+                return false;
+            }
+            values.emplace_back(lua_tonumber(g_runtime.lua_state, -1));
+            lua_pop(g_runtime.lua_state, 1);
+        }
+        out_value = std::move(values);
+        return true;
+    }
+    case LuaArrayType::String: {
+        Actor::StringArray values;
+        values.reserve(array_length);
+        for (int index = 1; index <= array_length; ++index) {
+            lua_rawgeti(g_runtime.lua_state, table_index, index);
+            if (lua_type(g_runtime.lua_state, -1) != LUA_TSTRING) {
+                lua_pop(g_runtime.lua_state, 1);
+                return false;
+            }
+            values.emplace_back(lua_tostring(g_runtime.lua_state, -1));
+            lua_pop(g_runtime.lua_state, 1);
+        }
+        out_value = std::move(values);
+        return true;
+    }
+    case LuaArrayType::Unknown:
+    default:
+        return false;
+    }
+}
+
+bool TryReadPropertyValueFromLuaStack(
+    int stack_index, Actor::ComponentPropertyValue &out_value,
+    const Actor::ComponentPropertyValue *expected_value = nullptr) {
+    const int value_type = lua_type(g_runtime.lua_state, stack_index);
+    switch (value_type) {
+    case LUA_TBOOLEAN:
+        out_value = lua_toboolean(g_runtime.lua_state, stack_index) != 0;
+        return true;
+    case LUA_TNUMBER:
+        if (lua_isinteger(g_runtime.lua_state, stack_index)) {
+            out_value = static_cast<int>(
+                lua_tointeger(g_runtime.lua_state, stack_index));
+        } else {
+            out_value = lua_tonumber(g_runtime.lua_state, stack_index);
+        }
+        return true;
+    case LUA_TSTRING:
+        out_value = std::string(lua_tostring(g_runtime.lua_state, stack_index));
+        return true;
+    case LUA_TTABLE:
+        return TryReadArrayValueFromLuaStack(stack_index, expected_value,
+                                             out_value);
+    default:
+        return false;
+    }
+}
+
+bool TryReadPropertyValueFromLuaRef(
+    const luabridge::LuaRef &value_ref, Actor::ComponentPropertyValue &out_value,
+    const Actor::ComponentPropertyValue *expected_value = nullptr) {
     if (g_runtime.lua_state == nullptr || value_ref.isNil()) return false;
 
     value_ref.push(g_runtime.lua_state);
-    const int value_type = lua_type(g_runtime.lua_state, -1);
-    bool converted = true;
-    switch (value_type) {
-    case LUA_TBOOLEAN:
-        out_value = lua_toboolean(g_runtime.lua_state, -1) != 0;
-        break;
-    case LUA_TNUMBER:
-        if (lua_isinteger(g_runtime.lua_state, -1)) {
-            out_value = static_cast<int>(lua_tointeger(g_runtime.lua_state, -1));
-        } else {
-            out_value = lua_tonumber(g_runtime.lua_state, -1);
-        }
-        break;
-    case LUA_TSTRING:
-    out_value = std::string(lua_tostring(g_runtime.lua_state, -1));
-        break;
-    default:
-        converted = false;
-        break;
-    }
+    const bool converted = TryReadPropertyValueFromLuaStack(
+        -1, out_value, expected_value);
     lua_pop(g_runtime.lua_state, 1);
     return converted;
 }
@@ -157,8 +292,8 @@ void MergeLiveRuntimePropertyValues(
     std::vector<Actor::ComponentProperty> &properties) {
     for (Actor::ComponentProperty &property : properties) {
         Actor::ComponentPropertyValue live_value;
-        if (!TryReadScalarValueFromLuaRef(component.instance_table[property.name],
-                                          live_value)) {
+        if (!TryReadPropertyValueFromLuaRef(component.instance_table[property.name],
+                                            live_value, &property.value)) {
             continue;
         }
         property.value = live_value;
@@ -201,16 +336,7 @@ void MergeDynamicLuaTableProperties(
 
         Actor::ComponentProperty property;
         property.name = property_name;
-        const int value_type = lua_type(g_runtime.lua_state, -1);
-        if (value_type == LUA_TBOOLEAN) {
-            property.value = lua_toboolean(g_runtime.lua_state, -1) != 0;
-        } else if (lua_isinteger(g_runtime.lua_state, -1)) {
-            property.value = static_cast<int>(lua_tointeger(g_runtime.lua_state, -1));
-        } else if (lua_isnumber(g_runtime.lua_state, -1)) {
-            property.value = lua_tonumber(g_runtime.lua_state, -1);
-        } else if (value_type == LUA_TSTRING) {
-            property.value = std::string(lua_tostring(g_runtime.lua_state, -1));
-        } else {
+        if (!TryReadPropertyValueFromLuaStack(-1, property.value)) {
             lua_pop(g_runtime.lua_state, 1);
             continue;
         }
@@ -343,15 +469,7 @@ ComponentManager::GetComponentTypeDefaultProperties( const std::string &type_nam
         Actor::ComponentProperty property;
         property.name = lua_tostring(g_runtime.lua_state, -2);
 
-        if (lua_type(g_runtime.lua_state, -1) == LUA_TBOOLEAN) {
-            property.value = lua_toboolean(g_runtime.lua_state, -1) != 0;
-        } else if (lua_isinteger(g_runtime.lua_state, -1)) {
-            property.value = static_cast<int>(lua_tointeger(g_runtime.lua_state, -1));
-        } else if (lua_isnumber(g_runtime.lua_state, -1)) {
-            property.value = lua_tonumber(g_runtime.lua_state, -1);
-        } else if (lua_type(g_runtime.lua_state, -1) == LUA_TSTRING) {
-            property.value = std::string(lua_tostring(g_runtime.lua_state, -1));
-        } else {
+        if (!TryReadPropertyValueFromLuaStack(-1, property.value)) {
             lua_pop(g_runtime.lua_state, 1);
             continue;
         }

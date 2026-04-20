@@ -4,10 +4,15 @@
 #include "engine/core/Engine.h"
 #include "scripting/ComponentManager.h"
 #include "imgui.h"
+#include "rapidjson/document.h"
+#include "rapidjson/stringbuffer.h"
+#include "rapidjson/writer.h"
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <limits>
 #include <sstream>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -39,6 +44,194 @@ bool InputTextString(const char *label, const std::string &current_value, std::s
     return true;
 }
 
+bool SerializeArrayPropertyValueToString(
+    const Actor::ComponentPropertyValue &value, std::string &out_serialized) {
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    bool serialized = true;
+
+    std::visit(
+        [&](const auto &typed_value) {
+            using ValueType = std::decay_t<decltype(typed_value)>;
+            if constexpr (std::is_same_v<ValueType, Actor::BoolArray>) {
+                writer.StartArray();
+                for (bool element : typed_value) {
+                    writer.Bool(element);
+                }
+                writer.EndArray();
+            } else if constexpr (std::is_same_v<ValueType, Actor::IntArray>) {
+                writer.StartArray();
+                for (int element : typed_value) {
+                    writer.Int(element);
+                }
+                writer.EndArray();
+            } else if constexpr (std::is_same_v<ValueType, Actor::DoubleArray>) {
+                writer.StartArray();
+                for (double element : typed_value) {
+                    writer.Double(element);
+                }
+                writer.EndArray();
+            } else if constexpr (std::is_same_v<ValueType, Actor::StringArray>) {
+                writer.StartArray();
+                for (const std::string &element : typed_value) {
+                    writer.String(element.c_str());
+                }
+                writer.EndArray();
+            } else {
+                serialized = false;
+            }
+        },
+        value);
+
+    if (!serialized) return false;
+    out_serialized = buffer.GetString();
+    return true;
+}
+
+template <typename ArrayType, typename ValuePredicate, typename ValueReader>
+bool TryParseJsonArrayTyped(const rapidjson::Value &value, ArrayType &out_values,
+                            ValuePredicate &&predicate,
+                            ValueReader &&reader) {
+    if (!value.IsArray()) return false;
+
+    out_values.clear();
+    out_values.reserve(value.Size());
+    for (rapidjson::SizeType index = 0; index < value.Size(); ++index) {
+        const rapidjson::Value &element = value[index];
+        if (!predicate(element)) return false;
+        out_values.emplace_back(reader(element));
+    }
+    return true;
+}
+
+bool TryParseArrayPropertyValueText(const std::string &text,
+                                    const Actor::ComponentPropertyValue &current_value,
+                                    Actor::ComponentPropertyValue &updated_value) {
+    rapidjson::Document document;
+    document.Parse(text.c_str());
+    if (document.HasParseError() || !document.IsArray()) {
+        return false;
+    }
+
+    if (std::holds_alternative<Actor::BoolArray>(current_value)) {
+        Actor::BoolArray values;
+        if (!TryParseJsonArrayTyped(
+                document, values,
+                [](const rapidjson::Value &element) { return element.IsBool(); },
+                [](const rapidjson::Value &element) { return element.GetBool(); })) {
+            return false;
+        }
+        updated_value = std::move(values);
+        return true;
+    }
+
+    if (std::holds_alternative<Actor::IntArray>(current_value)) {
+        Actor::IntArray values;
+        if (!TryParseJsonArrayTyped(
+                document, values,
+                [](const rapidjson::Value &element) {
+                    if (element.IsInt64()) {
+                        const int64_t value = element.GetInt64();
+                        return value >=
+                                   static_cast<int64_t>(
+                                       std::numeric_limits<int>::min()) &&
+                               value <=
+                                   static_cast<int64_t>(
+                                       std::numeric_limits<int>::max());
+                    }
+                    if (element.IsUint64()) {
+                        return element.GetUint64() <=
+                               static_cast<uint64_t>(
+                                   std::numeric_limits<int>::max());
+                    }
+                    return false;
+                },
+                [](const rapidjson::Value &element) {
+                    if (element.IsInt64()) {
+                        return static_cast<int>(element.GetInt64());
+                    }
+                    return static_cast<int>(element.GetUint64());
+                })) {
+            return false;
+        }
+        updated_value = std::move(values);
+        return true;
+    }
+
+    if (std::holds_alternative<Actor::DoubleArray>(current_value)) {
+        Actor::DoubleArray values;
+        if (!TryParseJsonArrayTyped(
+                document, values,
+                [](const rapidjson::Value &element) {
+                    return element.IsNumber();
+                },
+                [](const rapidjson::Value &element) {
+                    return element.GetDouble();
+                })) {
+            return false;
+        }
+        updated_value = std::move(values);
+        return true;
+    }
+
+    if (std::holds_alternative<Actor::StringArray>(current_value)) {
+        Actor::StringArray values;
+        if (!TryParseJsonArrayTyped(
+                document, values,
+                [](const rapidjson::Value &element) {
+                    return element.IsString();
+                },
+                [](const rapidjson::Value &element) {
+                    return std::string(element.GetString());
+                })) {
+            return false;
+        }
+        updated_value = std::move(values);
+        return true;
+    }
+
+    return false;
+}
+
+bool EditArrayPropertyValue(const char *label,
+                            const Actor::ComponentPropertyValue &current_value,
+                            Actor::ComponentPropertyValue &updated_value) {
+    std::string serialized_current_value;
+    if (!SerializeArrayPropertyValueToString(current_value,
+                                             serialized_current_value)) {
+        return false;
+    }
+
+    static std::unordered_map<ImGuiID, std::string> drafts_by_id;
+    static std::unordered_map<ImGuiID, std::string> committed_by_id;
+    const ImGuiID draft_id = ImGui::GetID(label);
+
+    std::string &draft_value = drafts_by_id[draft_id];
+    std::string &committed_value = committed_by_id[draft_id];
+    if (draft_value.empty() || committed_value != serialized_current_value) {
+        draft_value = serialized_current_value;
+        committed_value = serialized_current_value;
+    }
+
+    std::vector<char> buffer(
+        std::max<std::size_t>(256, draft_value.size() + 64), '\0');
+    std::memcpy(buffer.data(), draft_value.c_str(), draft_value.size());
+    if (ImGui::InputText(label, buffer.data(), buffer.size())) {
+        draft_value = buffer.data();
+    }
+
+    if (!ImGui::IsItemDeactivatedAfterEdit()) return false;
+    if (!TryParseArrayPropertyValueText(draft_value, current_value,
+                                        updated_value)) {
+        draft_value = serialized_current_value;
+        committed_value = serialized_current_value;
+        return false;
+    }
+
+    committed_value = draft_value;
+    return true;
+}
+
 /*
 Render one scalar property editor and return true only when the user committed
 an actual value change. Inspector uses this helper for both scene-backed and
@@ -47,6 +240,13 @@ runtime-only property editing paths.
 bool EditPropertyValue(const char *label,
                        const Actor::ComponentPropertyValue &current_value,
                        Actor::ComponentPropertyValue &updated_value) {
+    if (std::holds_alternative<Actor::BoolArray>(current_value) ||
+        std::holds_alternative<Actor::IntArray>(current_value) ||
+        std::holds_alternative<Actor::DoubleArray>(current_value) ||
+        std::holds_alternative<Actor::StringArray>(current_value)) {
+        return EditArrayPropertyValue(label, current_value, updated_value);
+    }
+
     if (const bool *typed_value = std::get_if<bool>(&current_value)) {
         bool next_value = *typed_value;
         if (!ImGui::Checkbox(label, &next_value)) return false;

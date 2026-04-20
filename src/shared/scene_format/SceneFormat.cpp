@@ -21,6 +21,117 @@ namespace {
 
 constexpr const char *kSceneRoot = "resources/scenes";
 constexpr const char *kTemplateRoot = "resources/actor_templates";
+constexpr const char *kArrayTypeKey = "__array_type";
+constexpr const char *kArrayItemsKey = "items";
+
+enum class PropertyArrayType {
+    Bool,
+    Int,
+    Double,
+    String,
+    Unknown
+};
+
+PropertyArrayType DetermineArrayTypeFromString(const std::string &type_name) {
+    if (type_name == "bool") return PropertyArrayType::Bool;
+    if (type_name == "int") return PropertyArrayType::Int;
+    if (type_name == "double") return PropertyArrayType::Double;
+    if (type_name == "string") return PropertyArrayType::String;
+    return PropertyArrayType::Unknown;
+}
+
+const char *GetArrayTypeName(PropertyArrayType array_type) {
+    switch (array_type) {
+    case PropertyArrayType::Bool:
+        return "bool";
+    case PropertyArrayType::Int:
+        return "int";
+    case PropertyArrayType::Double:
+        return "double";
+    case PropertyArrayType::String:
+        return "string";
+    case PropertyArrayType::Unknown:
+    default:
+        return "";
+    }
+}
+
+PropertyArrayType DetermineArrayTypeFromFirstValue(const rapidjson::Value &value) {
+    if (value.IsBool()) return PropertyArrayType::Bool;
+    if (value.IsString()) return PropertyArrayType::String;
+    if (value.IsInt64() || value.IsUint64()) return PropertyArrayType::Int;
+    if (value.IsDouble()) return PropertyArrayType::Double;
+    return PropertyArrayType::Unknown;
+}
+
+bool TryParseArrayValue(const rapidjson::Value &value,
+                        PropertyArrayType array_type,
+                        Actor::ComponentPropertyValue &out_value) {
+    if (!value.IsArray()) return false;
+
+    switch (array_type) {
+    case PropertyArrayType::Bool: {
+        Actor::BoolArray values;
+        values.reserve(value.Size());
+        for (rapidjson::SizeType index = 0; index < value.Size(); ++index) {
+            if (!value[index].IsBool()) return false;
+            values.emplace_back(value[index].GetBool());
+        }
+        out_value = std::move(values);
+        return true;
+    }
+    case PropertyArrayType::Int: {
+        Actor::IntArray values;
+        values.reserve(value.Size());
+        for (rapidjson::SizeType index = 0; index < value.Size(); ++index) {
+            const rapidjson::Value &element = value[index];
+            if (element.IsInt64()) {
+                const int64_t i64 = element.GetInt64();
+                if (i64 < static_cast<int64_t>(std::numeric_limits<int>::min()) ||
+                    i64 > static_cast<int64_t>(std::numeric_limits<int>::max())) {
+                    return false;
+                }
+                values.emplace_back(static_cast<int>(i64));
+                continue;
+            }
+            if (element.IsUint64()) {
+                const uint64_t u64 = element.GetUint64();
+                if (u64 > static_cast<uint64_t>(std::numeric_limits<int>::max())) {
+                    return false;
+                }
+                values.emplace_back(static_cast<int>(u64));
+                continue;
+            }
+            return false;
+        }
+        out_value = std::move(values);
+        return true;
+    }
+    case PropertyArrayType::Double: {
+        Actor::DoubleArray values;
+        values.reserve(value.Size());
+        for (rapidjson::SizeType index = 0; index < value.Size(); ++index) {
+            if (!value[index].IsNumber()) return false;
+            values.emplace_back(value[index].GetDouble());
+        }
+        out_value = std::move(values);
+        return true;
+    }
+    case PropertyArrayType::String: {
+        Actor::StringArray values;
+        values.reserve(value.Size());
+        for (rapidjson::SizeType index = 0; index < value.Size(); ++index) {
+            if (!value[index].IsString()) return false;
+            values.emplace_back(value[index].GetString());
+        }
+        out_value = std::move(values);
+        return true;
+    }
+    case PropertyArrayType::Unknown:
+    default:
+        return false;
+    }
+}
 
 void ReadJsonFile(const std::filesystem::path &path,
                   rapidjson::Document &out_document) {
@@ -50,6 +161,20 @@ void ReadJsonFile(const std::filesystem::path &path,
 
 bool TryParseComponentPropertyValue(const rapidjson::Value &value,
                                     Actor::ComponentPropertyValue &out_value) {
+    if (value.IsArray()) {
+        if (value.Empty()) return false;
+        return TryParseArrayValue(value, DetermineArrayTypeFromFirstValue(value[0]),
+                                  out_value);
+    }
+    if (value.IsObject()) {
+        if (!value.HasMember(kArrayTypeKey) || !value[kArrayTypeKey].IsString()) {
+            return false;
+        }
+        if (!value.HasMember(kArrayItemsKey)) return false;
+        const PropertyArrayType array_type =
+            DetermineArrayTypeFromString(value[kArrayTypeKey].GetString());
+        return TryParseArrayValue(value[kArrayItemsKey], array_type, out_value);
+    }
     if (value.IsString()) {
         out_value = std::string(value.GetString());
         return true;
@@ -97,6 +222,70 @@ void WritePropertyValue(rapidjson::PrettyWriter<rapidjson::StringBuffer> &writer
                 writer.Double(typed_value);
             } else if constexpr (std::is_same_v<ValueType, std::string>) {
                 writer.String(typed_value.c_str());
+            } else if constexpr (std::is_same_v<ValueType, Actor::BoolArray>) {
+                if (typed_value.empty()) {
+                    writer.StartObject();
+                    writer.Key(kArrayTypeKey);
+                    writer.String(GetArrayTypeName(PropertyArrayType::Bool));
+                    writer.Key(kArrayItemsKey);
+                    writer.StartArray();
+                    writer.EndArray();
+                    writer.EndObject();
+                    return;
+                }
+                writer.StartArray();
+                for (bool element : typed_value) {
+                    writer.Bool(element);
+                }
+                writer.EndArray();
+            } else if constexpr (std::is_same_v<ValueType, Actor::IntArray>) {
+                if (typed_value.empty()) {
+                    writer.StartObject();
+                    writer.Key(kArrayTypeKey);
+                    writer.String(GetArrayTypeName(PropertyArrayType::Int));
+                    writer.Key(kArrayItemsKey);
+                    writer.StartArray();
+                    writer.EndArray();
+                    writer.EndObject();
+                    return;
+                }
+                writer.StartArray();
+                for (int element : typed_value) {
+                    writer.Int(element);
+                }
+                writer.EndArray();
+            } else if constexpr (std::is_same_v<ValueType, Actor::DoubleArray>) {
+                if (typed_value.empty()) {
+                    writer.StartObject();
+                    writer.Key(kArrayTypeKey);
+                    writer.String(GetArrayTypeName(PropertyArrayType::Double));
+                    writer.Key(kArrayItemsKey);
+                    writer.StartArray();
+                    writer.EndArray();
+                    writer.EndObject();
+                    return;
+                }
+                writer.StartArray();
+                for (double element : typed_value) {
+                    writer.Double(element);
+                }
+                writer.EndArray();
+            } else if constexpr (std::is_same_v<ValueType, Actor::StringArray>) {
+                if (typed_value.empty()) {
+                    writer.StartObject();
+                    writer.Key(kArrayTypeKey);
+                    writer.String(GetArrayTypeName(PropertyArrayType::String));
+                    writer.Key(kArrayItemsKey);
+                    writer.StartArray();
+                    writer.EndArray();
+                    writer.EndObject();
+                    return;
+                }
+                writer.StartArray();
+                for (const std::string &element : typed_value) {
+                    writer.String(element.c_str());
+                }
+                writer.EndArray();
             }
         },
         value);

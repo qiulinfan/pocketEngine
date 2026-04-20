@@ -23,7 +23,13 @@ public:
 
     // supported json value types for component property overrides
     // 组件属性支持的 JSON 值类型
-    using ComponentPropertyValue = std::variant<bool, int, double, std::string>;
+    using BoolArray = std::vector<bool>;
+    using IntArray = std::vector<int>;
+    using DoubleArray = std::vector<double>;
+    using StringArray = std::vector<std::string>;
+    using ComponentPropertyValue =
+        std::variant<bool, int, double, std::string, BoolArray, IntArray,
+                     DoubleArray, StringArray>;
 
     // property: name and value. this is for overrides
     // 仅供 override default property

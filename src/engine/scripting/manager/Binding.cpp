@@ -12,10 +12,52 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <type_traits>
 
 using namespace ManagerDetail;
 
 namespace {
+
+template <typename ValueType>
+luabridge::LuaRef BuildLuaArrayTable(const std::vector<ValueType> &values) {
+    luabridge::LuaRef table = MakeEmptyArrayTable();
+    int lua_index = 1;
+    for (const ValueType &element : values) {
+        table[lua_index++] = element;
+    }
+    return table;
+}
+
+luabridge::LuaRef BuildLuaBoolArrayTable(const Actor::BoolArray &values) {
+    luabridge::LuaRef table = MakeEmptyArrayTable();
+    int lua_index = 1;
+    for (bool element : values) {
+        table[lua_index++] = element;
+    }
+    return table;
+}
+
+bool AssignPropertyValueToLuaField(luabridge::LuaRef &instance_table,
+                                   const std::string &property_name,
+                                   const Actor::ComponentPropertyValue &value) {
+    std::visit(
+        [&](const auto &typed_value) {
+            using ValueType = std::decay_t<decltype(typed_value)>;
+            if constexpr (std::is_same_v<ValueType, Actor::BoolArray>) {
+                instance_table[property_name] =
+                    BuildLuaBoolArrayTable(typed_value);
+            } else if constexpr (std::is_same_v<ValueType, Actor::IntArray> ||
+                                 std::is_same_v<ValueType, Actor::DoubleArray> ||
+                                 std::is_same_v<ValueType, Actor::StringArray>) {
+                instance_table[property_name] =
+                    BuildLuaArrayTable(typed_value);
+            } else {
+                instance_table[property_name] = typed_value;
+            }
+        },
+        value);
+    return true;
+}
 
 void RotateClockwise(float x, float y, float rotation_degrees, float &out_x,
                      float &out_y) {
@@ -369,9 +411,8 @@ bool ComponentManager::SetComponentPropertyValue(
     if (component == nullptr) return false;
 
     try {
-        std::visit([&](const auto &typed_value) {
-            component->instance_table[property_name] = typed_value;
-        }, value);
+        AssignPropertyValueToLuaField(component->instance_table, property_name,
+                                      value);
 
         if (component->type == "ParticleSystem" && property_name == "enabled") {
             ParticleSystem *system = component->instance_table.cast<ParticleSystem *>();
