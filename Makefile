@@ -3,10 +3,12 @@
 
 CMAKE ?= cmake
 MKDOCS ?= mkdocs
+RSYNC ?= rsync
 JOBS ?= 4
 
 DEBUG_PRESET ?= unix-makefiles-debug
 RELEASE_PRESET ?= unix-makefiles-release
+SITE_BUILD_DIR := .site
 
 DEBUG_BUILD_DIR := build/$(DEBUG_PRESET)
 RUNTIME_BIN := $(DEBUG_BUILD_DIR)/game_engine_linux
@@ -18,7 +20,9 @@ ROOT_EDITOR_BIN := game_editor_linux
 
 .PHONY: help configure build configure-release build-release
 .PHONY: stage-runtime stage-editor
-.PHONY: engine editor run run-editor compile-commands docs-build docs-serve docs clean clean-all
+.PHONY: engine editor run run-editor compile-commands
+.PHONY: docs-build docs-serve site-build docs
+.PHONY: clean clean-all
 
 configure:
 	$(CMAKE) --preset $(DEBUG_PRESET)
@@ -57,8 +61,14 @@ docs-build:
 docs-serve:
 	$(MKDOCS) serve
 
-docs:
-	$(MKDOCS) gh-deploy --force --clean
+site-build:
+	rm -rf $(SITE_BUILD_DIR)
+	mkdir -p $(SITE_BUILD_DIR)
+	$(RSYNC) -av --delete --exclude 'lua-api/' --exclude '*.md' docs/ $(SITE_BUILD_DIR)/
+	$(MKDOCS) build --clean
+
+docs: site-build
+	./scripts/deploy_site_to_gh_pages.sh
 
 clean:
 	-$(CMAKE) --build --preset $(DEBUG_PRESET) --target clean

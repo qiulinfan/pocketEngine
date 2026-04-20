@@ -5,7 +5,7 @@ SDL2, Lua, Box2D, Dear ImGui, and JSON scene assets. It hosts Lua for game logic
 It is a variant of the [A2 Engine](https://a2engine.org/). For basic usage, check the documentation of A2 engine for the APIs.
 
 PocketEngine Lua API documentation lives here:
-- local source: [docs/index.md](docs/index.md)
+- local source: [docs/lua-api/index.md](docs/lua-api/index.md)
 - GitHub Pages: https://qiulinfan.github.io/pocketEngine/
 
 > Below is a demo of the editor and runtime in action, running the example
@@ -52,11 +52,13 @@ All files under `docs/architecture/` are diagram-only for explaining the archite
 
 ```bash
 make docs-build
+make site-build
 make docs
 ```
 
-`make docs` uses MkDocs `gh-deploy` to publish the generated site to the
-`gh-pages` branch.
+- `make docs-build` builds the MkDocs-managed Lua API documentation only
+- `make site-build` assembles the full Pages site
+- `make docs` assembles the site and pushes it to `gh-pages`
 
 ## License
 
