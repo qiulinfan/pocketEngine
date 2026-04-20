@@ -49,6 +49,7 @@ struct EntryVisualStyle {
 struct TileRenderResult {
     bool clicked = false;
     bool double_clicked = false;
+    bool expand_toggled = false;
 };
 
 struct TextureDrawRect {
@@ -199,6 +200,11 @@ SpritesheetPopupState &GetSpritesheetPopupState() {
     return state;
 }
 
+std::unordered_map<std::string, bool> &GetExpandedSpritesheetState() {
+    static std::unordered_map<std::string, bool> state;
+    return state;
+}
+
 void DestroyTextureCache(ImageTextureCache &cache) {
     for (const auto &entry : cache.textures) {
         if (entry.second != nullptr) {
@@ -309,6 +315,24 @@ TextureDrawRect BuildTextureFitRect(SDL_Texture *texture, const ImVec2 &min_poin
     return draw_rect;
 }
 
+bool IsNonTrivialSpritesheet(const SpritesheetGridSpec &spec) {
+    return spec.rows > 1 || spec.columns > 1;
+}
+
+void DrawTextureRegionFitCentered(ImDrawList *draw_list, SDL_Texture *texture,
+                                  const ImVec2 &min_point,
+                                  const ImVec2 &max_point,
+                                  const ImVec2 &uv_min,
+                                  const ImVec2 &uv_max) {
+    if (draw_list == nullptr || texture == nullptr) return;
+
+    const TextureDrawRect draw_rect = BuildTextureFitRect(texture, min_point, max_point);
+    if (!draw_rect.valid) return;
+
+    draw_list->AddImage(ImTextureRef((ImTextureID)(intptr_t)texture), draw_rect.min,
+                        draw_rect.max, uv_min, uv_max);
+}
+
 void DrawTextureFitCentered(ImDrawList *draw_list, SDL_Texture *texture,
                             const ImVec2 &min_point,
                             const ImVec2 &max_point) {
@@ -342,6 +366,31 @@ void DrawSpritesheetGridOverlay(ImDrawList *draw_list,
                            line_color, 1.5f);
     }
     draw_list->AddRect(draw_rect.min, draw_rect.max, line_color, 0.0f, 0, 1.5f);
+}
+
+void DrawDisclosureGlyph(ImDrawList *draw_list, const ImVec2 &min_point,
+                         const ImVec2 &max_point, bool expanded,
+                         bool hovered) {
+    if (draw_list == nullptr) return;
+
+    const ImU32 fill_color =
+        hovered ? IM_COL32(80, 94, 112, 240) : IM_COL32(54, 64, 78, 230);
+    draw_list->AddRectFilled(min_point, max_point, fill_color, 4.0f);
+
+    const ImVec2 center((min_point.x + max_point.x) * 0.5f,
+                        (min_point.y + max_point.y) * 0.5f);
+    const ImU32 glyph_color = IM_COL32(220, 228, 238, 255);
+    if (expanded) {
+        draw_list->AddTriangleFilled(
+            ImVec2(center.x - 4.5f, center.y - 2.5f),
+            ImVec2(center.x + 4.5f, center.y - 2.5f),
+            ImVec2(center.x, center.y + 4.5f), glyph_color);
+        return;
+    }
+    draw_list->AddTriangleFilled(
+        ImVec2(center.x - 2.5f, center.y - 4.5f),
+        ImVec2(center.x - 2.5f, center.y + 4.5f),
+        ImVec2(center.x + 4.5f, center.y), glyph_color);
 }
 
 void OpenSpritesheetPopupForImage(const std::filesystem::path &resources_root,
@@ -597,6 +646,8 @@ TileRenderResult RenderEntryTile(const ProjectEntry &entry,
                                  EntryKind entry_kind,
                                  const EntryVisualStyle &style,
                                  SDL_Renderer *renderer, bool selected,
+                                 const SpritesheetGridSpec &spritesheet_spec,
+                                 bool spritesheet_expanded,
                                  float tile_width,
                                  float tile_height) {
     TileRenderResult result;
@@ -627,6 +678,8 @@ TileRenderResult RenderEntryTile(const ProjectEntry &entry,
     const ImVec2 icon_min(tile_min.x + 10.0f, tile_min.y + 10.0f);
     const ImVec2 icon_max(tile_max.x - 10.0f, tile_min.y + tile_height * 0.60f);
     draw_list->AddRectFilled(icon_min, icon_max, ImGui::GetColorU32(style.color), 6.0f);
+    const bool spritesheet_expandable =
+        entry_kind == EntryKind::Image && IsNonTrivialSpritesheet(spritesheet_spec);
     SDL_Texture *image_texture = nullptr;
     if (entry_kind == EntryKind::Image) {
         image_texture = GetImageTexture(renderer, entry.path);
@@ -666,8 +719,111 @@ TileRenderResult RenderEntryTile(const ProjectEntry &entry,
     const ImVec2 name_pos((tile_min.x + tile_max.x - name_size.x) * 0.5f, tile_max.y - 24.0f);
     draw_list->AddText(name_pos, ImGui::GetColorU32(ImVec4(0.92f, 0.94f, 0.97f, 1.0f)), visible_name.c_str());
 
+    if (spritesheet_expandable) {
+        const ImVec2 toggle_min(tile_max.x - 28.0f, tile_min.y + 8.0f);
+        const ImVec2 toggle_max(tile_max.x - 10.0f, tile_min.y + 26.0f);
+        const bool toggle_hovered =
+            ImGui::IsMouseHoveringRect(toggle_min, toggle_max);
+        if (toggle_hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            result.expand_toggled = true;
+            result.double_clicked = false;
+        }
+        DrawDisclosureGlyph(draw_list, toggle_min, toggle_max,
+                            spritesheet_expanded, toggle_hovered);
+
+        const std::string badge_text =
+            std::to_string(spritesheet_spec.rows) + "x" +
+            std::to_string(spritesheet_spec.columns);
+        const ImVec2 badge_text_size = ImGui::CalcTextSize(badge_text.c_str());
+        const ImVec2 badge_min(icon_min.x + 6.0f,
+                               icon_max.y - badge_text_size.y - 10.0f);
+        const ImVec2 badge_max(badge_min.x + badge_text_size.x + 10.0f,
+                               badge_min.y + badge_text_size.y + 6.0f);
+        draw_list->AddRectFilled(badge_min, badge_max,
+                                 IM_COL32(22, 26, 31, 220), 4.0f);
+        draw_list->AddText(ImVec2(badge_min.x + 5.0f, badge_min.y + 3.0f),
+                           IM_COL32(216, 226, 236, 255), badge_text.c_str());
+    }
+
     ImGui::PopID();
     return result;
+}
+
+void RenderSpritesheetSpriteTile(SDL_Texture *texture, int rows, int columns,
+                                 int row_index, int column_index,
+                                 float tile_width, float tile_height) {
+    const ImVec2 tile_min = ImGui::GetCursorScreenPos();
+    ImGui::InvisibleButton("spritesheet_sprite_tile",
+                           ImVec2(tile_width, tile_height));
+    const bool hovered = ImGui::IsItemHovered();
+    const ImVec2 tile_max(tile_min.x + tile_width, tile_min.y + tile_height);
+    ImDrawList *draw_list = ImGui::GetWindowDrawList();
+
+    draw_list->AddRectFilled(
+        tile_min, tile_max,
+        hovered ? IM_COL32(34, 41, 50, 255) : IM_COL32(26, 31, 38, 255), 7.0f);
+    draw_list->AddRect(tile_min, tile_max, IM_COL32(58, 68, 82, 255), 7.0f);
+
+    const ImVec2 preview_min(tile_min.x + 8.0f, tile_min.y + 8.0f);
+    const ImVec2 preview_max(tile_max.x - 8.0f, tile_min.y + tile_height - 28.0f);
+    draw_list->AddRectFilled(preview_min, preview_max, IM_COL32(19, 23, 29, 255),
+                             4.0f);
+
+    const ImVec2 uv_min(
+        static_cast<float>(column_index) / static_cast<float>(columns),
+        static_cast<float>(row_index) / static_cast<float>(rows));
+    const ImVec2 uv_max(
+        static_cast<float>(column_index + 1) / static_cast<float>(columns),
+        static_cast<float>(row_index + 1) / static_cast<float>(rows));
+    DrawTextureRegionFitCentered(draw_list, texture, preview_min, preview_max,
+                                 uv_min, uv_max);
+
+    const std::string label = "[" + std::to_string(row_index + 1) + "," +
+                              std::to_string(column_index + 1) + "]";
+    const ImVec2 label_size = ImGui::CalcTextSize(label.c_str());
+    draw_list->AddText(
+        ImVec2((tile_min.x + tile_max.x - label_size.x) * 0.5f,
+               tile_max.y - label_size.y - 8.0f),
+        IM_COL32(210, 220, 230, 255), label.c_str());
+}
+
+void RenderExpandedSpritesheetTileGrid(const ProjectEntry &entry,
+                                       const SpritesheetGridSpec &spec,
+                                       SDL_Renderer *renderer) {
+    SDL_Texture *texture = GetImageTexture(renderer, entry.path);
+    if (texture == nullptr) return;
+
+    const int rows = std::max(spec.rows, 1);
+    const int columns = std::max(spec.columns, 1);
+    const int sprite_count = rows * columns;
+    if (sprite_count <= 1) return;
+
+    ImGui::Indent(18.0f);
+    ImGui::TextDisabled("Sprites");
+    constexpr float kSpriteTileWidth = 86.0f;
+    constexpr float kSpriteTileHeight = 96.0f;
+    constexpr float kSpriteTileSpacing = 8.0f;
+    const float available_width = ImGui::GetContentRegionAvail().x;
+    const int sprite_columns =
+        std::max(1, static_cast<int>((available_width + kSpriteTileSpacing) /
+                                     (kSpriteTileWidth + kSpriteTileSpacing)));
+
+    int layout_column_index = 0;
+    for (int sprite_index = 0; sprite_index < sprite_count; ++sprite_index) {
+        if (layout_column_index > 0) {
+            ImGui::SameLine(0.0f, kSpriteTileSpacing);
+        }
+
+        const int row_index = sprite_index / columns;
+        const int column_index = sprite_index % columns;
+        ImGui::PushID(sprite_index);
+        RenderSpritesheetSpriteTile(texture, rows, columns, row_index,
+                                    column_index, kSpriteTileWidth,
+                                    kSpriteTileHeight);
+        ImGui::PopID();
+        layout_column_index = (layout_column_index + 1) % sprite_columns;
+    }
+    ImGui::Unindent(18.0f);
 }
 
 // Render the right-side tile grid for the selected directory.
@@ -708,13 +864,27 @@ void RenderDirectoryGrid(const std::filesystem::path &resources_root,
 
         const EntryKind entry_kind = ClassifyEntry(entry);
         const EntryVisualStyle style = GetEntryVisualStyle(entry_kind);
+        const SpritesheetGridSpec spritesheet_spec =
+            (entry_kind == EntryKind::Image)
+                ? SpritesheetConfig::ReadForImagePath(resources_root, entry.path)
+                : SpritesheetGridSpec{};
+        std::unordered_map<std::string, bool> &expanded_state =
+            GetExpandedSpritesheetState();
+        const std::string expanded_key = entry.path.lexically_normal().string();
+        const bool is_spritesheet_expanded =
+            expanded_state.find(expanded_key) != expanded_state.end() &&
+            expanded_state[expanded_key];
         const bool is_selected = selected_entry == entry.path;
         const TileRenderResult tile_result =
             RenderEntryTile(entry, entry_kind, style, renderer, is_selected,
+                            spritesheet_spec, is_spritesheet_expanded,
                             kTileWidth, kTileHeight);
 
         if (tile_result.clicked) {
             selected_entry = entry.path;
+        }
+        if (tile_result.expand_toggled && IsNonTrivialSpritesheet(spritesheet_spec)) {
+            expanded_state[expanded_key] = !is_spritesheet_expanded;
         }
         if (tile_result.double_clicked) {
             if (entry.is_directory) {
@@ -732,6 +902,19 @@ void RenderDirectoryGrid(const std::filesystem::path &resources_root,
             }
         }
         column_index = (column_index + 1) % columns;
+
+        const bool now_expanded =
+            IsNonTrivialSpritesheet(spritesheet_spec) &&
+            expanded_state.find(expanded_key) != expanded_state.end() &&
+            expanded_state[expanded_key];
+        if (!now_expanded) continue;
+
+        if (column_index != 0) {
+            ImGui::NewLine();
+            column_index = 0;
+        }
+        RenderExpandedSpritesheetTileGrid(entry, spritesheet_spec, renderer);
+        ImGui::Spacing();
     }
 
     if (!next_directory.empty()) {
