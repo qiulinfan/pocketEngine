@@ -138,6 +138,8 @@ void InjectSpriteRendererAPI() {
         .addProperty("pivot_y", &SpriteRenderer::pivot_y)
         .addProperty("scale_x", &SpriteRenderer::scale_x)
         .addProperty("scale_y", &SpriteRenderer::scale_y)
+        .addProperty("sprite_row", &SpriteRenderer::sprite_row)
+        .addProperty("sprite_column", &SpriteRenderer::sprite_column)
         .addProperty("sorting_order", &SpriteRenderer::sorting_order)
         .addProperty("auto_sorting_order", &SpriteRenderer::auto_sorting_order)
         .endClass();

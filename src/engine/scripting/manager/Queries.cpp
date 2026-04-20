@@ -67,6 +67,8 @@ std::vector<Actor::ComponentProperty> GetBuiltinComponentDefaultProperties(const
             {"pivot_y", static_cast<double>(defaults.pivot_y)},
             {"scale_x", static_cast<double>(defaults.scale_x)},
             {"scale_y", static_cast<double>(defaults.scale_y)},
+            {"sprite_row", defaults.sprite_row},
+            {"sprite_column", defaults.sprite_column},
             {"sorting_order", defaults.sorting_order},
             {"auto_sorting_order", defaults.auto_sorting_order},
         };

@@ -27,7 +27,8 @@ std::string ResolveFontPath(const std::string &font_name) {
 
 std::string ResolveImagePath(const std::string &image_name) {
     return ResourcePath::ResolveResourcePath(
-        "resources/images", image_name, {".png", ".jpg"},
+        "resources/images", image_name,
+        {".png", ".jpg", ".jpeg", ".bmp", ".tga", ".gif", ".webp"},
         Scene::GetActiveSceneSubdirectory());
 }
 
@@ -54,6 +55,31 @@ bool ShouldDiscardSceneRequest(const ImageDrawRequest &request) {
 
 bool ShouldDiscardUIRequest(const ImageDrawRequest &request) {
     return request.a <= 0;
+}
+
+bool TryBuildSpritesheetSourceRect(const ImageDrawRequest &request,
+                                   float texture_width,
+                                   float texture_height,
+                                   SDL_Rect &out_source_rect) {
+    const int rows = std::max(request.spritesheet_rows, 1);
+    const int columns = std::max(request.spritesheet_columns, 1);
+    if (rows <= 1 && columns <= 1) return false;
+
+    const int texture_width_i = static_cast<int>(texture_width);
+    const int texture_height_i = static_cast<int>(texture_height);
+    if (texture_width_i <= 0 || texture_height_i <= 0) return false;
+
+    const int cell_width = texture_width_i / columns;
+    const int cell_height = texture_height_i / rows;
+    if (cell_width <= 0 || cell_height <= 0) return false;
+
+    const int row_index = std::clamp(request.sprite_row, 1, rows) - 1;
+    const int column_index = std::clamp(request.sprite_column, 1, columns) - 1;
+    out_source_rect.x = column_index * cell_width;
+    out_source_rect.y = row_index * cell_height;
+    out_source_rect.w = cell_width;
+    out_source_rect.h = cell_height;
+    return true;
 }
 
 bool IsPivotBoundOutsideViewport(const SDL_FRect &dst, const SDL_FPoint &pivot,
@@ -318,6 +344,16 @@ void Renderer::RenderAndClearAllImages(SDL_Renderer *renderer, float camera_x,
         float texture_w = 0.0f;
         float texture_h = 0.0f;
         SDLRenderHelper::SDL_QueryTexture(texture, &texture_w, &texture_h);
+        SDL_Rect source_rect;
+        SDL_Rect *source_rect_ptr = nullptr;
+        float draw_width = texture_w;
+        float draw_height = texture_h;
+        if (TryBuildSpritesheetSourceRect(request, texture_w, texture_h,
+                                          source_rect)) {
+            source_rect_ptr = &source_rect;
+            draw_width = static_cast<float>(source_rect.w);
+            draw_height = static_cast<float>(source_rect.h);
+        }
 
         SDL_RendererFlip flip = SDL_FLIP_NONE;
         if (request.scale_x < 0.0f) {
@@ -331,8 +367,8 @@ void Renderer::RenderAndClearAllImages(SDL_Renderer *renderer, float camera_x,
         const float y_scale = glm::abs(request.scale_y);
 
         SDL_FRect dst;
-        dst.w = texture_w * x_scale;
-        dst.h = texture_h * y_scale;
+        dst.w = draw_width * x_scale;
+        dst.h = draw_height * y_scale;
 
         SDL_FPoint pivot = {request.pivot_x * dst.w, request.pivot_y * dst.h};
 
@@ -356,7 +392,7 @@ void Renderer::RenderAndClearAllImages(SDL_Renderer *renderer, float camera_x,
         SDL_SetTextureAlphaMod(texture, static_cast<Uint8>(ClampByte(request.a)));
 
         SDLRenderHelper::SDL_RenderCopyEx(
-            Actor::kInvalidUID, "", renderer, texture, nullptr, &dst,
+            Actor::kInvalidUID, "", renderer, texture, source_rect_ptr, &dst,
             request.rotation_degrees,
             &pivot, flip);
 
@@ -395,15 +431,25 @@ void Renderer::RenderAndClearAllImages(SDL_Renderer *renderer, float camera_x,
         float texture_w = 0.0f;
         float texture_h = 0.0f;
         SDLRenderHelper::SDL_QueryTexture(texture, &texture_w, &texture_h);
+        SDL_Rect source_rect;
+        SDL_Rect *source_rect_ptr = nullptr;
+        float draw_width = texture_w;
+        float draw_height = texture_h;
+        if (TryBuildSpritesheetSourceRect(request, texture_w, texture_h,
+                                          source_rect)) {
+            source_rect_ptr = &source_rect;
+            draw_width = static_cast<float>(source_rect.w);
+            draw_height = static_cast<float>(source_rect.h);
+        }
 
-        SDL_FRect dst = {request.x, request.y, texture_w, texture_h};
+        SDL_FRect dst = {request.x, request.y, draw_width, draw_height};
         SDL_SetTextureColorMod(texture, static_cast<Uint8>(ClampByte(request.r)),
                                static_cast<Uint8>(ClampByte(request.g)),
                                static_cast<Uint8>(ClampByte(request.b)));
         SDL_SetTextureAlphaMod(texture, static_cast<Uint8>(ClampByte(request.a)));
 
         SDLRenderHelper::SDL_RenderCopyEx(Actor::kInvalidUID, "", renderer,
-                                          texture, nullptr,
+                                          texture, source_rect_ptr,
                                           &dst, 0.0f, nullptr, SDL_FLIP_NONE);
 
         SDL_SetTextureColorMod(texture, 255, 255, 255);

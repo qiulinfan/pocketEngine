@@ -2,9 +2,12 @@
 #include "physics/Rigidbody.h"
 #include "rendering/Renderer.h"
 #include "scene/Actor.h"
+#include "scene/Scene.h"
 #include "scene/Transform.h"
+#include "shared/config/SpritesheetConfig.h"
 #include "lua.hpp"
 #include "LuaBridge/LuaBridge.h"
+#include <algorithm>
 
 namespace {
 
@@ -82,5 +85,12 @@ void SpriteRenderer::QueueDraw() const {
     request.b = b;
     request.a = a;
     request.sorting_order = auto_sorting_order ? static_cast<int>(world_y) : sorting_order;
+    const SpritesheetGridSpec grid_spec =
+        SpritesheetConfig::ReadForImageResource(
+            sprite, Scene::GetActiveSceneSubdirectory());
+    request.spritesheet_rows = std::max(grid_spec.rows, 1);
+    request.spritesheet_columns = std::max(grid_spec.columns, 1);
+    request.sprite_row = std::max(sprite_row, 1);
+    request.sprite_column = std::max(sprite_column, 1);
     Renderer::QueueSceneImageDraw(request);
 }

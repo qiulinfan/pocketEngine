@@ -29,6 +29,13 @@ struct ImageDrawRequest {
     int b = 255;
     int a = 255;
     int sorting_order = 0;
+
+    // Optional spritesheet selection. Rows/columns describe the project-level
+    // grid metadata; row/column select one cell using 1-based indexing.
+    int spritesheet_rows = 1;
+    int spritesheet_columns = 1;
+    int sprite_row = 1;
+    int sprite_column = 1;
 };
 
 struct PixelDrawRequest {

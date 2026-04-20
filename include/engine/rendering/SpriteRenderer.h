@@ -23,6 +23,8 @@ public:
     float pivot_y = 0.5f;
     float scale_x = 1.0f;
     float scale_y = 1.0f;
+    int sprite_row = 1;
+    int sprite_column = 1;
     int sorting_order = 0;
     bool auto_sorting_order = false;
 
