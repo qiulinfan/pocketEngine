@@ -326,11 +326,31 @@ void DrawTextureRegionFitCentered(ImDrawList *draw_list, SDL_Texture *texture,
                                   const ImVec2 &uv_max) {
     if (draw_list == nullptr || texture == nullptr) return;
 
-    const TextureDrawRect draw_rect = BuildTextureFitRect(texture, min_point, max_point);
-    if (!draw_rect.valid) return;
+    int texture_width_i = 0;
+    int texture_height_i = 0;
+    SDL_QueryTexture(texture, nullptr, nullptr, &texture_width_i, &texture_height_i);
+    const float texture_width = static_cast<float>(texture_width_i);
+    const float texture_height = static_cast<float>(texture_height_i);
+    const float region_width =
+        texture_width * std::max(0.0f, uv_max.x - uv_min.x);
+    const float region_height =
+        texture_height * std::max(0.0f, uv_max.y - uv_min.y);
+    if (region_width <= 0.0f || region_height <= 0.0f) return;
 
-    draw_list->AddImage(ImTextureRef((ImTextureID)(intptr_t)texture), draw_rect.min,
-                        draw_rect.max, uv_min, uv_max);
+    const float available_width = max_point.x - min_point.x;
+    const float available_height = max_point.y - min_point.y;
+    if (available_width <= 0.0f || available_height <= 0.0f) return;
+
+    const float scale =
+        std::min(available_width / region_width, available_height / region_height);
+    const float draw_width = region_width * scale;
+    const float draw_height = region_height * scale;
+    const ImVec2 draw_min(min_point.x + (available_width - draw_width) * 0.5f,
+                          min_point.y + (available_height - draw_height) * 0.5f);
+    const ImVec2 draw_max(draw_min.x + draw_width, draw_min.y + draw_height);
+
+    draw_list->AddImage(ImTextureRef((ImTextureID)(intptr_t)texture), draw_min,
+                        draw_max, uv_min, uv_max);
 }
 
 void DrawTextureFitCentered(ImDrawList *draw_list, SDL_Texture *texture,
@@ -787,6 +807,26 @@ void RenderSpritesheetSpriteTile(SDL_Texture *texture, int rows, int columns,
         IM_COL32(210, 220, 230, 255), label.c_str());
 }
 
+ImVec2 ComputeSpritesheetSpritePreviewSize(SDL_Texture *texture, int rows,
+                                           int columns) {
+    if (texture == nullptr) return ImVec2(72.0f, 72.0f);
+
+    int texture_width = 0;
+    int texture_height = 0;
+    SDL_QueryTexture(texture, nullptr, nullptr, &texture_width, &texture_height);
+    const float sprite_width =
+        static_cast<float>(texture_width) / static_cast<float>(std::max(columns, 1));
+    const float sprite_height =
+        static_cast<float>(texture_height) / static_cast<float>(std::max(rows, 1));
+    const float max_side = std::max(sprite_width, sprite_height);
+    if (max_side <= 0.0f) return ImVec2(72.0f, 72.0f);
+
+    constexpr float kMaxPreviewSide = 64.0f;
+    const float scale = kMaxPreviewSide / max_side;
+    return ImVec2(std::max(24.0f, sprite_width * scale),
+                  std::max(24.0f, sprite_height * scale));
+}
+
 void RenderExpandedSpritesheetTileGrid(const ProjectEntry &entry,
                                        const SpritesheetGridSpec &spec,
                                        SDL_Renderer *renderer) {
@@ -800,13 +840,15 @@ void RenderExpandedSpritesheetTileGrid(const ProjectEntry &entry,
 
     ImGui::Indent(18.0f);
     ImGui::TextDisabled("Sprites");
-    constexpr float kSpriteTileWidth = 86.0f;
-    constexpr float kSpriteTileHeight = 96.0f;
+    const ImVec2 preview_size =
+        ComputeSpritesheetSpritePreviewSize(texture, rows, columns);
+    const float sprite_tile_width = std::max(84.0f, preview_size.x + 16.0f);
+    const float sprite_tile_height = std::max(96.0f, preview_size.y + 36.0f);
     constexpr float kSpriteTileSpacing = 8.0f;
     const float available_width = ImGui::GetContentRegionAvail().x;
     const int sprite_columns =
         std::max(1, static_cast<int>((available_width + kSpriteTileSpacing) /
-                                     (kSpriteTileWidth + kSpriteTileSpacing)));
+                                     (sprite_tile_width + kSpriteTileSpacing)));
 
     int layout_column_index = 0;
     for (int sprite_index = 0; sprite_index < sprite_count; ++sprite_index) {
@@ -818,8 +860,8 @@ void RenderExpandedSpritesheetTileGrid(const ProjectEntry &entry,
         const int column_index = sprite_index % columns;
         ImGui::PushID(sprite_index);
         RenderSpritesheetSpriteTile(texture, rows, columns, row_index,
-                                    column_index, kSpriteTileWidth,
-                                    kSpriteTileHeight);
+                                    column_index, sprite_tile_width,
+                                    sprite_tile_height);
         ImGui::PopID();
         layout_column_index = (layout_column_index + 1) % sprite_columns;
     }
