@@ -14,7 +14,7 @@ public:
     std::string key = "";
     bool enabled = true;
 
-    std::string sprite = "???";
+    std::string sprite = "";
     int r = 255;
     int g = 255;
     int b = 255;

@@ -226,6 +226,8 @@ TTF_Font *Renderer::GetFont(const std::string &font_name, int size) {
 // resource loading and draw queue entry points
 SDL_Texture *Renderer::LoadTexture(const std::string &image_name,
                                    SDL_Renderer *renderer) {
+    if (image_name.empty()) return nullptr;
+
     auto it = image_cache.find(image_name);
     if (it != image_cache.end()) {
         return it->second;
