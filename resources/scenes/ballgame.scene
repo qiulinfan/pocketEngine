@@ -37,6 +37,22 @@
                     "type": "Transform"
                 }
             }
+        },
+        {
+            "uid": 5,
+            "name": "new actor (4)",
+            "components": {
+                "1": {
+                    "type": "Transform",
+                    "x": -0.9626170992851257,
+                    "y": 0.6448597311973572
+                },
+                "SpriteRenderer": {
+                    "type": "SpriteRenderer",
+                    "sprite": "Run",
+                    "sprite_column": 2
+                }
+            }
         }
     ]
 }

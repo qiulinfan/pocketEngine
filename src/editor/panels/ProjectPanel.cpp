@@ -7,6 +7,7 @@
 #include "SDL2_image/SDL_image.h"
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 #include <cstdint>
 #include <filesystem>
 #include <string>
@@ -594,6 +595,25 @@ bool BuildLuaComponentTypeName(const std::filesystem::path &entry_path,
     return !out_component_type.empty();
 }
 
+bool BuildImageResourceName(const std::filesystem::path &entry_path,
+                            std::string &out_resource_name) {
+    return BuildDragResourceName(entry_path, "resources/images", "",
+                                 out_resource_name);
+}
+
+bool BuildAudioResourceName(const std::filesystem::path &entry_path,
+                            std::string &out_resource_name) {
+    return BuildDragResourceName(entry_path, "resources/audio", "",
+                                 out_resource_name);
+}
+
+void CopySpritePayloadResourceName(EditorDragDrop::SpriteAssetPayload &payload,
+                                   const std::string &resource_name) {
+    std::snprintf(payload.image_resource_name,
+                  sizeof(payload.image_resource_name), "%s",
+                  resource_name.c_str());
+}
+
 void RenderEntryDragSourceIfSupported(const ProjectEntry &entry,
                                       EntryKind entry_kind) {
     std::string payload_value;
@@ -606,6 +626,14 @@ void RenderEntryDragSourceIfSupported(const ProjectEntry &entry,
         BuildLuaComponentTypeName(entry.path, payload_value)) {
         payload_type = EditorDragDrop::kLuaComponentPayload;
         payload_label = "Lua Component";
+    } else if (entry_kind == EntryKind::Image &&
+               BuildImageResourceName(entry.path, payload_value)) {
+        payload_type = EditorDragDrop::kImageAssetPayload;
+        payload_label = "Image";
+    } else if (entry_kind == EntryKind::Audio &&
+               BuildAudioResourceName(entry.path, payload_value)) {
+        payload_type = EditorDragDrop::kAudioAssetPayload;
+        payload_label = "Audio";
     } else if (entry_kind == EntryKind::Template &&
                BuildDragResourceName(entry.path, "resources/actor_templates",
                                      ".template", payload_value)) {
@@ -771,6 +799,7 @@ TileRenderResult RenderEntryTile(const ProjectEntry &entry,
 
 void RenderSpritesheetSpriteTile(SDL_Texture *texture, int rows, int columns,
                                  int row_index, int column_index,
+                                 const std::string &image_resource_name,
                                  float tile_width, float tile_height) {
     const ImVec2 tile_min = ImGui::GetCursorScreenPos();
     ImGui::InvisibleButton("spritesheet_sprite_tile",
@@ -797,6 +826,19 @@ void RenderSpritesheetSpriteTile(SDL_Texture *texture, int rows, int columns,
         static_cast<float>(row_index + 1) / static_cast<float>(rows));
     DrawTextureRegionFitCentered(draw_list, texture, preview_min, preview_max,
                                  uv_min, uv_max);
+
+    if (!image_resource_name.empty() && ImGui::BeginDragDropSource()) {
+        EditorDragDrop::SpriteAssetPayload payload;
+        CopySpritePayloadResourceName(payload, image_resource_name);
+        payload.row = row_index + 1;
+        payload.column = column_index + 1;
+        ImGui::SetDragDropPayload(EditorDragDrop::kSpriteAssetPayload, &payload,
+                                  sizeof(payload));
+        ImGui::Text("Sprite");
+        ImGui::TextDisabled("%s [%d,%d]", image_resource_name.c_str(),
+                            payload.row, payload.column);
+        ImGui::EndDragDropSource();
+    }
 
     const std::string label = "[" + std::to_string(row_index + 1) + "," +
                               std::to_string(column_index + 1) + "]";
@@ -833,6 +875,11 @@ void RenderExpandedSpritesheetTileGrid(const ProjectEntry &entry,
     SDL_Texture *texture = GetImageTexture(renderer, entry.path);
     if (texture == nullptr) return;
 
+    std::string image_resource_name;
+    if (!BuildImageResourceName(entry.path, image_resource_name)) {
+        image_resource_name.clear();
+    }
+
     const int rows = std::max(spec.rows, 1);
     const int columns = std::max(spec.columns, 1);
     const int sprite_count = rows * columns;
@@ -860,7 +907,8 @@ void RenderExpandedSpritesheetTileGrid(const ProjectEntry &entry,
         const int column_index = sprite_index % columns;
         ImGui::PushID(sprite_index);
         RenderSpritesheetSpriteTile(texture, rows, columns, row_index,
-                                    column_index, sprite_tile_width,
+                                    column_index, image_resource_name,
+                                    sprite_tile_width,
                                     sprite_tile_height);
         ImGui::PopID();
         layout_column_index = (layout_column_index + 1) % sprite_columns;

@@ -129,6 +129,121 @@ bool RenderLuaComponentDropTarget(
     return scene_changed;
 }
 
+struct PropertyAssetDrop {
+    std::string resource_name;
+    bool has_sprite_cell = false;
+    int sprite_row = 1;
+    int sprite_column = 1;
+};
+
+bool AcceptPropertyAssetDrop(PropertyAssetDrop &out_drop) {
+    if (!ImGui::BeginDragDropTarget()) return false;
+
+    bool accepted = false;
+    if (const ImGuiPayload *payload =
+            ImGui::AcceptDragDropPayload(EditorDragDrop::kSpriteAssetPayload)) {
+        if (payload->Data != nullptr &&
+            payload->DataSize == sizeof(EditorDragDrop::SpriteAssetPayload)) {
+            const auto *sprite_payload =
+                static_cast<const EditorDragDrop::SpriteAssetPayload *>(
+                    payload->Data);
+            if (sprite_payload->image_resource_name[0] != '\0') {
+                out_drop.resource_name = sprite_payload->image_resource_name;
+                out_drop.has_sprite_cell = true;
+                out_drop.sprite_row = std::max(1, sprite_payload->row);
+                out_drop.sprite_column = std::max(1, sprite_payload->column);
+                accepted = true;
+            }
+        }
+    } else if (const ImGuiPayload *payload =
+                   ImGui::AcceptDragDropPayload(
+                       EditorDragDrop::kImageAssetPayload)) {
+        const char *resource_name = static_cast<const char *>(payload->Data);
+        if (resource_name != nullptr && resource_name[0] != '\0') {
+            out_drop.resource_name = resource_name;
+            accepted = true;
+        }
+    } else if (const ImGuiPayload *payload =
+                   ImGui::AcceptDragDropPayload(
+                       EditorDragDrop::kAudioAssetPayload)) {
+        const char *resource_name = static_cast<const char *>(payload->Data);
+        if (resource_name != nullptr && resource_name[0] != '\0') {
+            out_drop.resource_name = resource_name;
+            accepted = true;
+        }
+    }
+
+    ImGui::EndDragDropTarget();
+    return accepted;
+}
+
+bool IsSpriteRendererSpriteProperty(const Actor::ComponentSpec &component_spec,
+                                    const std::string &property_name) {
+    return component_spec.type == "SpriteRenderer" && property_name == "sprite";
+}
+
+bool ApplyRuntimePropertyAssetDrop(Actor::UID actor_uid,
+                                   const Actor::ComponentSpec &component_spec,
+                                   const std::string &property_name,
+                                   const PropertyAssetDrop &drop) {
+    bool changed = false;
+    changed |= ComponentManager::SetRuntimeComponentPropertyValue(
+        actor_uid, component_spec.key, property_name, drop.resource_name);
+
+    if (IsSpriteRendererSpriteProperty(component_spec, property_name)) {
+        const int sprite_row = drop.has_sprite_cell ? drop.sprite_row : 1;
+        const int sprite_column = drop.has_sprite_cell ? drop.sprite_column : 1;
+        changed |= ComponentManager::SetRuntimeComponentPropertyValue(
+            actor_uid, component_spec.key, "sprite_row", sprite_row);
+        changed |= ComponentManager::SetRuntimeComponentPropertyValue(
+            actor_uid, component_spec.key, "sprite_column", sprite_column);
+    }
+
+    return changed;
+}
+
+bool ApplyScenePropertyAssetDrop(
+    SceneDocument &scene_document, std::size_t actor_index,
+    const Actor::ComponentSpec &component_spec, const std::string &property_name,
+    const PropertyAssetDrop &drop,
+    std::vector<SceneFormat::SceneEditCommand> *out_edit_commands) {
+    bool changed = false;
+    SceneFormat::SceneEditCommand command;
+    if (scene_document.SetComponentProperty(actor_index, component_spec.key,
+                                            property_name, drop.resource_name,
+                                            &command)) {
+        changed = true;
+        if (out_edit_commands != nullptr) {
+            out_edit_commands->emplace_back(std::move(command));
+        }
+    }
+
+    if (IsSpriteRendererSpriteProperty(component_spec, property_name)) {
+        const int sprite_row = drop.has_sprite_cell ? drop.sprite_row : 1;
+        const int sprite_column = drop.has_sprite_cell ? drop.sprite_column : 1;
+
+        if (scene_document.SetComponentProperty(actor_index, component_spec.key,
+                                                "sprite_row", sprite_row,
+                                                &command)) {
+            changed = true;
+            if (out_edit_commands != nullptr) {
+                out_edit_commands->emplace_back(std::move(command));
+            }
+        }
+
+        if (scene_document.SetComponentProperty(actor_index, component_spec.key,
+                                                "sprite_column",
+                                                sprite_column, &command)) {
+            changed = true;
+            if (out_edit_commands != nullptr) {
+                out_edit_commands->emplace_back(std::move(command));
+            }
+        }
+    }
+
+    return changed;
+}
+
 /*
 Show the derived Rigidbody hierarchy state that explains whether a dynamic body
 is active, overridden, or attached under another dynamic physics root.
@@ -201,11 +316,22 @@ void RenderRuntimeOnlyActorInspector(const Engine &engine,
             for (const Actor::ComponentProperty &property : runtime_properties) {
                 ImGui::PushID(property.name.c_str());
                 Actor::ComponentPropertyValue updated_value;
+                bool property_changed = false;
                 if (EditPropertyValue(property.name.c_str(), property.value,
                                       updated_value)) {
-                    ComponentManager::SetRuntimeComponentPropertyValue(
+                    property_changed |=
+                        ComponentManager::SetRuntimeComponentPropertyValue(
                         runtime_actor.uid, component_spec.key, property.name,
                         updated_value);
+                }
+
+                if (std::holds_alternative<std::string>(property.value)) {
+                    PropertyAssetDrop drop;
+                    if (AcceptPropertyAssetDrop(drop)) {
+                        property_changed |= ApplyRuntimePropertyAssetDrop(
+                            runtime_actor.uid, component_spec, property.name,
+                            drop);
+                    }
                 }
                 ImGui::PopID();
             }
@@ -377,12 +503,25 @@ bool RenderInspectorPanel(const Engine &engine, SceneDocument &scene_document,
             for (const Actor::ComponentProperty &property : inspectable_properties) {
                 ImGui::PushID(property.name.c_str());
                 Actor::ComponentPropertyValue updated_value;
+                bool property_changed = false;
                 if (EditPropertyValue(property.name.c_str(), property.value, updated_value)) {
                     SceneFormat::SceneEditCommand command;
-                    const bool changed = scene_document.SetComponentProperty( actor_index, component_spec.key, property.name, updated_value, &command);
-                    scene_changed |= changed;
-                    if (changed && out_edit_commands != nullptr) {
+                    property_changed |= scene_document.SetComponentProperty(
+                        actor_index, component_spec.key, property.name,
+                        updated_value, &command);
+                    scene_changed |= property_changed;
+                    if (property_changed && out_edit_commands != nullptr) {
                         out_edit_commands->emplace_back(std::move(command));
+                    }
+                }
+
+                if (std::holds_alternative<std::string>(property.value)) {
+                    PropertyAssetDrop drop;
+                    if (AcceptPropertyAssetDrop(drop)) {
+                        property_changed |= ApplyScenePropertyAssetDrop(
+                            scene_document, actor_index, component_spec,
+                            property.name, drop, out_edit_commands);
+                        scene_changed |= property_changed;
                     }
                 }
                 ImGui::PopID();

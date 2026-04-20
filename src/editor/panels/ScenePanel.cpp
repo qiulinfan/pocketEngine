@@ -718,11 +718,127 @@ void HandleSceneSelectionClick(const ImVec2 &mouse_position,
 }
 
 /*
-Drop an actor template directly into scene space. The actor is created through
-the normal scene mutation path first, then its Transform is rewritten so the
-new instance appears exactly where the user dropped it.
+Create one new scene-backed actor with a SpriteRenderer and place it at the
+requested world position. Sprite drops also seed sprite_row / sprite_column.
 */
-bool HandleSceneTemplateDrop(
+bool AppendSpriteActorAtWorldPosition(
+    SceneDocument &scene_document, const std::string &image_resource_name,
+    int sprite_row, int sprite_column, const ImVec2 &drop_world_position,
+    int &selected_actor_index, Actor::UID &selected_runtime_actor_uid,
+    std::vector<SceneFormat::SceneEditCommand> *out_edit_commands) {
+    if (image_resource_name.empty()) return false;
+
+    bool scene_changed = false;
+    std::size_t new_actor_index = 0;
+    SceneFormat::SceneEditCommand create_command;
+    if (!scene_document.AppendEmptyActor(new_actor_index, &create_command)) {
+        return false;
+    }
+
+    scene_changed = true;
+    if (out_edit_commands != nullptr) {
+        out_edit_commands->emplace_back(std::move(create_command));
+    }
+
+    SceneFormat::SceneEditCommand add_component_command;
+    if (scene_document.AddComponentToActor(new_actor_index, "SpriteRenderer",
+                                           &add_component_command)) {
+        if (out_edit_commands != nullptr) {
+            out_edit_commands->emplace_back(std::move(add_component_command));
+        }
+    } else {
+        selected_actor_index = static_cast<int>(new_actor_index);
+        selected_runtime_actor_uid = Actor::kInvalidUID;
+        return scene_changed;
+    }
+
+    const Actor effective_actor = scene_document.BuildEffectiveActor(new_actor_index);
+    std::string sprite_renderer_key;
+    for (const Actor::ComponentSpec &component_spec : effective_actor.component_specs) {
+        if (component_spec.type != "SpriteRenderer") continue;
+        sprite_renderer_key = component_spec.key;
+        break;
+    }
+
+    if (!sprite_renderer_key.empty()) {
+        if (sprite_renderer_key != "SpriteRenderer") {
+            SceneFormat::SceneEditCommand rename_command;
+            if (scene_document.RenameComponent(new_actor_index,
+                                              sprite_renderer_key,
+                                              "SpriteRenderer",
+                                              &rename_command)) {
+                if (out_edit_commands != nullptr) {
+                    out_edit_commands->emplace_back(std::move(rename_command));
+                }
+                sprite_renderer_key = "SpriteRenderer";
+            }
+        }
+
+        SceneFormat::SceneEditCommand sprite_command;
+        if (scene_document.SetComponentProperty(
+                new_actor_index, sprite_renderer_key, "sprite",
+                image_resource_name, &sprite_command)) {
+            if (out_edit_commands != nullptr) {
+                out_edit_commands->emplace_back(std::move(sprite_command));
+            }
+        }
+
+        SceneFormat::SceneEditCommand row_command;
+        if (scene_document.SetComponentProperty(
+                new_actor_index, sprite_renderer_key, "sprite_row",
+                std::max(1, sprite_row), &row_command)) {
+            if (out_edit_commands != nullptr) {
+                out_edit_commands->emplace_back(std::move(row_command));
+            }
+        }
+
+        SceneFormat::SceneEditCommand column_command;
+        if (scene_document.SetComponentProperty(
+                new_actor_index, sprite_renderer_key, "sprite_column",
+                std::max(1, sprite_column), &column_command)) {
+            if (out_edit_commands != nullptr) {
+                out_edit_commands->emplace_back(std::move(column_command));
+            }
+        }
+    }
+
+    std::string transform_component_key;
+    float local_x = 0.0f;
+    float local_y = 0.0f;
+    float local_rotation = 0.0f;
+    if (scene_document.TryGetActorLocalTransform(new_actor_index,
+                                                 &transform_component_key,
+                                                 local_x, local_y,
+                                                 local_rotation)) {
+        SceneFormat::SceneEditCommand x_command;
+        if (scene_document.SetComponentProperty(
+                new_actor_index, transform_component_key, "x",
+                static_cast<double>(drop_world_position.x), &x_command)) {
+            if (out_edit_commands != nullptr) {
+                out_edit_commands->emplace_back(std::move(x_command));
+            }
+        }
+
+        SceneFormat::SceneEditCommand y_command;
+        if (scene_document.SetComponentProperty(
+                new_actor_index, transform_component_key, "y",
+                static_cast<double>(drop_world_position.y), &y_command)) {
+            if (out_edit_commands != nullptr) {
+                out_edit_commands->emplace_back(std::move(y_command));
+            }
+        }
+    }
+
+    selected_actor_index = static_cast<int>(new_actor_index);
+    selected_runtime_actor_uid = Actor::kInvalidUID;
+    return scene_changed;
+}
+
+/*
+Drop an asset directly into scene space. Template drops instantiate the
+template; image and sprite drops spawn a fresh actor with SpriteRenderer.
+*/
+bool HandleSceneAssetDrop(
     const Engine &engine, const SceneViewCameraState &scene_camera,
     SceneDocument &scene_document, const ImVec2 &image_min,
     const ImVec2 &image_size, int &selected_actor_index,
@@ -742,8 +858,8 @@ bool HandleSceneTemplateDrop(
             std::size_t new_actor_index = 0;
             SceneFormat::SceneEditCommand create_command;
             if (scene_document.AppendActorFromTemplate(template_name,
-                                                      new_actor_index,
-                                                      &create_command)) {
+                                                       new_actor_index,
+                                                       &create_command)) {
                 scene_changed = true;
                 if (out_edit_commands != nullptr) {
                     out_edit_commands->emplace_back(std::move(create_command));
@@ -753,22 +869,28 @@ bool HandleSceneTemplateDrop(
                 float local_x = 0.0f;
                 float local_y = 0.0f;
                 float local_rotation = 0.0f;
-                if (scene_document.TryGetActorLocalTransform(new_actor_index, &transform_component_key, local_x, local_y, local_rotation)) {
+                if (scene_document.TryGetActorLocalTransform(
+                        new_actor_index, &transform_component_key, local_x,
+                        local_y, local_rotation)) {
                     SceneFormat::SceneEditCommand x_command;
                     if (scene_document.SetComponentProperty(
                             new_actor_index, transform_component_key, "x",
-                            static_cast<double>(drop_world_position.x), &x_command)) {
+                            static_cast<double>(drop_world_position.x),
+                            &x_command)) {
                         if (out_edit_commands != nullptr) {
-                            out_edit_commands->emplace_back(std::move(x_command));
+                            out_edit_commands->emplace_back(
+                                std::move(x_command));
                         }
                     }
-    
+
                     SceneFormat::SceneEditCommand y_command;
                     if (scene_document.SetComponentProperty(
                             new_actor_index, transform_component_key, "y",
-                            static_cast<double>(drop_world_position.y), &y_command)) {
+                            static_cast<double>(drop_world_position.y),
+                            &y_command)) {
                         if (out_edit_commands != nullptr) {
-                            out_edit_commands->emplace_back(std::move(y_command));
+                            out_edit_commands->emplace_back(
+                                std::move(y_command));
                         }
                     }
                 }
@@ -776,6 +898,40 @@ bool HandleSceneTemplateDrop(
                 selected_actor_index = static_cast<int>(new_actor_index);
                 selected_runtime_actor_uid = Actor::kInvalidUID;
             }
+        }
+    } else if (const ImGuiPayload *payload =
+                   ImGui::AcceptDragDropPayload(
+                       EditorDragDrop::kSpriteAssetPayload)) {
+        if (payload->Data != nullptr &&
+            payload->DataSize == sizeof(EditorDragDrop::SpriteAssetPayload)) {
+            const auto *sprite_payload =
+                static_cast<const EditorDragDrop::SpriteAssetPayload *>(
+                    payload->Data);
+            if (sprite_payload->image_resource_name[0] != '\0') {
+                const ImVec2 drop_world_position =
+                    ScenePanelPixelsToWorldPosition(
+                        engine, scene_camera, image_min, image_size,
+                        ImGui::GetMousePos());
+                scene_changed |= AppendSpriteActorAtWorldPosition(
+                    scene_document, sprite_payload->image_resource_name,
+                    sprite_payload->row, sprite_payload->column,
+                    drop_world_position, selected_actor_index,
+                    selected_runtime_actor_uid, out_edit_commands);
+            }
+        }
+    } else if (const ImGuiPayload *payload =
+                   ImGui::AcceptDragDropPayload(
+                       EditorDragDrop::kImageAssetPayload)) {
+        const char *image_resource_name =
+            static_cast<const char *>(payload->Data);
+        if (image_resource_name != nullptr && image_resource_name[0] != '\0') {
+            const ImVec2 drop_world_position = ScenePanelPixelsToWorldPosition(
+                engine, scene_camera, image_min, image_size,
+                ImGui::GetMousePos());
+            scene_changed |= AppendSpriteActorAtWorldPosition(
+                scene_document, image_resource_name, 1, 1, drop_world_position,
+                selected_actor_index, selected_runtime_actor_uid,
+                out_edit_commands);
         }
     }
 
@@ -1058,12 +1214,12 @@ ScenePanelResult RenderScenePanel(
 
     if (scene_editing_enabled && image_hovered) {
         const std::size_t command_count_before_drop = (out_edit_commands != nullptr) ? out_edit_commands->size() : 0;
-        const bool dropped_template = HandleSceneTemplateDrop(
+        const bool dropped_asset = HandleSceneAssetDrop(
                                         engine, g_scene_camera_state, scene_document, centered_cursor,
                                         image_size, selected_actor_index, selected_runtime_actor_uid,
                                         out_edit_commands);
-        controls_result.scene_changed |= dropped_template;
-        if (dropped_template) {
+        controls_result.scene_changed |= dropped_asset;
+        if (dropped_asset) {
             preview_refresh_requested = true;
             if (out_edit_commands != nullptr) {
                 for (std::size_t command_index = command_count_before_drop; command_index < out_edit_commands->size(); ++command_index) {
