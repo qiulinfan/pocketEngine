@@ -1,5 +1,7 @@
 test
 build
+.site
+site
 data
 imgui.ini
 **/frames

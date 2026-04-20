@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "docs/**"
+      - "mkdocs.yml"
   workflow_dispatch:
 
 permissions:
@@ -19,11 +20,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Prepare static site payload
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install MkDocs
         run: |
-          rm -rf .site
-          mkdir -p .site
-          rsync -av --delete docs/ .site/
+          python -m pip install --upgrade pip
+          python -m pip install mkdocs
+
+      - name: Build static site
+        run: |
+          mkdocs build --clean
 
       - name: Publish to gh-pages
         uses: peaceiris/actions-gh-pages@v4

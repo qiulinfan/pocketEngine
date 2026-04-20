@@ -1,0 +1,35 @@
+site_name: PocketEngine Docs
+site_url: https://qiulinfan.github.io/pocketEngine/
+repo_url: https://github.com/qiulinfan/pocketEngine
+repo_name: qiulinfan/pocketEngine
+docs_dir: docs
+site_dir: .site
+
+theme:
+  name: mkdocs
+  logo: icon.png
+  favicon: icon.png
+
+nav:
+  - Home: index.md
+  - Lua API:
+      - Overview: lua-api/index.md
+      - Component Model: lua-api/component-model.md
+      - Application, Scene, and Camera: lua-api/application-scene.md
+      - Actor: lua-api/actor.md
+      - Rendering, Audio, and Input: lua-api/rendering-audio-input.md
+      - Events and Physics: lua-api/events-physics.md
+      - Built-in Components: lua-api/builtin-components.md
+  - Architecture:
+      - Frame Pipeline: architecture/frame-pipeline.md
+      - Asset Pipeline: architecture/asset-pipeline.md
+      - Module Dependency: architecture/module-dependency.md
+      - Editor Workflow: architecture/editor-workflow.md
+
+markdown_extensions:
+  - tables
+  - admonition
+
+extra_javascript:
+  - https://unpkg.com/mermaid@10/dist/mermaid.min.js
+  - javascripts/mermaid-init.js

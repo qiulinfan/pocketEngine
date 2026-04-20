@@ -2,6 +2,7 @@
 # Do not copy generated build/*/Makefile into the repo.
 
 CMAKE ?= cmake
+MKDOCS ?= mkdocs
 JOBS ?= 4
 
 DEBUG_PRESET ?= unix-makefiles-debug
@@ -17,7 +18,7 @@ ROOT_EDITOR_BIN := game_editor_linux
 
 .PHONY: help configure build configure-release build-release
 .PHONY: stage-runtime stage-editor
-.PHONY: engine editor run run-editor compile-commands clean clean-all
+.PHONY: engine editor run run-editor compile-commands docs-build docs-serve docs clean clean-all
 
 configure:
 	$(CMAKE) --preset $(DEBUG_PRESET)
@@ -49,6 +50,15 @@ run-editor: editor
 
 compile-commands: configure
 	cp $(DEBUG_BUILD_DIR)/compile_commands.json ./compile_commands.json
+
+docs-build:
+	$(MKDOCS) build --clean
+
+docs-serve:
+	$(MKDOCS) serve
+
+docs:
+	$(MKDOCS) gh-deploy --force --clean
 
 clean:
 	-$(CMAKE) --build --preset $(DEBUG_PRESET) --target clean

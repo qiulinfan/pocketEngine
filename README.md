@@ -4,7 +4,9 @@ PocketEngine is a cross-platform 2D runtime + editor game engine, written in C++
 SDL2, Lua, Box2D, Dear ImGui, and JSON scene assets. It hosts Lua for game logic scripting.
 It is a variant of the [A2 Engine](https://a2engine.org/). For basic usage, check the documentation of A2 engine for the APIs.
 
-Documentation for unique APIs of PocketEngine: //TODO
+PocketEngine Lua API documentation lives here:
+- local source: [docs/index.md](docs/index.md)
+- GitHub Pages: https://qiulinfan.github.io/pocketEngine/
 
 > Below is a demo of the editor and runtime in action, running the example
 > "ball game" included in `resources/`. This example game originates from the
@@ -45,6 +47,16 @@ All files under `docs/architecture/` are diagram-only for explaining the archite
 - [Asset Pipeline](docs/architecture/asset-pipeline.md)
 - [Module Dependency](docs/architecture/module-dependency.md)
 - [Editor Workflow](docs/architecture/editor-workflow.md)
+
+## Docs
+
+```bash
+make docs-build
+make docs
+```
+
+`make docs` uses MkDocs `gh-deploy` to publish the generated site to the
+`gh-pages` branch.
 
 ## License
 
