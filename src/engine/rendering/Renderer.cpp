@@ -60,7 +60,7 @@ bool ShouldDiscardUIRequest(const ImageDrawRequest &request) {
 bool TryBuildSpritesheetSourceRect(const ImageDrawRequest &request,
                                    float texture_width,
                                    float texture_height,
-                                   SDL_Rect &out_source_rect) {
+                                   SDL_FRect &out_source_rect) {
     const int rows = std::max(request.spritesheet_rows, 1);
     const int columns = std::max(request.spritesheet_columns, 1);
     if (rows <= 1 && columns <= 1) return false;
@@ -75,10 +75,10 @@ bool TryBuildSpritesheetSourceRect(const ImageDrawRequest &request,
 
     const int row_index = std::clamp(request.sprite_row, 1, rows) - 1;
     const int column_index = std::clamp(request.sprite_column, 1, columns) - 1;
-    out_source_rect.x = column_index * cell_width;
-    out_source_rect.y = row_index * cell_height;
-    out_source_rect.w = cell_width;
-    out_source_rect.h = cell_height;
+    out_source_rect.x = static_cast<float>(column_index * cell_width);
+    out_source_rect.y = static_cast<float>(row_index * cell_height);
+    out_source_rect.w = static_cast<float>(cell_width);
+    out_source_rect.h = static_cast<float>(cell_height);
     return true;
 }
 
@@ -344,15 +344,15 @@ void Renderer::RenderAndClearAllImages(SDL_Renderer *renderer, float camera_x,
         float texture_w = 0.0f;
         float texture_h = 0.0f;
         SDLRenderHelper::SDL_QueryTexture(texture, &texture_w, &texture_h);
-        SDL_Rect source_rect;
-        SDL_Rect *source_rect_ptr = nullptr;
+        SDL_FRect source_rect;
+        SDL_FRect *source_rect_ptr = nullptr;
         float draw_width = texture_w;
         float draw_height = texture_h;
         if (TryBuildSpritesheetSourceRect(request, texture_w, texture_h,
                                           source_rect)) {
             source_rect_ptr = &source_rect;
-            draw_width = static_cast<float>(source_rect.w);
-            draw_height = static_cast<float>(source_rect.h);
+            draw_width = source_rect.w;
+            draw_height = source_rect.h;
         }
 
         SDL_RendererFlip flip = SDL_FLIP_NONE;
@@ -431,15 +431,15 @@ void Renderer::RenderAndClearAllImages(SDL_Renderer *renderer, float camera_x,
         float texture_w = 0.0f;
         float texture_h = 0.0f;
         SDLRenderHelper::SDL_QueryTexture(texture, &texture_w, &texture_h);
-        SDL_Rect source_rect;
-        SDL_Rect *source_rect_ptr = nullptr;
+        SDL_FRect source_rect;
+        SDL_FRect *source_rect_ptr = nullptr;
         float draw_width = texture_w;
         float draw_height = texture_h;
         if (TryBuildSpritesheetSourceRect(request, texture_w, texture_h,
                                           source_rect)) {
             source_rect_ptr = &source_rect;
-            draw_width = static_cast<float>(source_rect.w);
-            draw_height = static_cast<float>(source_rect.h);
+            draw_width = source_rect.w;
+            draw_height = source_rect.h;
         }
 
         SDL_FRect dst = {request.x, request.y, draw_width, draw_height};

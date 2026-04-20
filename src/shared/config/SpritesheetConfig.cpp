@@ -42,7 +42,9 @@ rapidjson::Document BuildDefaultSpritesheetMetadata() {
     rapidjson::Document document;
     document.SetObject();
     rapidjson::Value spritesheets(rapidjson::kObjectType);
-    document.AddMember(kSpritesheetsKey, spritesheets, document.GetAllocator());
+    document.AddMember(
+        rapidjson::Value(kSpritesheetsKey, document.GetAllocator()).Move(),
+        spritesheets, document.GetAllocator());
     return document;
 }
 
@@ -130,7 +132,9 @@ bool PersistSpritesheetMetadata() {
             rapidjson::Value(entry.first.c_str(), document.GetAllocator()).Move(),
             spec_object, document.GetAllocator());
     }
-    document.AddMember(kSpritesheetsKey, spritesheets, document.GetAllocator());
+    document.AddMember(
+        rapidjson::Value(kSpritesheetsKey, document.GetAllocator()).Move(),
+        spritesheets, document.GetAllocator());
     return WriteSpritesheetMetadataDocument(document);
 }
 
