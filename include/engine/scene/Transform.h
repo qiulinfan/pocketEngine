@@ -23,7 +23,7 @@ public:
     float y = 0.0f;
     float rotation = 0.0f;
 
-    /*
+    /*re
     Derived world-space values are resolved from the parent chain at runtime
     and are not serialized back into scenes.
     */

@@ -21,6 +21,7 @@
         },
         {
             "uid": 3,
+            "parent_uid": 2,
             "name": "HUD",
             "components": {
                 "1": {

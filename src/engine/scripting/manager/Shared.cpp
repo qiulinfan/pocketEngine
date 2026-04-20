@@ -369,32 +369,21 @@ void ComponentManager::ResolveTransformHierarchy() {
             }
 
             auto actor_it = ManagerDetail::g_runtime.actor_by_uid.find(actor_uid);
-            Actor *actor =
-                (actor_it != ManagerDetail::g_runtime.actor_by_uid.end())
-                    ? actor_it->second
-                    : nullptr;
-            ManagerDetail::ComponentRecord *transform_component =
-                ManagerDetail::FindPrimaryComponentByType(actor_uid,
-                                                          "Transform");
+            // try to find the actor for this uid, but even if not found we can still resolve a world transform for it (treat as root)
+            Actor *actor = (actor_it != ManagerDetail::g_runtime.actor_by_uid.end()) ? actor_it->second : nullptr;
+            ManagerDetail::ComponentRecord *transform_component =  ManagerDetail::FindPrimaryComponentByType(actor_uid, "Transform");
             if (transform_component != nullptr) {
                 Transform *transform = transform_component->instance_table.cast<Transform *>();
                 if (transform != nullptr) {
-                    if (actor == nullptr ||
-                        actor->parent_uid == Actor::kInvalidUID ||
-                        actor->parent_uid == actor_uid) {
+                    if (actor == nullptr || actor->parent_uid == Actor::kInvalidUID || actor->parent_uid == actor_uid) {
                         transform->world_x = transform->x;
                         transform->world_y = transform->y;
                         transform->world_rotation = transform->rotation;
                     } else {
                         resolve_actor_world_transform(actor->parent_uid);
-                        ManagerDetail::ComponentRecord *parent_transform_component =
-                            ManagerDetail::FindPrimaryComponentByType(
-                                actor->parent_uid, "Transform");
-                        Transform *parent_transform =
-                            (parent_transform_component != nullptr)
-                                ? parent_transform_component->instance_table
-                                      .cast<Transform *>()
-                                : nullptr;
+                        ManagerDetail::ComponentRecord *parent_transform_component = ManagerDetail::FindPrimaryComponentByType( actor->parent_uid, "Transform");
+                        Transform *parent_transform = (parent_transform_component != nullptr) ? parent_transform_component->instance_table.cast<Transform *>()
+                                                                                              : nullptr;
                         if (parent_transform == nullptr) {
                             transform->world_x = transform->x;
                             transform->world_y = transform->y;
@@ -402,15 +391,10 @@ void ComponentManager::ResolveTransformHierarchy() {
                         } else {
                             float rotated_local_x = 0.0f;
                             float rotated_local_y = 0.0f;
-                            ManagerDetail::RotateClockwise(
-                                transform->x, transform->y,
-                                parent_transform->world_rotation,
-                                rotated_local_x, rotated_local_y);
-                                transform->world_x = parent_transform->world_x + rotated_local_x;
-                                transform->world_y = parent_transform->world_y + rotated_local_y;
-                            transform->world_rotation =
-                                parent_transform->world_rotation +
-                                transform->rotation;
+                            ManagerDetail::RotateClockwise(transform->x, transform->y,parent_transform->world_rotation,rotated_local_x, rotated_local_y);
+                            transform->world_x = parent_transform->world_x + rotated_local_x;
+                            transform->world_y = parent_transform->world_y + rotated_local_y;
+                            transform->world_rotation = parent_transform->world_rotation + transform->rotation;
                         }
                     }
                 }

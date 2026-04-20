@@ -190,17 +190,12 @@ ImVec2 WorldToScenePanelPosition(const Engine &engine,
                                  const ImVec2 &image_min,
                                  const ImVec2 &image_size, float world_x,
                                  float world_y) {
+
     const float safe_zoom = std::max(0.0001f, scene_camera.zoom);
-    const float runtime_width =
-        static_cast<float>(std::max(1, engine.GetScenePreviewRenderTargetWidth()));
-    const float runtime_height =
-        static_cast<float>(std::max(1, engine.GetScenePreviewRenderTargetHeight()));
-    const float runtime_pixel_x =
-        (world_x - scene_camera.world_x) * kPixelsPerUnit * safe_zoom +
-        runtime_width * 0.5f;
-    const float runtime_pixel_y =
-        (world_y - scene_camera.world_y) * kPixelsPerUnit * safe_zoom +
-        runtime_height * 0.5f;
+    const float runtime_width = static_cast<float>(std::max(1, engine.GetScenePreviewRenderTargetWidth()));
+    const float runtime_height = static_cast<float>(std::max(1, engine.GetScenePreviewRenderTargetHeight()));
+    const float runtime_pixel_x = (world_x - scene_camera.world_x) * kPixelsPerUnit * safe_zoom + runtime_width * 0.5f;
+    const float runtime_pixel_y = (world_y - scene_camera.world_y) * kPixelsPerUnit * safe_zoom + runtime_height * 0.5f;
 
     return ImVec2(image_min.x + (runtime_pixel_x / runtime_width) * image_size.x,
                   image_min.y + (runtime_pixel_y / runtime_height) * image_size.y);
@@ -211,11 +206,9 @@ float WorldUnitsToScenePanelPixels(const Engine &engine,
                                    const ImVec2 &image_size,
                                    float world_units) {
     const float safe_zoom = std::max(0.0001f, scene_camera.zoom);
-    const float runtime_width =
-        static_cast<float>(std::max(1, engine.GetScenePreviewRenderTargetWidth()));
+    const float runtime_width = static_cast<float>(std::max(1, engine.GetScenePreviewRenderTargetWidth()));
     const float panel_pixels_per_runtime_pixel = image_size.x / runtime_width;
-    return world_units * kPixelsPerUnit * safe_zoom *
-           panel_pixels_per_runtime_pixel;
+    return world_units * kPixelsPerUnit * safe_zoom * panel_pixels_per_runtime_pixel;
 }
 
 ImVec2 ScenePanelPixelsToWorldPosition(const Engine &engine,
@@ -224,12 +217,10 @@ ImVec2 ScenePanelPixelsToWorldPosition(const Engine &engine,
                                        const ImVec2 &image_size,
                                        const ImVec2 &panel_position) {
     const float safe_zoom = std::max(0.0001f, scene_camera.zoom);
-    const float runtime_width =
-        static_cast<float>(std::max(1, engine.GetScenePreviewRenderTargetWidth()));
-    const float runtime_height =
-        static_cast<float>(std::max(1, engine.GetScenePreviewRenderTargetHeight()));
-        const float normalized_x = (panel_position.x - image_min.x) / std::max(1.0f, image_size.x);
-        const float normalized_y = (panel_position.y - image_min.y) / std::max(1.0f, image_size.y);
+    const float runtime_width = static_cast<float>(std::max(1, engine.GetScenePreviewRenderTargetWidth()));
+    const float runtime_height = static_cast<float>(std::max(1, engine.GetScenePreviewRenderTargetHeight()));
+    const float normalized_x = (panel_position.x - image_min.x) / std::max(1.0f, image_size.x);
+    const float normalized_y = (panel_position.y - image_min.y) / std::max(1.0f, image_size.y);
     const float runtime_pixel_x = normalized_x * runtime_width;
     const float runtime_pixel_y = normalized_y * runtime_height;
 
@@ -252,10 +243,9 @@ authored Transform when available, then fall back to Rigidbody or any generic
 x/y-bearing component so older content can still be picked and moved.
 */
 std::optional<ActorDragTarget> BuildActorDragTarget(
-    const std::vector<Actor::ComponentSpec> &component_specs,
-    const std::function<std::vector<Actor::ComponentProperty>( const std::string &component_key)> &property_lookup,
-    std::size_t actor_index, Actor::UID runtime_actor_uid,
-    Actor::UID actor_uid) {
+            const std::vector<Actor::ComponentSpec> &component_specs,
+            const std::function<std::vector<Actor::ComponentProperty>(const std::string &component_key)> &property_lookup,
+            std::size_t actor_index, Actor::UID runtime_actor_uid, Actor::UID actor_uid) {
     ActorDragTarget target;
     target.actor_index = actor_index;
     target.runtime_actor_uid = runtime_actor_uid;
@@ -335,16 +325,16 @@ Rigidbody extents first, then Transform anchors, then a generic x/y fallback so
 both gameplay actors and non-physics editor anchors remain selectable.
 */
 std::optional<ActorScreenBounds> BuildActorScreenBounds(
-    const Engine &engine, const SceneViewCameraState &scene_camera,
-    const std::vector<Actor::ComponentSpec> &component_specs,
-    const std::function<std::vector<Actor::ComponentProperty>( const std::string &component_key)> &property_lookup,
-    std::size_t actor_index, Actor::UID runtime_actor_uid,
-    Actor::UID actor_uid, const ImVec2 &image_min,
-    const ImVec2 &image_size) {
-    ActorScreenBounds bounds;
-    bounds.actor_index = actor_index;
-    bounds.runtime_actor_uid = runtime_actor_uid;
-    bounds.actor_uid = actor_uid;
+            const Engine &engine, const SceneViewCameraState &scene_camera,
+            const std::vector<Actor::ComponentSpec> &component_specs,
+            const std::function<std::vector<Actor::ComponentProperty>( const std::string &component_key)> &property_lookup,
+            std::size_t actor_index, Actor::UID runtime_actor_uid,
+            Actor::UID actor_uid, const ImVec2 &image_min,
+            const ImVec2 &image_size) {
+            ActorScreenBounds bounds;
+            bounds.actor_index = actor_index;
+            bounds.runtime_actor_uid = runtime_actor_uid;
+            bounds.actor_uid = actor_uid;
 
     for (const Actor::ComponentSpec &component_spec : component_specs) {
         if (component_spec.type != "Rigidbody") continue;
@@ -409,12 +399,12 @@ std::optional<ActorScreenBounds> BuildActorScreenBounds(
         const bool has_y = ReadPropertyAsFloat(properties, "y", 0.0f, y);
         if (!has_x || !has_y) continue;
 
-        const ImVec2 panel_center = WorldToScenePanelPosition( engine, scene_camera, image_min, image_size, x, y);
+        const ImVec2 panel_center = WorldToScenePanelPosition(engine, scene_camera, image_min, image_size, x, y);
 
         bounds.circular = true;
         bounds.center_x = panel_center.x;
         bounds.center_y = panel_center.y;
-        bounds.half_width = WorldUnitsToScenePanelPixels( engine, scene_camera, image_size, kFallbackSelectionHalfExtentUnits);
+        bounds.half_width = WorldUnitsToScenePanelPixels(engine, scene_camera, image_size, kFallbackSelectionHalfExtentUnits);
         bounds.half_height = bounds.half_width;
         return bounds;
     }
@@ -427,12 +417,12 @@ std::optional<ActorScreenBounds> BuildActorScreenBounds(
         const bool has_y = ReadPropertyAsFloat(properties, "y", 0.0f, y);
         if (!has_x || !has_y) continue;
 
-        const ImVec2 panel_center = WorldToScenePanelPosition( engine, scene_camera, image_min, image_size, x, y);
+        const ImVec2 panel_center = WorldToScenePanelPosition(engine, scene_camera, image_min, image_size, x, y);
 
         bounds.circular = true;
         bounds.center_x = panel_center.x;
         bounds.center_y = panel_center.y;
-        bounds.half_width = WorldUnitsToScenePanelPixels( engine, scene_camera, image_size, kFallbackSelectionHalfExtentUnits);
+        bounds.half_width = WorldUnitsToScenePanelPixels(engine, scene_camera, image_size, kFallbackSelectionHalfExtentUnits);
         bounds.half_height = bounds.half_width;
         return bounds;
     }
@@ -441,9 +431,10 @@ std::optional<ActorScreenBounds> BuildActorScreenBounds(
 }
 
 std::optional<ActorScreenBounds> BuildSceneActorScreenBounds(
-    const Engine &engine, const SceneViewCameraState &scene_camera,
-    SceneDocument &scene_document, std::size_t actor_index,
-    const ImVec2 &image_min, const ImVec2 &image_size) {
+            const Engine &engine, const SceneViewCameraState &scene_camera,
+            SceneDocument &scene_document, std::size_t actor_index,
+            const ImVec2 &image_min, const ImVec2 &image_size) {
+
     const Actor effective_actor = scene_document.BuildEffectiveActor(actor_index);
     if (!HasComponentType(effective_actor.component_specs, "Rigidbody")) {
         float world_x = 0.0f;
@@ -572,21 +563,17 @@ Collect the exact pick list needed for a click on the current frame. In play
 mode we inspect the live runtime world; in edit mode we stay on the document
 cache so scene editing works even while runtime is stopped.
 */
-std::vector<ActorScreenBounds> BuildPickBoundsForClick(
-    const Engine &engine, const SceneViewCameraState &scene_camera,
-    SceneDocument &scene_document, bool play_mode_active,
-    const ImVec2 &image_min, const ImVec2 &image_size) {
-    std::vector<ActorScreenBounds> pick_bounds;
+std::vector<ActorScreenBounds> BuildPickBoundsForClick(const Engine &engine, const SceneViewCameraState &scene_camera,
+                                                        SceneDocument &scene_document, bool play_mode_active,
+                                                        const ImVec2 &image_min, const ImVec2 &image_size) {
+                                                        std::vector<ActorScreenBounds> pick_bounds;
 
     if (play_mode_active) {
         const std::deque<Actor> &runtime_actors = engine.GetRuntimeActors();
         pick_bounds.reserve(runtime_actors.size());
         for (const Actor &runtime_actor : runtime_actors) {
             if (runtime_actor.runtime_destroyed) continue;
-            const std::optional<ActorScreenBounds> bounds =
-                BuildRuntimeActorScreenBounds(engine, scene_camera,
-                                              runtime_actor, image_min,
-                                              image_size);
+            const std::optional<ActorScreenBounds> bounds = BuildRuntimeActorScreenBounds(engine, scene_camera,  runtime_actor, image_min, image_size);
             if (!bounds.has_value()) continue;
             pick_bounds.emplace_back(*bounds);
         }
@@ -682,13 +669,9 @@ void DrawActorSelectionOutline(ImDrawList *draw_list,
     const ImU32 border_color = IM_COL32(120, 200, 255, 255);
 
     if (bounds.circular) {
-        const float radius =
-            std::max(bounds.half_width, bounds.half_height) +
-            kSelectionPaddingPixels;
-        draw_list->AddCircle(ImVec2(bounds.center_x, bounds.center_y), radius + 2.0f,
-                             glow_color, 0, 5.0f);
-        draw_list->AddCircle(ImVec2(bounds.center_x, bounds.center_y), radius,
-                             border_color, 0, kSelectionStrokeThickness);
+        const float radius = std::max(bounds.half_width, bounds.half_height) + kSelectionPaddingPixels;
+        draw_list->AddCircle(ImVec2(bounds.center_x, bounds.center_y), radius + 2.0f,  glow_color, 0, 5.0f);
+        draw_list->AddCircle(ImVec2(bounds.center_x, bounds.center_y), radius,  border_color, 0, kSelectionStrokeThickness);
         return;
     }
 
@@ -697,8 +680,7 @@ void DrawActorSelectionOutline(ImDrawList *draw_list,
     const ImVec2 max(bounds.center_x + bounds.half_width + kSelectionPaddingPixels,
                      bounds.center_y + bounds.half_height + kSelectionPaddingPixels);
     draw_list->AddRect(min, max, glow_color, 8.0f, 0, 5.0f);
-    draw_list->AddRect(min, max, border_color, 8.0f, 0,
-                       kSelectionStrokeThickness);
+    draw_list->AddRect(min, max, border_color, 8.0f, 0, kSelectionStrokeThickness);
 }
 
 /*
@@ -771,28 +753,22 @@ bool HandleSceneTemplateDrop(
                 float local_x = 0.0f;
                 float local_y = 0.0f;
                 float local_rotation = 0.0f;
-                if (scene_document.TryGetActorLocalTransform(
-                        new_actor_index, &transform_component_key, local_x,
-                        local_y, local_rotation)) {
+                if (scene_document.TryGetActorLocalTransform(new_actor_index, &transform_component_key, local_x, local_y, local_rotation)) {
                     SceneFormat::SceneEditCommand x_command;
                     if (scene_document.SetComponentProperty(
                             new_actor_index, transform_component_key, "x",
-                            static_cast<double>(drop_world_position.x),
-                            &x_command)) {
+                            static_cast<double>(drop_world_position.x), &x_command)) {
                         if (out_edit_commands != nullptr) {
-                            out_edit_commands->emplace_back(
-                                std::move(x_command));
+                            out_edit_commands->emplace_back(std::move(x_command));
                         }
                     }
-
+    
                     SceneFormat::SceneEditCommand y_command;
                     if (scene_document.SetComponentProperty(
                             new_actor_index, transform_component_key, "y",
-                            static_cast<double>(drop_world_position.y),
-                            &y_command)) {
+                            static_cast<double>(drop_world_position.y), &y_command)) {
                         if (out_edit_commands != nullptr) {
-                            out_edit_commands->emplace_back(
-                                std::move(y_command));
+                            out_edit_commands->emplace_back(std::move(y_command));
                         }
                     }
                 }
@@ -896,8 +872,7 @@ bool ApplyDraggedActorPosition(
                                       local_y, out_edit_commands);
     }
 
-    if (play_mode_active &&
-        drag_target.actor_index == std::numeric_limits<std::size_t>::max()) {
+    if (play_mode_active && drag_target.actor_index == std::numeric_limits<std::size_t>::max()) {
         bool changed = false;
         changed |= ComponentManager::SetRuntimeComponentPropertyValue(
             drag_target.runtime_actor_uid, drag_target.component_key, "x",
@@ -925,18 +900,16 @@ void BeginSelectedActorDrag(const Engine &engine,
                             int selected_actor_index,
                             Actor::UID selected_runtime_actor_uid,
                             bool play_mode_active) {
-    const std::optional<ActorDragTarget> drag_target =
-        BuildSelectedActorDragTarget(engine, scene_document,
-                                     selected_actor_index,
-                                     selected_runtime_actor_uid,
-                                     play_mode_active);
+    const std::optional<ActorDragTarget> drag_target = BuildSelectedActorDragTarget(engine, scene_document,
+                                                        selected_actor_index,
+                                                        selected_runtime_actor_uid,
+                                                        play_mode_active);
     if (!drag_target.has_value()) {
         ResetSceneDragState();
         return;
     }
 
-    const ImVec2 mouse_world_position = ScenePanelPixelsToWorldPosition(
-        engine, scene_camera, image_min, image_size, ImGui::GetMousePos());
+    const ImVec2 mouse_world_position = ScenePanelPixelsToWorldPosition(engine, scene_camera, image_min, image_size, ImGui::GetMousePos());
     g_scene_drag_state.active = true;
     g_scene_drag_state.play_mode_active = play_mode_active;
     g_scene_drag_state.actor_index = drag_target->actor_index;
@@ -995,19 +968,12 @@ bool UpdateSelectedActorDrag(
 }
 
 /* Pan the editor-owned scene camera without affecting the runtime camera. */
-void PanSceneCamera(const Engine &engine, const ImVec2 &image_size,
-                    const ImVec2 &mouse_delta) {
-    const float runtime_width =
-        static_cast<float>(std::max(1, engine.GetScenePreviewRenderTargetWidth()));
-    const float runtime_height =
-        static_cast<float>(std::max(1, engine.GetScenePreviewRenderTargetHeight()));
+void PanSceneCamera(const Engine &engine, const ImVec2 &image_size, const ImVec2 &mouse_delta) {
+    const float runtime_width = static_cast<float>(std::max(1, engine.GetScenePreviewRenderTargetWidth()));
+    const float runtime_height = static_cast<float>(std::max(1, engine.GetScenePreviewRenderTargetHeight()));
     const float safe_zoom = std::max(0.0001f, g_scene_camera_state.zoom);
-    const float world_delta_x =
-        mouse_delta.x * runtime_width /
-        std::max(1.0f, image_size.x * kPixelsPerUnit * safe_zoom);
-    const float world_delta_y =
-        mouse_delta.y * runtime_height /
-        std::max(1.0f, image_size.y * kPixelsPerUnit * safe_zoom);
+    const float world_delta_x = mouse_delta.x * runtime_width / std::max(1.0f, image_size.x * kPixelsPerUnit * safe_zoom);
+    const float world_delta_y = mouse_delta.y * runtime_height / std::max(1.0f, image_size.y * kPixelsPerUnit * safe_zoom);
 
     g_scene_camera_state.world_x -= world_delta_x;
     g_scene_camera_state.world_y -= world_delta_y;
@@ -1034,32 +1000,24 @@ void ZoomSceneCameraAtCursor(const Engine &engine, const ImVec2 &image_min,
 } // namespace
 
 ScenePanelResult RenderScenePanel(
-    Engine &engine, SceneDocument &scene_document,
-    int &selected_actor_index, Actor::UID &selected_runtime_actor_uid,
-    int scene_view_width, int scene_view_height, bool play_mode_active,
-    bool play_mode_paused, bool scene_editing_enabled,
-    std::vector<SceneFormat::SceneEditCommand> *out_edit_commands) {
+        Engine &engine, SceneDocument &scene_document,
+        int &selected_actor_index, Actor::UID &selected_runtime_actor_uid,
+        int scene_view_width, int scene_view_height, bool play_mode_active,
+        bool play_mode_paused, bool scene_editing_enabled,
+        std::vector<SceneFormat::SceneEditCommand> *out_edit_commands) {
+
     ScenePanelResult controls_result;
     EnsureSceneCameraInitialized(engine, scene_document);
-    const std::size_t scene_panel_command_begin_index =
-        (out_edit_commands != nullptr) ? out_edit_commands->size() : 0;
+    const std::size_t scene_panel_command_begin_index = (out_edit_commands != nullptr) ? out_edit_commands->size() : 0;
     bool scene_panel_commands_applied_immediately = false;
 
-    /*
-    Scene view is the editor-facing canvas built on top of the dedicated scene
-    preview render target. It owns its own camera, picking, drag editing, and
-    template drop flow, while still reusing the engine's runtime-facing render
-    stack underneath.
-    */
-    ImGui::Begin("Scene", nullptr,
-                 ImGuiWindowFlags_NoScrollbar |
-                     ImGuiWindowFlags_NoScrollWithMouse);
-    SDL_Texture *scene_preview_texture =
-        engine.RenderScenePreview(g_scene_camera_state.world_x,
-                                  g_scene_camera_state.world_y,
-                                  g_scene_camera_state.zoom,
-                                  scene_view_width, scene_view_height,
-                                  !play_mode_active);
+
+    ImGui::Begin("Scene", nullptr, ImGuiWindowFlags_NoScrollbar |  ImGuiWindowFlags_NoScrollWithMouse);
+    SDL_Texture *scene_preview_texture = engine.RenderScenePreview(g_scene_camera_state.world_x,
+                                        g_scene_camera_state.world_y,
+                                        g_scene_camera_state.zoom,
+                                        scene_view_width, scene_view_height,
+                                        !play_mode_active);
     if (scene_preview_texture == nullptr) {
         ImGui::TextUnformatted("Runtime scene view is not available yet.");
         ImGui::End();
@@ -1067,22 +1025,15 @@ ScenePanelResult RenderScenePanel(
     }
 
     const ImVec2 available_size = ImGui::GetContentRegionAvail();
-    const ImVec2 image_size = FitPreviewImage(
-        available_size, engine.GetScenePreviewRenderTargetWidth(),
-        engine.GetScenePreviewRenderTargetHeight());
+    const ImVec2 image_size = FitPreviewImage(available_size, engine.GetScenePreviewRenderTargetWidth(), engine.GetScenePreviewRenderTargetHeight());
     const ImVec2 cursor_screen_pos = ImGui::GetCursorScreenPos();
-    const ImVec2 centered_cursor(
-        cursor_screen_pos.x +
-            std::max(0.0f, (available_size.x - image_size.x) * 0.5f),
-        cursor_screen_pos.y +
-            std::max(0.0f, (available_size.y - image_size.y) * 0.5f));
-    const ImVec2 image_max(centered_cursor.x + image_size.x,
-                           centered_cursor.y + image_size.y);
+    const ImVec2 centered_cursor(cursor_screen_pos.x + std::max(0.0f, (available_size.x - image_size.x) * 0.5f),
+                                 cursor_screen_pos.y + std::max(0.0f, (available_size.y - image_size.y) * 0.5f));
+    const ImVec2 image_max(centered_cursor.x + image_size.x, centered_cursor.y + image_size.y);
 
     ImGui::SetCursorScreenPos(centered_cursor);
-    ImGui::InvisibleButton("scene_canvas", image_size,
-                           ImGuiButtonFlags_MouseButtonLeft |
-                               ImGuiButtonFlags_MouseButtonRight);
+    // we need an dummyinteractive item to capture mouse events
+    ImGui::InvisibleButton("scene_canvas", image_size, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
     const bool image_hovered = ImGui::IsItemHovered();
     const bool image_active = ImGui::IsItemActive();
     const bool scene_canvas_engaged = image_hovered || image_active;
@@ -1095,50 +1046,38 @@ ScenePanelResult RenderScenePanel(
     controls_result.runtime_image_max_y = image_max.y;
 
     if (image_hovered && std::abs(ImGui::GetIO().MouseWheel) > 0.0001f) {
-        ZoomSceneCameraAtCursor(engine, centered_cursor, image_size,
-                                ImGui::GetMousePos(),
-                                ImGui::GetIO().MouseWheel);
+        ZoomSceneCameraAtCursor(engine, centered_cursor, image_size, ImGui::GetMousePos(), ImGui::GetIO().MouseWheel);
         preview_refresh_requested = true;
     }
 
-    if (scene_canvas_engaged &&
-        ImGui::IsMouseDragging(ImGuiMouseButton_Right, 0.0f)) {
+    if (scene_canvas_engaged && ImGui::IsMouseDragging(ImGuiMouseButton_Right, 0.0f)) {
         PanSceneCamera(engine, image_size, ImGui::GetIO().MouseDelta);
         ResetSceneDragState();
         preview_refresh_requested = true;
     }
 
     if (scene_editing_enabled && image_hovered) {
-        const std::size_t command_count_before_drop =
-            (out_edit_commands != nullptr) ? out_edit_commands->size() : 0;
+        const std::size_t command_count_before_drop = (out_edit_commands != nullptr) ? out_edit_commands->size() : 0;
         const bool dropped_template = HandleSceneTemplateDrop(
-            engine, g_scene_camera_state, scene_document, centered_cursor,
-            image_size, selected_actor_index, selected_runtime_actor_uid,
-            out_edit_commands);
+                                        engine, g_scene_camera_state, scene_document, centered_cursor,
+                                        image_size, selected_actor_index, selected_runtime_actor_uid,
+                                        out_edit_commands);
         controls_result.scene_changed |= dropped_template;
         if (dropped_template) {
             preview_refresh_requested = true;
             if (out_edit_commands != nullptr) {
-                for (std::size_t command_index = command_count_before_drop;
-                     command_index < out_edit_commands->size();
-                     ++command_index) {
-                    engine.ApplySceneEditCommand(
-                        (*out_edit_commands)[command_index]);
+                for (std::size_t command_index = command_count_before_drop; command_index < out_edit_commands->size(); ++command_index) {
+                    engine.ApplySceneEditCommand((*out_edit_commands)[command_index]);
                 }
                 scene_panel_commands_applied_immediately = true;
             }
         }
     }
 
-    if (scene_editing_enabled && image_hovered &&
-        ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-        const std::vector<ActorScreenBounds> pick_bounds =
-            BuildPickBoundsForClick(engine, g_scene_camera_state,
-                                    scene_document, play_mode_active,
-                                    centered_cursor, image_size);
+    if (scene_editing_enabled && image_hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        const std::vector<ActorScreenBounds> pick_bounds = BuildPickBoundsForClick(engine, g_scene_camera_state, scene_document, play_mode_active, centered_cursor, image_size);
         const ImVec2 mouse_position = ImGui::GetMousePos();
-        const std::optional<ActorScreenBounds> hit_bounds =
-            FindTopmostHitBounds(mouse_position, pick_bounds);
+        const std::optional<ActorScreenBounds> hit_bounds = FindTopmostHitBounds(mouse_position, pick_bounds);
         HandleSceneSelectionClick(mouse_position, pick_bounds, scene_document,
                                   play_mode_active, selected_actor_index,
                                   selected_runtime_actor_uid);
@@ -1148,18 +1087,18 @@ ScenePanelResult RenderScenePanel(
                                    selected_actor_index,
                                    selected_runtime_actor_uid,
                                    play_mode_active);
-        } else {
+        } 
+        else {
             ResetSceneDragState();
         }
     }
 
-    const std::size_t command_count_before_drag =
-        (out_edit_commands != nullptr) ? out_edit_commands->size() : 0;
+    const std::size_t command_count_before_drag = (out_edit_commands != nullptr) ? out_edit_commands->size() : 0;
     controls_result.scene_changed |= UpdateSelectedActorDrag(
-        engine, g_scene_camera_state, scene_document, centered_cursor,
-        image_size,
-        selected_actor_index, selected_runtime_actor_uid, play_mode_active,
-        out_edit_commands);
+                                    engine, g_scene_camera_state, scene_document, centered_cursor,
+                                    image_size,
+                                    selected_actor_index, selected_runtime_actor_uid, play_mode_active,
+                                    out_edit_commands);
     if (controls_result.scene_changed) {
         preview_refresh_requested = true;
         if (out_edit_commands != nullptr) {
@@ -1182,24 +1121,14 @@ ScenePanelResult RenderScenePanel(
     draw_list->AddRectFilled(centered_cursor, image_max,
                              IM_COL32(36, 40, 46, 255), 4.0f);
     if (scene_preview_texture != nullptr) {
-        draw_list->AddImage(
-            ImTextureRef((ImTextureID)(intptr_t)scene_preview_texture),
-            centered_cursor, image_max);
+        draw_list->AddImage(ImTextureRef((ImTextureID)(intptr_t)scene_preview_texture), centered_cursor, image_max);
     }
 
-    draw_list->AddRect(centered_cursor, image_max, IM_COL32(90, 168, 255, 255),
-                       4.0f, 0, 2.0f);
-    draw_list->AddText(ImVec2(centered_cursor.x + 10.0f,
-                              centered_cursor.y + 10.0f),
-                       IM_COL32(215, 220, 230, 210), "SCENE");
-    draw_list->AddText(
-        ImVec2(centered_cursor.x + 10.0f, centered_cursor.y + 30.0f),
-        IM_COL32(175, 185, 198, 215),
-        "Wheel: zoom  |  Right drag: pan");
+    draw_list->AddRect(centered_cursor, image_max, IM_COL32(90, 168, 255, 255),  4.0f, 0, 2.0f);
+    draw_list->AddText(ImVec2(centered_cursor.x + 10.0f, centered_cursor.y + 10.0f), IM_COL32(215, 220, 230, 210), "SCENE");
+    draw_list->AddText(ImVec2(centered_cursor.x + 10.0f, centered_cursor.y + 30.0f), IM_COL32(175, 185, 198, 215), "Wheel: zoom | Right drag: pan");
     if (play_mode_active && !scene_editing_enabled) {
-        draw_list->AddText(ImVec2(centered_cursor.x + 10.0f,
-                                  centered_cursor.y + 50.0f),
-                           IM_COL32(245, 205, 120, 235),
+        draw_list->AddText(ImVec2(centered_cursor.x + 10.0f,  centered_cursor.y + 50.0f),IM_COL32(245, 205, 120, 235),
                            play_mode_paused ? "READ-ONLY (PAUSED)"
                                             : "READ-ONLY DURING PLAY");
     }
@@ -1213,11 +1142,8 @@ ScenePanelResult RenderScenePanel(
         DrawActorSelectionOutline(draw_list, *selected_bounds);
     }
 
-    ImGui::SetCursorScreenPos(
-        ImVec2(cursor_screen_pos.x, centered_cursor.y + image_size.y));
-    ImGui::Dummy(ImVec2(
-        available_size.x,
-        std::max(0.0f, available_size.y - image_size.y)));
+    ImGui::SetCursorScreenPos(ImVec2(cursor_screen_pos.x, centered_cursor.y + image_size.y));
+    ImGui::Dummy(ImVec2(available_size.x, std::max(0.0f, available_size.y - image_size.y)));
     if (scene_panel_commands_applied_immediately && out_edit_commands != nullptr) {
         controls_result.immediate_apply_begin_index = scene_panel_command_begin_index;
         controls_result.immediate_apply_end_index = out_edit_commands->size();

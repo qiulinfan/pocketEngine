@@ -683,32 +683,25 @@ void SceneDocument::RebuildPhysicsHierarchyCache() const {
                 nearest dynamic ancestor and physics-root classification.
                 */
                 resolve_subtree(*parent_actor_index);
-                const PhysicsHierarchy::State &parent_state =
-                    physics_hierarchy_states_by_actor_index_[*parent_actor_index];
+                const PhysicsHierarchy::State &parent_state = physics_hierarchy_states_by_actor_index_[*parent_actor_index];
                 const ActorUID parent_uid = GetActorUID(*parent_actor_index);
                 if (parent_state.has_dynamic_rigidbody_self) {
                     nearest_dynamic_ancestor_uid = parent_uid;
-                } else {
+                } 
+                else {
                     nearest_dynamic_ancestor_uid = parent_state.nearest_dynamic_body_ancestor_uid;
                 }
             }
 
             state.nearest_dynamic_body_ancestor_uid = nearest_dynamic_ancestor_uid;
-            state.is_under_dynamic_hierarchy =
-                nearest_dynamic_ancestor_uid != PhysicsHierarchy::kInvalidActorUID;
+            state.is_under_dynamic_hierarchy = nearest_dynamic_ancestor_uid != PhysicsHierarchy::kInvalidActorUID;
             if (state.has_dynamic_rigidbody_self) {
                 state.physics_root_uid = GetActorUID(actor_index);
-            } else if (state.is_under_dynamic_hierarchy) {
+            } 
+            else if (state.is_under_dynamic_hierarchy) {
                 state.physics_root_uid = nearest_dynamic_ancestor_uid;
             }
-            if (state.rigidbody_enabled_self &&
-                state.requested_body_type == "dynamic" &&
-                state.is_under_dynamic_hierarchy) {
-                /*
-                Only one dynamic owner is allowed in a subtree. Descendants keep
-                their authored request, but runtime/editor consume the effective
-                kinematic override from this cache.
-                */
+            if (state.rigidbody_enabled_self && state.requested_body_type == "dynamic" && state.is_under_dynamic_hierarchy) {
                 state.effective_body_type = "kinematic";
             }
 

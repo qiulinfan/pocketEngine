@@ -301,8 +301,7 @@ bool SceneDocument::SetActorParent(
         mutation.parent_uid = parent_uid;
     }
 
-    const SceneFormat::SceneEditCommand command =
-        SceneFormat::SceneEditCommand::Single({mutation});
+    const SceneFormat::SceneEditCommand command = SceneFormat::SceneEditCommand::Single({mutation});
     if (!ApplyEditCommand(command)) return false;
     if (out_command != nullptr) {
         *out_command = command;
@@ -769,26 +768,14 @@ bool SceneDocument::ApplySetActorParentMutation(
             parent_world_y, parent_world_rotation, local_x, local_y,
             local_rotation);
 
-        Actor::ComponentSpec *raw_transform_component =
-            FindOrCreateRawComponentSpec(*actor_index, transform_component_key,
-                                         "Transform");
+        Actor::ComponentSpec *raw_transform_component =FindOrCreateRawComponentSpec(*actor_index, transform_component_key, "Transform");
         if (raw_transform_component != nullptr) {
-            SceneFormat::UpsertComponentProperty(*raw_transform_component, "x",
-                                                 static_cast<double>(local_x));
-            SceneFormat::UpsertComponentProperty(*raw_transform_component, "y",
-                                                 static_cast<double>(local_y));
-            SceneFormat::UpsertComponentProperty(
-                *raw_transform_component, "rotation",
-                static_cast<double>(local_rotation));
-            SyncPoseLinkedComponentProperty(
-                *actor_index, transform_component_key, "x",
-                static_cast<double>(local_x));
-            SyncPoseLinkedComponentProperty(
-                *actor_index, transform_component_key, "y",
-                static_cast<double>(local_y));
-            SyncPoseLinkedComponentProperty(
-                *actor_index, transform_component_key, "rotation",
-                static_cast<double>(local_rotation));
+            SceneFormat::UpsertComponentProperty(*raw_transform_component, "x", static_cast<double>(local_x));
+            SceneFormat::UpsertComponentProperty(*raw_transform_component, "y", static_cast<double>(local_y));
+            SceneFormat::UpsertComponentProperty(*raw_transform_component, "rotation", static_cast<double>(local_rotation));
+            SyncPoseLinkedComponentProperty(*actor_index, transform_component_key, "x", static_cast<double>(local_x));
+            SyncPoseLinkedComponentProperty(*actor_index, transform_component_key, "y", static_cast<double>(local_y));
+            SyncPoseLinkedComponentProperty(*actor_index, transform_component_key, "rotation", static_cast<double>(local_rotation));
         }
     }
 
@@ -857,11 +844,9 @@ bool SceneDocument::ApplyDeleteComponentMutation(
         itself owns the whole component lifetime.
         */
         actor_record->component_specs.erase(
-            std::remove_if(actor_record->component_specs.begin(),
-                           actor_record->component_specs.end(),
+            std::remove_if(actor_record->component_specs.begin(), actor_record->component_specs.end(),
                            [&](const Actor::ComponentSpec &component_spec) {
-                               return component_spec.key ==
-                                      mutation.component_key;
+                               return component_spec.key ==mutation.component_key;
                            }),
             actor_record->component_specs.end());
         InvalidatePhysicsHierarchyCache();
@@ -875,9 +860,7 @@ bool SceneDocument::ApplyDeleteComponentMutation(
         actor view; we need a tombstone override so template inheritance knows
         this instance explicitly deleted the inherited component.
         */
-        raw_component = FindOrCreateRawComponentSpec(
-            *actor_index, mutation.component_key,
-            SceneFormat::kDeletedComponentType);
+        raw_component = FindOrCreateRawComponentSpec(*actor_index, mutation.component_key, SceneFormat::kDeletedComponentType);
         if (raw_component == nullptr) return false;
     }
     raw_component->type = SceneFormat::kDeletedComponentType;
@@ -909,10 +892,8 @@ bool SceneDocument::ApplyRenameComponentMutation(
         return false;
     }
 
-    const bool template_backed =
-        IsTemplateBackedComponent(*actor_index, mutation.component_key);
-    Actor::ComponentSpec *raw_source_component =
-        FindRawComponentSpec(*actor_index, mutation.component_key);
+    const bool template_backed = IsTemplateBackedComponent(*actor_index, mutation.component_key);
+    Actor::ComponentSpec *raw_source_component = FindRawComponentSpec(*actor_index, mutation.component_key);
     if (raw_source_component != nullptr && !template_backed) {
         /*
         If the component already exists as a raw scene-owned entry, renaming is

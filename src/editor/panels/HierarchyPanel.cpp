@@ -243,19 +243,15 @@ void SelectRuntimeActor(SceneDocument &scene_document,
         return;
     }
 
-    const std::optional<std::size_t> actor_index =
-        scene_document.FindActorIndexByUID(runtime_actor.uid);
-    selected_actor_index =
-        actor_index.has_value() ? static_cast<int>(*actor_index) : -1;
+    const std::optional<std::size_t> actor_index = scene_document.FindActorIndexByUID(runtime_actor.uid);
+    selected_actor_index = actor_index.has_value() ? static_cast<int>(*actor_index) : -1;
 }
 
-bool BeginSceneActorDragSource(SceneDocument::ActorUID actor_uid,
-                               const std::string &actor_label) {
+bool BeginSceneActorDragSource(SceneDocument::ActorUID actor_uid, const std::string &actor_label) {
     if (actor_uid == SceneDocument::kInvalidActorUID) return false;
     if (!ImGui::BeginDragDropSource()) return false;
 
-    ImGui::SetDragDropPayload(EditorDragDrop::kSceneActorPayload, &actor_uid,
-                              sizeof(actor_uid));
+    ImGui::SetDragDropPayload(EditorDragDrop::kSceneActorPayload, &actor_uid, sizeof(actor_uid));
     ImGui::TextUnformatted(actor_label.c_str());
     ImGui::EndDragDropSource();
     return true;
@@ -266,25 +262,18 @@ Accept one scene-backed actor drag and convert it into a reparent command. The
 Hierarchy only emits scene-document mutations here; runtime-only actors keep
 their own editing path and are not reparented from this panel.
 */
-bool HandleSceneActorReparentDropTarget(
-    SceneDocument &scene_document, std::optional<std::size_t> parent_actor_index,
-    int &selected_actor_index,
-    std::vector<SceneFormat::SceneEditCommand> *out_edit_commands) {
+bool HandleSceneActorReparentDropTarget(SceneDocument &scene_document, std::optional<std::size_t> parent_actor_index,
+                                        int &selected_actor_index, std::vector<SceneFormat::SceneEditCommand> *out_edit_commands) {
     if (!ImGui::BeginDragDropTarget()) return false;
 
     bool scene_changed = false;
-    if (const ImGuiPayload *payload =
-            ImGui::AcceptDragDropPayload(EditorDragDrop::kSceneActorPayload)) {
-        if (payload->DataSize == sizeof(SceneDocument::ActorUID) &&
-            payload->Data != nullptr) {
-            const SceneDocument::ActorUID actor_uid =
-                *static_cast<const SceneDocument::ActorUID *>(payload->Data);
-                const std::optional<std::size_t> actor_index = scene_document.FindActorIndexByUID(actor_uid);
+    if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload(EditorDragDrop::kSceneActorPayload)) {
+        if (payload->DataSize == sizeof(SceneDocument::ActorUID) && payload->Data != nullptr) {
+            const SceneDocument::ActorUID actor_uid = *static_cast<const SceneDocument::ActorUID *>(payload->Data);
+            const std::optional<std::size_t> actor_index = scene_document.FindActorIndexByUID(actor_uid);
             if (actor_index.has_value()) {
                 SceneFormat::SceneEditCommand command;
-                if (scene_document.SetActorParent(*actor_index,
-                                                 parent_actor_index,
-                                                 &command)) {
+                if (scene_document.SetActorParent(*actor_index, parent_actor_index, &command)) {
                     selected_actor_index = static_cast<int>(*actor_index);
                     scene_changed = true;
                     if (out_edit_commands != nullptr) {
@@ -328,15 +317,12 @@ void RenderSceneHierarchyNode(SceneDocument &scene_document,
                               bool &out_scene_changed) {
     if (!visited_actor_indices.insert(actor_index).second) return;
 
-    const std::vector<std::size_t> child_actor_indices =
-        scene_document.GetChildActorIndices(actor_index);
+    const std::vector<std::size_t> child_actor_indices = scene_document.GetChildActorIndices(actor_index);
     const bool has_children = !child_actor_indices.empty();
     const std::string actor_label = scene_document.GetActorDisplayName(actor_index);
 
     ImGui::PushID(static_cast<int>(actor_index));
-    ImGuiTreeNodeFlags flags =
-        ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth |
-        ImGuiTreeNodeFlags_DefaultOpen;
+    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen;
     if (!has_children) {
         flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
     }
@@ -351,14 +337,11 @@ void RenderSceneHierarchyNode(SceneDocument &scene_document,
 
     /*
     Hierarchy drag/drop uses stable scene actor UIDs so reparenting still
-    works after list reorderings and while the tree is partially collapsed.
+    works after list reorderings and while the tree is partially collapsed
     */
     if (scene_editing_enabled) {
-        BeginSceneActorDragSource(scene_document.GetActorUID(actor_index),
-                                  actor_label);
-        out_scene_changed |= HandleSceneActorReparentDropTarget(
-            scene_document, actor_index, selected_actor_index,
-            out_edit_commands);
+        BeginSceneActorDragSource(scene_document.GetActorUID(actor_index), actor_label);
+        out_scene_changed |= HandleSceneActorReparentDropTarget(scene_document, actor_index, selected_actor_index, out_edit_commands);
     }
 
     if (has_children && node_open) {
@@ -372,8 +355,7 @@ void RenderSceneHierarchyNode(SceneDocument &scene_document,
         ImGui::TreePop();
     } else if (has_children) {
         for (std::size_t child_actor_index : child_actor_indices) {
-            MarkSceneHierarchySubtreeVisited(scene_document, child_actor_index,
-                                            visited_actor_indices);
+            MarkSceneHierarchySubtreeVisited(scene_document, child_actor_index, visited_actor_indices);
         }
     }
     ImGui::PopID();
@@ -449,17 +431,11 @@ void RenderRuntimeHierarchyNode(
     if (!visited_actor_uids.insert(runtime_actor.uid).second) return;
 
     auto children_it = tree.children_by_parent_uid.find(runtime_actor.uid);
-    const bool has_children =
-        children_it != tree.children_by_parent_uid.end() &&
-        !children_it->second.empty();
-    const std::string actor_label =
-        runtime_actor.actor_name.empty() ? "Unnamed Actor"
-                                         : runtime_actor.actor_name;
+    const bool has_children = children_it != tree.children_by_parent_uid.end() && !children_it->second.empty();
+    const std::string actor_label = runtime_actor.actor_name.empty() ? "Unnamed Actor"  : runtime_actor.actor_name;
 
     ImGui::PushID(static_cast<int>(runtime_actor.uid));
-    ImGuiTreeNodeFlags flags =
-        ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth |
-        ImGuiTreeNodeFlags_DefaultOpen;
+    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen;
     if (!has_children) {
         flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
     }
@@ -475,11 +451,8 @@ void RenderRuntimeHierarchyNode(
 
     if (scene_editing_enabled && runtime_actor.IsSceneBacked()) {
         BeginSceneActorDragSource(runtime_actor.uid, actor_label);
-        const std::optional<std::size_t> parent_actor_index =
-            scene_document.FindActorIndexByUID(runtime_actor.uid);
-        out_scene_changed |= HandleSceneActorReparentDropTarget(
-            scene_document, parent_actor_index, selected_actor_index,
-            out_edit_commands);
+        const std::optional<std::size_t> parent_actor_index = scene_document.FindActorIndexByUID(runtime_actor.uid);
+        out_scene_changed |= HandleSceneActorReparentDropTarget(scene_document, parent_actor_index, selected_actor_index, out_edit_commands);
     }
 
     DrawRuntimeActorSourceBadge(ImGui::GetWindowDrawList(), runtime_actor,
