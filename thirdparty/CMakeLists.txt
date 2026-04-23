@@ -85,6 +85,13 @@ target_include_directories(
         "${PROJECT_SOURCE_DIR}/thirdparty/imgui"
         "${PROJECT_SOURCE_DIR}/thirdparty/imgui/backends"
 )
+if(WIN32)
+    target_include_directories(
+        imgui_runtime
+        PRIVATE
+            "${PROJECT_SOURCE_DIR}/thirdparty/SDL2"
+    )
+endif()
 target_link_libraries(imgui_runtime PUBLIC game_engine_sdl)
 set_target_properties(imgui_runtime PROPERTIES FOLDER "thirdparty")
 
