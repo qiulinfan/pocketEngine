@@ -98,6 +98,8 @@ private:
     void RecordRuntimeRenderFrame();
     void RecordGameplayFrame();
     void RefreshPerformanceCounters();
+    std::size_t CountLiveActors() const;
+    void PruneDestroyedRuntimeActors();
 
 public:
     Engine();
@@ -181,6 +183,8 @@ public:
     // Return sampled runtime cadence metrics for editor diagnostics.
     float GetRuntimeRenderFPS() const;
     float GetGameplayFPS() const;
+    void SetAudioPlaybackEnabled(bool enabled);
+    bool IsAudioPlaybackEnabled() const;
 
     // camera API exposed to Lua
     void SetCameraPosition(float x, float y);

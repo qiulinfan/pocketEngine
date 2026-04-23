@@ -1,0 +1,37 @@
+{
+    "actors": [
+        {
+            "uid": 211,
+            "name": "SceneAudioBootstrap",
+            "components": {
+                "1": {
+                    "type": "Transform"
+                },
+                "AudioSceneBootstrap": {
+                    "type": "AudioSceneBootstrap",
+                    "log_label": "Audio Mixer Lab B",
+                    "stop_all_channels": true,
+                    "stop_music": true,
+                    "music_clip": "Village Under Siege.ogg",
+                    "music_loop": true,
+                    "music_volume": 96
+                }
+            }
+        },
+        {
+            "uid": 212,
+            "name": "AudioMixerLab",
+            "components": {
+                "1": {
+                    "type": "Transform"
+                },
+                "AudioMixerLab": {
+                    "type": "AudioMixerLab",
+                    "scene_title": "Audio Mixer Lab B",
+                    "next_scene": "audio_mixer_lab_a",
+                    "switch_music_clip": "GoblinSwordSaint.ogg"
+                }
+            }
+        }
+    ]
+}

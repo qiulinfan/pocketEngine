@@ -392,6 +392,7 @@ void EditorApp::Run() {
     ApplyEditorWindowIcon(engine_.GetWindow());
     ApplyEditorWindowSettings();
     engine_.SetRenderRuntimeToTexture(true);
+    engine_.SetAudioPlaybackEnabled(false);
     scene_session_.LoadInitialScene(engine_);
 
     overlay_.Initialize(engine_.GetWindow(), engine_.GetRenderer());
@@ -405,6 +406,7 @@ void EditorApp::Run() {
         Scene edits are mirrored into runtime at frame boundaries so the UI
         never mutates live runtime state in the middle of a frame.
         */
+        engine_.SetAudioPlaybackEnabled(scene_session_.IsPlayModeActive());
         scene_session_.SyncRuntimeMirrorIfDirty(engine_);
         overlay_.SetRuntimeInputRoutingState(scene_session_.IsPlayModeActive(), scene_session_.IsPlayModePaused());
 

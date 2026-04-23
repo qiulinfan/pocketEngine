@@ -26,8 +26,21 @@ cmake --build --preset ninja-debug -j4
 
 Windows Visual Studio generate/build:
 cmake --preset vs2022-x64
-cmake --build --preset vs2022-debug
-cmake --build --preset vs2022-release
+cmake --build --preset vs-debug
+cmake --build --preset vs-release
+
+Windows run runtime:
+.\build\vs2022-x64\Debug\game_engine.exe
+.\build\vs2022-x64\Release\game_engine.exe
+
+Windows run editor:
+.\build\vs2022-x64\Debug\game_editor.exe
+.\build\vs2022-x64\Release\game_editor.exe
+
+Windows audio smoke:
+set ENGINE_LOG_AUDIO=1
+set ENGINE_LOG_PERF=1
+.\build\vs2022-x64\Debug\game_engine.exe
 
 macOS Xcode generate/build:
 cmake --preset xcode

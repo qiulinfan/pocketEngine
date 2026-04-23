@@ -13,7 +13,7 @@ classes.
 | Scene management | `Scene.*`, `Camera.*` |
 | Actors and components | `Actor`, `Actor.*` |
 | Rendering | `Image.*`, `Text.*` |
-| Audio | `Audio.*` |
+| Audio | `Audio.*`, `Music.*` |
 | Input | `Input.*`, `vec2` |
 | Events | `Event.*` |
 | Physics | `Physics.*`, `Vector2`, `Collision`, `HitResult` |
