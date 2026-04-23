@@ -1,0 +1,15 @@
+{
+    "name": "pickup",
+    "components": {
+        "Transform": {
+            "type": "Transform"
+        },
+        "SpriteRenderer": {
+            "type": "SpriteRenderer",
+            "auto_sorting_order": true
+        },
+        "AdventurePickup": {
+            "type": "AdventurePickup"
+        }
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "name": "projectile",
+    "components": {
+        "Transform": {
+            "type": "Transform"
+        },
+        "SpriteRenderer": {
+            "type": "SpriteRenderer",
+            "auto_sorting_order": false,
+            "sorting_order": 240
+        },
+        "AdventureProjectile": {
+            "type": "AdventureProjectile"
+        }
+    }
+}

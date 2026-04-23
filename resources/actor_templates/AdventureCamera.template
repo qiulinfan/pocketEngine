@@ -1,0 +1,10 @@
+{
+    "name": "camera",
+    "components": {
+        "AdventureCamera": {
+            "type": "AdventureCamera",
+            "ease_factor": 0.14,
+            "zoom": 1.25
+        }
+    }
+}

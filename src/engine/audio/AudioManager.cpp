@@ -13,7 +13,8 @@ bool AudioManager::Init() {
     // Try audio backend once. In CI/headless machines ALSA/CoreAudio may be
     // missing; repeated retries would spam stderr every frame.
     init_attempted = true;
-    const int result = AudioHelper::Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048);
+    const int result =
+        AudioHelper::Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048);
     if (result != 0) {
         if (!init_failure_logged) {
             std::cout << "warning: audio disabled (failed to open audio device): "
@@ -23,7 +24,7 @@ bool AudioManager::Init() {
         return false;
     }
     AudioHelper::Mix_AllocateChannels(50);
-    
+
     initialized = true;
     return true;
 }
@@ -65,6 +66,18 @@ Mix_Chunk *AudioManager::LoadAudioClip(const std::string &audio_name) {
     return chunk;
 }
 
+bool AudioManager::HasAudioClip(const std::string &audio_name) {
+    if (audio_name.empty()) return false;
+    if (audio_cache.find(audio_name) != audio_cache.end()) return true;
+    return !FindAudioFile(audio_name).empty();
+}
+
+bool AudioManager::PreloadAudioClip(const std::string &audio_name) {
+    if (!Init()) return false;
+    if (!HasAudioClip(audio_name)) return false;
+    return LoadAudioClip(audio_name) != nullptr;
+}
+
 // Play one named clip on the requested channel using the cached chunk.
 void AudioManager::PlayAudioClip(const std::string &audio_name, int channel,
                                  int loops) {
@@ -83,4 +96,13 @@ void AudioManager::HaltChannel(int channel) {
 void AudioManager::SetVolume(int channel, int volume) {
     if (!initialized) return;
     AudioHelper::Mix_Volume(channel, volume);
+}
+
+bool AudioManager::IsChannelPlaying(int channel) {
+    if (!initialized) return false;
+    return ::Mix_Playing(channel) != 0;
+}
+
+bool AudioManager::IsPlaybackEnabled() {
+    return initialized || Init();
 }

@@ -5,7 +5,6 @@
 #include <string>
 #include <unordered_map>
 
-
 class AudioManager {
 public:
     // initialize SDL_mixer once and reuse it after that
@@ -16,10 +15,20 @@ public:
     // 按名称加载音频并缓存
     static Mix_Chunk *LoadAudioClip(const std::string &audio_name);
 
+    // check whether a clip can be resolved from resources/audio
+    // 查询音频资源是否存在
+    static bool HasAudioClip(const std::string &audio_name);
+
+    // warm the cache for a clip if audio playback is available
+    // 若音频系统可用则预加载音频到缓存
+    static bool PreloadAudioClip(const std::string &audio_name);
+
     static void PlayAudioClip(const std::string &audio_name, int channel,
                               int loops);
     static void HaltChannel(int channel);
     static void SetVolume(int channel, int volume);
+    static bool IsChannelPlaying(int channel);
+    static bool IsPlaybackEnabled();
 
 private:
     // supports explicit extension and default wav / ogg lookup

@@ -28,8 +28,12 @@ Draws screen-space text.
 | Function | Description |
 | --- | --- |
 | `Audio.Play(channel, clip_name, does_loop)` | Plays an audio clip on a channel |
+| `Audio.HasClip(clip_name)` | Returns whether the clip can be resolved from `resources/audio` |
+| `Audio.Preload(clip_name, as_music)` | Loads a clip into cache ahead of playback; `as_music` is accepted for API compatibility |
 | `Audio.Halt(channel)` | Stops playback on a channel |
 | `Audio.SetVolume(channel, volume)` | Sets channel volume, clamped to `0..128` |
+| `Audio.IsPlaying(channel)` | Returns whether a channel is currently playing |
+| `Audio.IsPlaybackEnabled()` | Returns whether the audio device is available |
 
 ## `Input`
 

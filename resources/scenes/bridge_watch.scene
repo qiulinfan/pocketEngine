@@ -1,0 +1,32 @@
+{
+    "actors": [
+        {
+            "uid": 1,
+            "template": "AdventureCamera"
+        },
+        {
+            "uid": 2,
+            "name": "director",
+            "components": {
+                "Director": {
+                    "type": "DefenseDirector"
+                }
+            }
+        },
+        {
+            "uid": 3,
+            "template": "AdventureHud"
+        },
+        {
+            "uid": 4,
+            "template": "AdventurePlayer",
+            "components": {
+                "Transform": {
+                    "type": "Transform",
+                    "x": -1.86,
+                    "y": 0.46
+                }
+            }
+        }
+    ]
+}

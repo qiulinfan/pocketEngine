@@ -1,0 +1,8 @@
+{
+    "name": "hud",
+    "components": {
+        "AdventureHud": {
+            "type": "AdventureHud"
+        }
+    }
+}
