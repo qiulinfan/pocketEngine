@@ -1,0 +1,28 @@
+{
+    "name": "enemy",
+    "components": {
+        "Transform": {
+            "type": "Transform"
+        },
+        "SpriteRenderer": {
+            "type": "SpriteRenderer",
+            "sprite": "Enemies/Spear Goblin/Idle",
+            "auto_sorting_order": true
+        },
+        "EnemyAI": {
+            "type": "EnemyAI",
+            "enemy_kind": "goblin",
+            "target_preference": "random",
+            "move_speed": 0.016,
+            "max_health_units": 6,
+            "attack_damage": 2,
+            "attack_range": 0.34,
+            "attack_duration_frames": 24,
+            "attack_hit_frame": 11,
+            "attack_cooldown_frames": 34,
+            "damage_stun_frames": 10,
+            "corpse_frames": 28,
+            "hit_radius": 0.19
+        }
+    }
+}

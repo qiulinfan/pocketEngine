@@ -1,0 +1,32 @@
+{
+    "name": "enemy",
+    "components": {
+        "Transform": {
+            "type": "Transform"
+        },
+        "SpriteRenderer": {
+            "type": "SpriteRenderer",
+            "sprite": "Enemies/GoblinSwordSaint/Idle",
+            "auto_sorting_order": true
+        },
+        "EnemyAI": {
+            "type": "EnemyAI",
+            "enemy_kind": "sword_saint",
+            "target_preference": "player",
+            "move_speed": 0.018,
+            "max_health_units": 14,
+            "attack_damage": 2,
+            "attack_range": 0.46,
+            "attack_duration_frames": 28,
+            "attack_hit_frame": 12,
+            "attack_cooldown_frames": 36,
+            "damage_stun_frames": 10,
+            "corpse_frames": 55,
+            "hit_radius": 0.26,
+            "boss_wave_min_frames": 84,
+            "boss_wave_max_frames": 130,
+            "boss_wave_damage": 2,
+            "boss_wave_speed": 0.068
+        }
+    }
+}
