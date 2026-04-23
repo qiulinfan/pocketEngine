@@ -9,12 +9,14 @@ cmake --preset unix-makefiles-release
 cmake --build --preset unix-makefiles-release -j4
 
 Linux run runtime:
-./build/unix-makefiles-debug/game_engine_linux
+./game
+# fallback (build tree location):
+./build/unix-makefiles-debug/game
 
 Linux run editor:
-./game_editor_linux
+./pocket
 # fallback (build tree location):
-./build/unix-makefiles-debug/game_editor_linux
+./build/unix-makefiles-debug/pocket
 
 Linux refresh root compile_commands.json:
 cp build/unix-makefiles-debug/compile_commands.json ./compile_commands.json
@@ -25,22 +27,27 @@ cmake --preset ninja-debug
 cmake --build --preset ninja-debug -j4
 
 Windows Visual Studio generate/build:
+git clone https://github.com/qiulinfan/pocketEngine.git
+cd .\pocketEngine
 cmake --preset vs2022-x64
 cmake --build --preset vs-debug
 cmake --build --preset vs-release
 
 Windows run runtime:
-.\build\vs2022-x64\Debug\game_engine.exe
-.\build\vs2022-x64\Release\game_engine.exe
+.\build\vs2022-x64\src\app\runtime\Debug\game.exe
+.\build\vs2022-x64\src\app\runtime\Release\game.exe
 
 Windows run editor:
-.\build\vs2022-x64\Debug\game_editor.exe
-.\build\vs2022-x64\Release\game_editor.exe
+.\build\vs2022-x64\src\app\editor\Debug\pocket.exe
+.\build\vs2022-x64\src\app\editor\Release\pocket.exe
 
 Windows audio smoke:
 set ENGINE_LOG_AUDIO=1
 set ENGINE_LOG_PERF=1
-.\build\vs2022-x64\Debug\game_engine.exe
+.\build\vs2022-x64\src\app\runtime\Debug\game.exe
+
+Windows quick install:
+powershell -ExecutionPolicy Bypass -File .\scripts\win_install.ps1
 
 macOS Xcode generate/build:
 cmake --preset xcode

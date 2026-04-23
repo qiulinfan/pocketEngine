@@ -5,8 +5,10 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 CMAKE_PRESET="${CMAKE_PRESET:-unix-makefiles-debug}"
-DEFAULT_ENGINE_BIN="./build/${CMAKE_PRESET}/game_engine_linux"
-LEGACY_ENGINE_BIN="./game_engine_linux"
+DEFAULT_ENGINE_BIN="./build/${CMAKE_PRESET}/game"
+LEGACY_ENGINE_BIN="./game"
+OLD_DEFAULT_ENGINE_BIN="./build/${CMAKE_PRESET}/game_engine_linux"
+OLD_LEGACY_ENGINE_BIN="./game_engine_linux"
 ENGINE_BIN="${ENGINE_BIN:-$DEFAULT_ENGINE_BIN}"
 INPUT_SOURCE="${1:-resources/sdl_user_input.txt}"
 OUTPUT_FILE="${2:-resources/sdl_out.txt}"
@@ -20,8 +22,14 @@ fi
 
 mkdir -p "$(dirname "$OUTPUT_FILE")"
 
-if [[ "$ENGINE_BIN" == "$DEFAULT_ENGINE_BIN" && ! -x "$ENGINE_BIN" && -x "$LEGACY_ENGINE_BIN" ]]; then
-  ENGINE_BIN="$LEGACY_ENGINE_BIN"
+if [[ "$ENGINE_BIN" == "$DEFAULT_ENGINE_BIN" && ! -x "$ENGINE_BIN" ]]; then
+  if [[ -x "$LEGACY_ENGINE_BIN" ]]; then
+    ENGINE_BIN="$LEGACY_ENGINE_BIN"
+  elif [[ -x "$OLD_DEFAULT_ENGINE_BIN" ]]; then
+    ENGINE_BIN="$OLD_DEFAULT_ENGINE_BIN"
+  elif [[ -x "$OLD_LEGACY_ENGINE_BIN" ]]; then
+    ENGINE_BIN="$OLD_LEGACY_ENGINE_BIN"
+  fi
 fi
 
 if [[ ! -x "$ENGINE_BIN" && "$ENGINE_BIN" == "$DEFAULT_ENGINE_BIN" ]]; then

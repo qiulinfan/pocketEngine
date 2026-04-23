@@ -22,13 +22,64 @@ The game has a Unity-like editor layout and runtime integration with:
 - `Inspector` for component add/remove/rename and property editing
 - actor parenting with local/world `Transform` and physics hierarchy inspection
 - play-mode live editing and automatic scene-backed actor UID persistence
+- `Sprite Editor` for creating and editing sprite assets.
 
 ## Build
 ### Linux Release
-
+Install:
 ```bash
+git clone https://github.com/qiulinfan/pocketEngine.git
+cd pocketEngine
 cmake --preset unix-makefiles-release
 cmake --build --preset unix-makefiles-release -j4
+```
+Run from the project root:
+```bash
+./pocket
+./game
+```
+
+### Windows Release
+Requires:
+- Visual Studio 2022 with `Desktop development with C++`
+- Git in `PATH`
+
+#### Method 1: Manual Clone, Build, Run
+
+Clone this repository and enter the repo in PowerShell:
+
+```powershell
+git clone https://github.com/qiulinfan/pocketEngine.git
+cd .\pocketEngine
+```
+
+Build:
+
+```powershell
+cmake --preset vs2022-x64
+cmake --build --preset vs-release
+```
+
+Run:
+
+```powershell
+.\build\vs2022-x64\src\app\editor\Release\pocket.exe
+.\build\vs2022-x64\src\app\runtime\Release\game.exe
+```
+
+#### Method 2: Windows Quick Install
+
+If you want a one-shot Windows install, the PowerShell helper below:
+- clones or updates PocketEngine into `C:\ProgramData\PocketEngine`
+- configures and builds the `Release` preset
+- creates `PocketEngine Editor` and `PocketEngine Runtime` shortcuts on the current user's desktop
+
+Run PowerShell as Administrator if you want to keep the default `C:\ProgramData\PocketEngine` install path and have the shortcuts created on Desktop:
+
+```powershell
+$script = Join-Path $env:TEMP "win_install.ps1"
+Invoke-WebRequest "https://raw.githubusercontent.com/qiulinfan/pocketEngine/main/scripts/win_install.ps1" -OutFile $script
+powershell -ExecutionPolicy Bypass -File $script
 ```
 
 ## Repository Layout and Architecture
@@ -47,18 +98,6 @@ All files under `docs/architecture/` are diagram-only for explaining the archite
 - [Asset Pipeline](docs/architecture/asset-pipeline.md)
 - [Module Dependency](docs/architecture/module-dependency.md)
 - [Editor Workflow](docs/architecture/editor-workflow.md)
-
-## Docs
-
-```bash
-make docs-build
-make site-build
-make docs
-```
-
-- `make docs-build` builds the MkDocs-managed Lua API documentation only
-- `make site-build` assembles the full Pages site
-- `make docs` assembles the site and pushes it to `gh-pages`
 
 ## License
 

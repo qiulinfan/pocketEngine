@@ -8,12 +8,21 @@ target_link_libraries(game_engine PRIVATE engine_runtime)
 game_engine_apply_cxx_warnings(game_engine)
 game_engine_link_sdl(game_engine)
 game_engine_stage_resources(game_engine)
+set_target_properties(game_engine PROPERTIES OUTPUT_NAME "game")
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set_target_properties(
         game_engine
         PROPERTIES
-            OUTPUT_NAME "game_engine_linux"
             RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+    )
+    add_custom_command(
+        TARGET game_engine
+        POST_BUILD
+        COMMAND
+            ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:game_engine>"
+            "${PROJECT_SOURCE_DIR}/$<TARGET_FILE_NAME:game_engine>"
+        COMMENT "Mirroring game executable to project root"
     )
 endif()

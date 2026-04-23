@@ -16,6 +16,8 @@ frames
 game_engine_linux
 game_engine_osx
 game_engine_editor
+game
+pocket
 
 # XCode build artifacts
 osx_build_derived_data
