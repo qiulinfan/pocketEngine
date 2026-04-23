@@ -89,7 +89,7 @@ powershell -ExecutionPolicy Bypass -File $script
 - `src/editor/*`: editor shell, documents, panels
 - `src/shared/*`: config, scene format, resource helpers
 - `include/*`: public headers for the same layers
-- `resources/*`: project-facing assets
+- `resources/*`: the project space and you design it!
 - `.engine/*`: editor-facing config, state, fonts, and icons
 - `thirdparty/*`: dependencies
 
@@ -98,6 +98,8 @@ All files under `docs/architecture/` are diagram-only for explaining the archite
 - [Asset Pipeline](docs/architecture/asset-pipeline.md)
 - [Module Dependency](docs/architecture/module-dependency.md)
 - [Editor Workflow](docs/architecture/editor-workflow.md)
+## Sample Project
+`resources_ballgame_example/` contains a sample project with a simple ball game and some sprites. You can open the scene `ballgame.scene` in the editor and run it to see how it works. The Lua script for the ball game is located at `scripting` subdirectory of the same folder.
 
 ## License
 

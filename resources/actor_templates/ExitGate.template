@@ -1,8 +1,0 @@
-{
-    "name": "gate",
-    "components": {
-        "Transform": {
-            "type": "Transform"
-        }
-    }
-}
