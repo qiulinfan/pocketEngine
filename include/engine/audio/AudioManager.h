@@ -17,12 +17,17 @@ public:
     // 按名称加载音频并缓存
     static Mix_Chunk *LoadAudioClip(const std::string &audio_name);
     static Mix_Music *LoadMusicTrack(const std::string &audio_name);
+    static bool HasAudioClip(const std::string &audio_name);
+    static bool HasMusicTrack(const std::string &audio_name);
+    static bool PreloadAudioClip(const std::string &audio_name);
+    static bool PreloadMusicTrack(const std::string &audio_name);
 
     static void PlayAudioClip(const std::string &audio_name, int channel,
                               int loops);
     static void PlayMusicTrack(const std::string &audio_name, int loops);
     static void HaltChannel(int channel);
     static void SetVolume(int channel, int volume);
+    static bool IsChannelPlaying(int channel);
     static void HaltMusic();
     static void SetMusicVolume(int volume);
     static bool IsMusicPlaying();

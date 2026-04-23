@@ -31,7 +31,9 @@ bool CppAudioHasClip(const std::string &clip_name) {
     return AudioManager::HasAudioClip(clip_name);
 }
 
-bool CppAudioPreload(const std::string &clip_name, bool /*as_music*/) {
+bool CppAudioPreload(const std::string &clip_name, bool as_music) {
+    if (!CanRouteAudioCommands()) return false;
+    if (as_music) return AudioManager::PreloadMusicTrack(clip_name);
     return AudioManager::PreloadAudioClip(clip_name);
 }
 

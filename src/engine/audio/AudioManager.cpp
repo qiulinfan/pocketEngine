@@ -161,6 +161,44 @@ Mix_Music *AudioManager::LoadMusicTrack(const std::string &audio_name) {
     return music;
 }
 
+bool AudioManager::HasAudioClip(const std::string &audio_name) {
+    if (audio_cache.find(audio_name) != audio_cache.end()) return true;
+    return !FindAudioFile(audio_name).empty();
+}
+
+bool AudioManager::HasMusicTrack(const std::string &audio_name) {
+    if (music_cache.find(audio_name) != music_cache.end()) return true;
+    return !FindAudioFile(audio_name).empty();
+}
+
+bool AudioManager::PreloadAudioClip(const std::string &audio_name) {
+    if (!Init()) return false;
+    if (audio_cache.find(audio_name) != audio_cache.end()) return true;
+
+    const std::string file_path = FindAudioFile(audio_name);
+    if (file_path.empty()) return false;
+
+    Mix_Chunk *chunk = AudioHelper::Mix_LoadWAV(file_path.c_str());
+    if (chunk == nullptr) return false;
+
+    audio_cache[audio_name] = chunk;
+    return true;
+}
+
+bool AudioManager::PreloadMusicTrack(const std::string &audio_name) {
+    if (!Init()) return false;
+    if (music_cache.find(audio_name) != music_cache.end()) return true;
+
+    const std::string file_path = FindAudioFile(audio_name);
+    if (file_path.empty()) return false;
+
+    Mix_Music *music = AudioHelper::Mix_LoadMUS(file_path.c_str());
+    if (music == nullptr) return false;
+
+    music_cache[audio_name] = music;
+    return true;
+}
+
 // Play one named clip on the requested channel using the cached chunk.
 void AudioManager::PlayAudioClip(const std::string &audio_name, int channel,
                                  int loops) {
@@ -198,6 +236,11 @@ void AudioManager::HaltChannel(int channel) {
 void AudioManager::SetVolume(int channel, int volume) {
     if (!initialized) return;
     AudioHelper::Mix_Volume(channel, volume);
+}
+
+bool AudioManager::IsChannelPlaying(int channel) {
+    if (!initialized) return false;
+    return AudioHelper::Mix_Playing(channel) != 0;
 }
 
 void AudioManager::HaltMusic() {

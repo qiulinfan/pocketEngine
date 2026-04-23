@@ -28,8 +28,12 @@ Draws screen-space text.
 | Function | Description |
 | --- | --- |
 | `Audio.Play(channel, clip_name, does_loop)` | Plays a chunk-style clip on one mixer channel |
+| `Audio.HasClip(clip_name)` | Returns whether a clip can be resolved from the current resource set |
+| `Audio.Preload(clip_name, as_music)` | Warms a clip or music track into the audio cache |
 | `Audio.Halt(channel)` | Stops playback on a channel |
 | `Audio.SetVolume(channel, volume)` | Sets one channel volume, clamped to `0..128` |
+| `Audio.IsPlaying(channel)` | Returns whether a mixer channel is currently active |
+| `Audio.IsPlaybackEnabled()` | Returns whether runtime audio routing is currently enabled |
 
 Use `Audio.*` for SFX, layered ambience, and other channel-based sounds.
 
