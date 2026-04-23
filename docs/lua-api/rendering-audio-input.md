@@ -27,13 +27,23 @@ Draws screen-space text.
 
 | Function | Description |
 | --- | --- |
-| `Audio.Play(channel, clip_name, does_loop)` | Plays an audio clip on a channel |
-| `Audio.HasClip(clip_name)` | Returns whether the clip can be resolved from `resources/audio` |
-| `Audio.Preload(clip_name, as_music)` | Loads a clip into cache ahead of playback; `as_music` is accepted for API compatibility |
+| `Audio.Play(channel, clip_name, does_loop)` | Plays a chunk-style clip on one mixer channel |
 | `Audio.Halt(channel)` | Stops playback on a channel |
-| `Audio.SetVolume(channel, volume)` | Sets channel volume, clamped to `0..128` |
-| `Audio.IsPlaying(channel)` | Returns whether a channel is currently playing |
-| `Audio.IsPlaybackEnabled()` | Returns whether the audio device is available |
+| `Audio.SetVolume(channel, volume)` | Sets one channel volume, clamped to `0..128` |
+
+Use `Audio.*` for SFX, layered ambience, and other channel-based sounds.
+
+## `Music`
+
+| Function | Description |
+| --- | --- |
+| `Music.Play(clip_name, does_loop)` | Plays the dedicated BGM/music stream |
+| `Music.Halt()` | Stops the current music stream |
+| `Music.SetVolume(volume)` | Sets music-stream volume, clamped to `0..128` |
+| `Music.IsPlaying()` | Returns whether the music stream is currently active |
+
+Use `Music.*` for BGM. It is separate from `Audio` channels, so BGM does not
+compete with normal SFX channels.
 
 ## `Input`
 

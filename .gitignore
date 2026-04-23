@@ -35,7 +35,9 @@ osx_build_derived_data
 
 # **.wav
 **.mp3
+**.wav
 # **.ogg
+**.ogg
 **.raw
 **.mp4
 **.mov

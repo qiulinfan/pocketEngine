@@ -15,6 +15,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <functional>
+#include <iostream>
 #include <unordered_set>
 #include <type_traits>
 
@@ -31,6 +32,14 @@ bool IsBuiltinRuntimeComponentType(const std::string &type_name) {
 
 bool CanBuiltinRuntimeComponentPatchInPlace(const std::string &type_name) {
     return type_name == "Transform" || type_name == "SpriteRenderer";
+}
+
+bool ShouldLogSceneDiagnostics() {
+    return std::getenv("ENGINE_LOG_SCENE_STATS") != nullptr;
+}
+
+bool ShouldLogPerformanceDiagnostics() {
+    return std::getenv("ENGINE_LOG_PERF") != nullptr;
 }
 
 void RotateClockwise(float x, float y, float rotation_degrees, float &out_x,
@@ -200,6 +209,7 @@ void Engine::ShutdownRuntime() {
     ComponentManager::Shutdown();
     ParticleManager::Clear();
     Renderer::Shutdown();
+    AudioManager::Shutdown();
     IMG_Quit();
     if (renderer != nullptr) {
         SDL_DestroyRenderer(renderer);
@@ -336,7 +346,12 @@ int Engine::GetWindowHeight() const {
 }
 
 const GameConfigData &Engine::GetConfig() const {return config_;}
-std::size_t Engine::GetActorCount() const {return actors.size();}
+std::size_t Engine::CountLiveActors() const {
+    return static_cast<std::size_t>(
+        std::count_if(actors.begin(), actors.end(),
+                      [](const Actor &actor) { return !actor.runtime_destroyed; }));
+}
+std::size_t Engine::GetActorCount() const {return CountLiveActors();}
 const std::deque<Actor> &Engine::GetRuntimeActors() const {return actors;}
 const Actor *Engine::GetRuntimeActorByUID(Actor::UID actor_uid) const {
     return findRuntimeActorByUID(actor_uid);
@@ -419,8 +434,7 @@ bool Engine::DeleteRuntimeActorByUID(Actor::UID actor_uid) {
 
         ComponentManager::DestroyActor(&actor);
         ComponentManager::FinalizeFrameMutations();
-        ComponentManager::BindActorsForScene(actors);
-        rebuildRuntimeActorUIDMap();
+        PruneDestroyedRuntimeActors();
         return true;
     }
     return false;
@@ -467,7 +481,7 @@ previous runtime snapshot, so clear those caches before rebind.
 void Engine::LoadSceneAsset(const SceneFormat::SceneAsset &scene_asset) {
 
     ::Input::Init();
-    AudioManager::HaltChannel(-1);
+    AudioManager::StopAllPlayback();
     SDL_FlushEvent(SDL_KEYDOWN);
     SDL_FlushEvent(SDL_KEYUP);
     SDL_FlushEvent(SDL_TEXTEDITING);
@@ -581,6 +595,12 @@ int Engine::GetScenePreviewRenderTargetHeight() const {
 }
 float Engine::GetRuntimeRenderFPS() const {return displayed_runtime_render_fps_;}
 float Engine::GetGameplayFPS() const {return displayed_gameplay_fps_;}
+void Engine::SetAudioPlaybackEnabled(bool enabled) {
+    AudioManager::SetPlaybackEnabled(enabled);
+}
+bool Engine::IsAudioPlaybackEnabled() const {
+    return AudioManager::IsPlaybackEnabled();
+}
 
 
 /*
@@ -645,6 +665,7 @@ void Engine::update() {
 
     /* Full end-of-frame reconciliation happens once, after physics/callbacks. */
     ComponentManager::FinalizeFrameMutations();
+    PruneDestroyedRuntimeActors();
 }
 
 
@@ -668,6 +689,7 @@ void Engine::processPendingSceneLoad() {
     }
     /* Apply removals immediately before loading new scene. */
     ComponentManager::FinalizeFrameMutations();
+    PruneDestroyedRuntimeActors();
 
     /* Load new scene actors and append them to runtime container. */
     std::vector<Actor> loaded_actors = Scene::LoadScene(scene_to_load);
@@ -678,6 +700,11 @@ void Engine::processPendingSceneLoad() {
     ComponentManager::BindActorsForScene(actors);
     rebuildRuntimeActorUIDMap();
     current_scene_name = scene_to_load;
+    if (ShouldLogSceneDiagnostics()) {
+        std::cout << "scene_load: " << current_scene_name
+                  << " live_actors=" << CountLiveActors()
+                  << " stored_actors=" << actors.size() << std::endl;
+    }
 }
 
 void Engine::SetCameraPosition(float x, float y) {camera_position.x = x; camera_position.y = y;}
@@ -723,7 +750,19 @@ void Engine::RefreshPerformanceCounters() {
     displayed_runtime_render_fps_ =
         static_cast<float>(performance_runtime_render_frames_) /
         elapsed_seconds;
-        displayed_gameplay_fps_ = static_cast<float>(performance_gameplay_frames_) / elapsed_seconds;
+    displayed_gameplay_fps_ =
+        static_cast<float>(performance_gameplay_frames_) / elapsed_seconds;
+
+    if (ShouldLogPerformanceDiagnostics()) {
+        std::cout << "perf: scene=" << current_scene_name
+                  << " gameplay_fps=" << displayed_gameplay_fps_
+                  << " render_fps=" << displayed_runtime_render_fps_
+                  << " live_actors=" << CountLiveActors()
+                  << " stored_actors=" << actors.size()
+                  << " audio_failures=" << AudioManager::GetAudioPlayFailureCount()
+                  << " music_failures=" << AudioManager::GetMusicPlayFailureCount()
+                  << std::endl;
+    }
 
     performance_sample_start_ticks_ = now;
     performance_runtime_render_frames_ = 0;
@@ -866,6 +905,20 @@ void Engine::rebuildRuntimeActorUIDMap() {
     next_runtime_generated_actor_uid_ =
         std::max<std::uint64_t>(Actor::kRuntimeGeneratedUIDStart,
                                 max_existing_uid + 1);
+}
+
+void Engine::PruneDestroyedRuntimeActors() {
+    if (CountLiveActors() == actors.size()) return;
+
+    std::deque<Actor> compacted_actors;
+    for (Actor &actor : actors) {
+        if (actor.runtime_destroyed) continue;
+        compacted_actors.emplace_back(std::move(actor));
+    }
+
+    actors.swap(compacted_actors);
+    ComponentManager::BindActorsForScene(actors);
+    rebuildRuntimeActorUIDMap();
 }
 
 Actor* Engine::findRuntimeActorByUID(Actor::UID actor_uid) {
