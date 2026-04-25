@@ -98,6 +98,8 @@ public:
                             float camera_y, float zoom_factor,
                             int camera_width, int camera_height);
     static void ClearCache();
+    static int GetResourceWarningCount();
+    static const std::string &GetLastResourceWarning();
 
 private:
     static TTF_Font *GetFont(const std::string &font_name, int size);

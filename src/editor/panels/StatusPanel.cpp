@@ -1,6 +1,9 @@
 #include "editor/panels/StatusPanel.h"
+#include "audio/AudioManager.h"
 #include "editor/documents/SceneDocument.h"
 #include "engine/core/Engine.h"
+#include "rendering/Renderer.h"
+#include "scripting/ComponentManager.h"
 #include "imgui.h"
 #include <string>
 
@@ -85,6 +88,28 @@ void RenderStatusPanel(const Engine &engine, const SceneDocument &scene_document
     ImGui::Text("Runtime Scene: %s", engine.GetCurrentSceneName().c_str());
     ImGui::Text("Authoring Scene: %s", scene_document.GetSceneName().c_str());
     ImGui::Text("Actors: %zu", engine.GetActorCount());
+
+    const int resource_warning_count =
+        Renderer::GetResourceWarningCount() +
+        AudioManager::GetResourceWarningCount() +
+        ComponentManager::GetComponentTypeWarningCount();
+    if (resource_warning_count > 0) {
+        ImGui::TextColored(ImVec4(1.0f, 0.82f, 0.35f, 1.0f),
+                           "Resource Warnings: %d", resource_warning_count);
+        if (!Renderer::GetLastResourceWarning().empty()) {
+            ImGui::TextWrapped("Render: %s",
+                               Renderer::GetLastResourceWarning().c_str());
+        }
+        if (!AudioManager::GetLastResourceWarning().empty()) {
+            ImGui::TextWrapped("Audio: %s",
+                               AudioManager::GetLastResourceWarning().c_str());
+        }
+        if (!ComponentManager::GetLastComponentTypeWarning().empty()) {
+            ImGui::TextWrapped(
+                "Lua: %s",
+                ComponentManager::GetLastComponentTypeWarning().c_str());
+        }
+    }
 
     ImGui::Separator();
     ImGui::Text("Editor FPS: %.1f", state.displayed_editor_fps);

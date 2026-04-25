@@ -5,8 +5,13 @@
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
+#include <unordered_set>
 
 namespace {
+
+std::unordered_set<std::string> g_audio_warning_keys;
+int g_audio_resource_warning_count = 0;
+std::string g_audio_last_resource_warning;
 
 bool ShouldLogAudioDiagnostics() {
     return std::getenv("ENGINE_LOG_AUDIO") != nullptr;
@@ -18,6 +23,16 @@ void LogPlaybackFailure(const char *kind, const std::string &audio_name,
     if (failure_count > 5 && (failure_count % 25) != 0) return;
     std::cout << "warning: " << kind << " playback failed for ["
               << audio_name << "]: " << Mix_GetError() << std::endl;
+}
+
+void LogAudioWarningOnce(const std::string &key, const std::string &message) {
+    if (g_audio_warning_keys.find(key) != g_audio_warning_keys.end()) {
+        return;
+    }
+    g_audio_warning_keys.insert(key);
+    g_audio_last_resource_warning = message;
+    ++g_audio_resource_warning_count;
+    std::cout << "warning: " << g_audio_last_resource_warning << std::endl;
 }
 
 } // namespace
@@ -97,6 +112,9 @@ void AudioManager::Shutdown() {
     current_music_loops = 0;
     audio_play_failure_count = 0;
     music_play_failure_count = 0;
+    g_audio_warning_keys.clear();
+    g_audio_resource_warning_count = 0;
+    g_audio_last_resource_warning.clear();
     actual_output_frequency = 0;
     actual_output_format = 0;
     actual_output_channels = 0;
@@ -124,16 +142,20 @@ Mix_Chunk *AudioManager::LoadAudioClip(const std::string &audio_name) {
 
     std::string file_path = FindAudioFile(audio_name);
     if (file_path.empty()) {
-        std::cout << "error: failed to play audio clip "
-                  << ClipNameSansExtension(audio_name);
-        exit(0);
+        LogAudioWarningOnce("clip:missing:" + audio_name,
+                            "audio clip [" +
+                                ClipNameSansExtension(audio_name) +
+                                "] missing; skipping playback");
+        return nullptr;
     }
 
     Mix_Chunk *chunk = AudioHelper::Mix_LoadWAV(file_path.c_str());
     if (chunk == nullptr) {
-        std::cout << "error: failed to play audio clip "
-                  << ClipNameSansExtension(audio_name);
-        exit(0);
+        LogAudioWarningOnce("clip:load:" + audio_name,
+                            "audio clip [" +
+                                ClipNameSansExtension(audio_name) +
+                                "] failed to load; skipping playback");
+        return nullptr;
     }
 
     audio_cache[audio_name] = chunk;
@@ -146,16 +168,20 @@ Mix_Music *AudioManager::LoadMusicTrack(const std::string &audio_name) {
 
     const std::string file_path = FindAudioFile(audio_name);
     if (file_path.empty()) {
-        std::cout << "error: failed to play music track "
-                  << ClipNameSansExtension(audio_name);
-        exit(0);
+        LogAudioWarningOnce("music:missing:" + audio_name,
+                            "music track [" +
+                                ClipNameSansExtension(audio_name) +
+                                "] missing; skipping playback");
+        return nullptr;
     }
 
     Mix_Music *music = AudioHelper::Mix_LoadMUS(file_path.c_str());
     if (music == nullptr) {
-        std::cout << "error: failed to play music track "
-                  << ClipNameSansExtension(audio_name);
-        exit(0);
+        LogAudioWarningOnce("music:load:" + audio_name,
+                            "music track [" +
+                                ClipNameSansExtension(audio_name) +
+                                "] failed to load; skipping playback");
+        return nullptr;
     }
 
     music_cache[audio_name] = music;
@@ -205,6 +231,10 @@ void AudioManager::PlayAudioClip(const std::string &audio_name, int channel,
                                  int loops) {
     if (!initialized || !playback_enabled) return;
     Mix_Chunk *chunk = LoadAudioClip(audio_name);
+    if (chunk == nullptr) {
+        ++audio_play_failure_count;
+        return;
+    }
     const int started_channel = AudioHelper::Mix_PlayChannel(channel, chunk, loops);
     if (started_channel != -1) return;
     ++audio_play_failure_count;
@@ -218,6 +248,10 @@ void AudioManager::PlayMusicTrack(const std::string &audio_name, int loops) {
         return;
     }
     Mix_Music *music = LoadMusicTrack(audio_name);
+    if (music == nullptr) {
+        ++music_play_failure_count;
+        return;
+    }
     if (AudioHelper::Mix_PlayMusic(music, loops) == -1) {
         ++music_play_failure_count;
         LogPlaybackFailure("music", audio_name, music_play_failure_count);
@@ -286,4 +320,12 @@ int AudioManager::GetAudioPlayFailureCount() {
 
 int AudioManager::GetMusicPlayFailureCount() {
     return music_play_failure_count;
+}
+
+int AudioManager::GetResourceWarningCount() {
+    return g_audio_resource_warning_count;
+}
+
+const std::string &AudioManager::GetLastResourceWarning() {
+    return g_audio_last_resource_warning;
 }

@@ -67,6 +67,53 @@ bool ValidateRuntimeActorComponents(const std::vector<Actor> &runtime_actors,
     return true;
 }
 
+bool PrepareRuntimeActorsFromSceneAsset(
+    const SceneFormat::SceneAsset &scene_asset,
+    std::vector<Actor> &out_runtime_actors,
+    std::string &out_error) {
+    if (!SceneFormat::ValidateSceneAssetForRuntime(scene_asset, &out_error)) {
+        return false;
+    }
+
+    Scene::SetActiveSceneSubdirectory(scene_asset.scene_subdirectory);
+    ComponentManager::ReloadComponentTypes();
+
+    out_runtime_actors = SceneFormat::BuildRuntimeActors(scene_asset);
+    return ValidateRuntimeActorComponents(out_runtime_actors,
+                                          scene_asset.scene_name, out_error);
+}
+
+bool PrepareRuntimeActorsForScene(
+    const std::string &scene_name,
+    const std::filesystem::path &preferred_subdirectory,
+    std::vector<Actor> &out_runtime_actors,
+    SceneFormat::SceneAsset *out_scene_asset,
+    std::string &out_error) {
+    SceneFormat::SceneAsset scene_asset =
+        SceneFormat::LoadSceneAsset(scene_name, preferred_subdirectory);
+    if (!PrepareRuntimeActorsFromSceneAsset(scene_asset, out_runtime_actors,
+                                            out_error)) {
+        return false;
+    }
+    if (out_scene_asset != nullptr) {
+        *out_scene_asset = std::move(scene_asset);
+    }
+    return true;
+}
+
+void InstantiateComponentsForActorRange(std::deque<Actor> &actors,
+                                        std::size_t begin_index) {
+    for (std::size_t actor_index = begin_index; actor_index < actors.size();
+         ++actor_index) {
+        const Actor &actor = actors[actor_index];
+        for (const Actor::ComponentSpec &component_spec :
+             actor.component_specs) {
+            ComponentManager::InstantiateComponentForActor(actor.uid,
+                                                           component_spec);
+        }
+    }
+}
+
 bool ShouldLogSceneDiagnostics() {
     return std::getenv("ENGINE_LOG_SCENE_STATS") != nullptr;
 }
@@ -190,17 +237,24 @@ Engine::Engine() {
     ComponentManager::BindEngine(this);
     ComponentManager::ClearActorComponents();
     if (!config_.initial_scene_name.empty()) {
-        std::vector<Actor> loaded_actors = Scene::LoadScene(config_.initial_scene_name);
-        actors.clear();
-        for (Actor &actor : loaded_actors) {
-            actors.emplace_back(std::move(actor));
+        std::vector<Actor> loaded_actors;
+        std::string validation_error;
+        if (!PrepareRuntimeActorsForScene(config_.initial_scene_name, {},
+                                          loaded_actors, nullptr,
+                                          validation_error)) {
+            last_scene_load_error_ = validation_error;
+            std::cout << "error: " << validation_error << std::endl;
+        } else {
+            actors.clear();
+            for (Actor &actor : loaded_actors) {
+                actors.emplace_back(std::move(actor));
+            }
+            ComponentManager::BindActorsForScene(actors);
+            InstantiateComponentsForActorRange(actors, 0);
         }
-        ComponentManager::BindActorsForScene(actors);
-        rebuildRuntimeActorUIDMap();
-    } else {
-        ComponentManager::BindActorsForScene(actors);
-        rebuildRuntimeActorUIDMap();
     }
+    ComponentManager::BindActorsForScene(actors);
+    rebuildRuntimeActorUIDMap();
 }
 
 Engine::~Engine() {
@@ -516,20 +570,9 @@ previous runtime snapshot, so clear those caches before rebind.
 */
 bool Engine::LoadSceneAsset(const SceneFormat::SceneAsset &scene_asset) {
     std::string validation_error;
-    if (!SceneFormat::ValidateSceneAssetForRuntime(scene_asset,
-                                                   &validation_error)) {
-        last_scene_load_error_ = validation_error;
-        std::cout << "error: " << validation_error << std::endl;
-        return false;
-    }
-
-    Scene::SetActiveSceneSubdirectory(scene_asset.scene_subdirectory);
-    ComponentManager::ReloadComponentTypes();
-
-    std::vector<Actor> runtime_actors =
-        SceneFormat::BuildRuntimeActors(scene_asset);
-    if (!ValidateRuntimeActorComponents(runtime_actors, scene_asset.scene_name,
-                                        validation_error)) {
+    std::vector<Actor> runtime_actors;
+    if (!PrepareRuntimeActorsFromSceneAsset(scene_asset, runtime_actors,
+                                            validation_error)) {
         last_scene_load_error_ = validation_error;
         std::cout << "error: " << validation_error << std::endl;
         return false;
@@ -553,12 +596,7 @@ bool Engine::LoadSceneAsset(const SceneFormat::SceneAsset &scene_asset) {
     }
 
     ComponentManager::BindActorsForScene(actors);
-    for (const Actor &actor : actors) {
-        for (const Actor::ComponentSpec &component_spec : actor.component_specs) {
-            ComponentManager::InstantiateComponentForActor(actor.uid,
-                                                           component_spec);
-        }
-    }
+    InstantiateComponentsForActorRange(actors, 0);
     /*
     Component instances are created after the deque is stable. Rebind once so
     actor pointers and cached lifecycle lists both see the fresh components.
@@ -733,6 +771,18 @@ void Engine::processPendingSceneLoad() {
     has_pending_scene_load = false;
     pending_scene_name.clear();
 
+    std::vector<Actor> loaded_actors;
+    SceneFormat::SceneAsset loaded_scene_asset;
+    std::string validation_error;
+    if (!PrepareRuntimeActorsForScene(scene_to_load,
+                                      Scene::GetActiveSceneSubdirectory(),
+                                      loaded_actors, &loaded_scene_asset,
+                                      validation_error)) {
+        last_scene_load_error_ = validation_error;
+        std::cout << "error: " << validation_error << std::endl;
+        return;
+    }
+
     /* Unload current scene actors, except ones marked DontDestroy. */
     for (Actor &actor : actors) {
         if (actor.runtime_destroyed) continue;
@@ -744,14 +794,17 @@ void Engine::processPendingSceneLoad() {
     PruneDestroyedRuntimeActors();
 
     /* Load new scene actors and append them to runtime container. */
-    std::vector<Actor> loaded_actors = Scene::LoadScene(scene_to_load);
+    const std::size_t first_loaded_actor_index = actors.size();
     for (Actor &actor : loaded_actors) {
         actors.emplace_back(std::move(actor));
     }
     /* Rebuild actor indices and re-inject actor refs into component tables. */
     ComponentManager::BindActorsForScene(actors);
+    InstantiateComponentsForActorRange(actors, first_loaded_actor_index);
+    ComponentManager::BindActorsForScene(actors);
     rebuildRuntimeActorUIDMap();
-    current_scene_name = scene_to_load;
+    current_scene_name = loaded_scene_asset.scene_name;
+    last_scene_load_error_.clear();
     if (ShouldLogSceneDiagnostics()) {
         std::cout << "scene_load: " << current_scene_name
                   << " live_actors=" << CountLiveActors()

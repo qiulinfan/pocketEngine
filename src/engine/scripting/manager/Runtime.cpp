@@ -10,10 +10,27 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <unordered_set>
 
 using namespace ManagerDetail;
 
 namespace {
+
+std::unordered_set<std::string> g_component_type_warning_keys;
+int g_component_type_warning_count = 0;
+std::string g_component_type_last_warning;
+
+void LogComponentTypeWarningOnce(const std::string &key,
+                                 const std::string &message) {
+    if (g_component_type_warning_keys.find(key) !=
+        g_component_type_warning_keys.end()) {
+        return;
+    }
+    g_component_type_warning_keys.insert(key);
+    g_component_type_last_warning = message;
+    ++g_component_type_warning_count;
+    std::cout << "warning: " << g_component_type_last_warning << std::endl;
+}
 
 void ClearBoundActorState() {
     g_runtime.pending_on_start.clear();
@@ -83,15 +100,23 @@ void LoadComponentTypes() {
 
         // Load and execute component file so it registers global table <type>.
         if (luaL_dofile(g_runtime.lua_state, lua_file.string().c_str()) != LUA_OK) {
-            std::cout << "problem with lua file " << component_type;
-            std::exit(0);
+            const char *lua_error = lua_tostring(g_runtime.lua_state, -1);
+            LogComponentTypeWarningOnce(
+                "lua:load:" + lua_file.string(),
+                "problem with lua component [" + component_type + "]: " +
+                    (lua_error != nullptr ? lua_error : "unknown error"));
+            lua_pop(g_runtime.lua_state, 1);
+            continue;
         }
 
         // Each valid component file must expose a table with the same name.
         luabridge::LuaRef base_table = luabridge::getGlobal(g_runtime.lua_state, component_type.c_str());
         if (!base_table.isTable()) {
-            std::cout << "problem with lua file " << component_type;
-            std::exit(0);
+            LogComponentTypeWarningOnce(
+                "lua:table:" + lua_file.string(),
+                "problem with lua component [" + component_type +
+                    "]: expected global table named " + component_type);
+            continue;
         }
         g_runtime.component_type_tables.emplace(component_type,
                                                 std::move(base_table));
@@ -149,6 +174,14 @@ void ComponentManager::ReloadComponentTypes() {
     LoadComponentTypes();
 }
 
+int ComponentManager::GetComponentTypeWarningCount() {
+    return g_component_type_warning_count;
+}
+
+const std::string &ComponentManager::GetLastComponentTypeWarning() {
+    return g_component_type_last_warning;
+}
+
 // Tear down the shared Lua runtime and every cached component-type table.
 void ComponentManager::Shutdown() {
     // 先清空所有持有 LuaRef 的容器, 再关闭 lua_state
@@ -159,6 +192,9 @@ void ComponentManager::Shutdown() {
     APIRegistration::BindEngine(nullptr);
     g_runtime.runtime_add_component_counter = 0;
     g_runtime.component_type_tables.clear();
+    g_component_type_warning_keys.clear();
+    g_component_type_warning_count = 0;
+    g_component_type_last_warning.clear();
     lua_close(g_runtime.lua_state);
     g_runtime.lua_state = nullptr;
 }

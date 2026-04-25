@@ -8,10 +8,10 @@
 #include "glm/glm.hpp"
 #include "SDL2_image/SDL_image.h"
 #include <algorithm>
-#include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <sstream>
+#include <unordered_set>
 
 namespace {
 
@@ -19,10 +19,31 @@ constexpr float kPixelsPerUnit = 100.0f;
 constexpr Uint32 kTextCacheUnusedLifetimeMs = 3000;
 constexpr std::size_t kMaxTextCacheEntries = 512;
 
+std::unordered_set<std::string> g_renderer_warning_keys;
+int g_renderer_warning_count = 0;
+std::string g_renderer_last_warning;
+
+void LogRendererWarningOnce(const std::string &key,
+                            const std::string &message) {
+    if (g_renderer_warning_keys.find(key) != g_renderer_warning_keys.end()) {
+        return;
+    }
+    g_renderer_warning_keys.insert(key);
+    g_renderer_last_warning = message;
+    ++g_renderer_warning_count;
+    std::cout << "warning: " << g_renderer_last_warning << std::endl;
+}
+
 std::string ResolveFontPath(const std::string &font_name) {
     return ResourcePath::ResolveResourcePath(
         ResourcePath::ResourceSubdirectory("fonts"), font_name, {".ttf"},
         Scene::GetActiveSceneSubdirectory());
+}
+
+std::string ResolveSystemFontPath() {
+    const std::filesystem::path system_font =
+        ResourcePath::EngineSystemFontsRoot() / "system.ttf";
+    return std::filesystem::exists(system_font) ? system_font.string() : "";
 }
 
 std::string ResolveImagePath(const std::string &image_name) {
@@ -129,6 +150,31 @@ SDL_Texture *CreateDefaultParticleTexture(SDL_Renderer *renderer) {
     return texture;
 }
 
+SDL_Texture *CreateMissingTexture(SDL_Renderer *renderer) {
+    if (renderer == nullptr) return nullptr;
+
+    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(
+        0, 32, 32, 32, SDL_PIXELFORMAT_RGBA8888);
+    if (surface == nullptr) return nullptr;
+
+    const Uint32 magenta = SDL_MapRGBA(surface->format, 255, 0, 255, 255);
+    const Uint32 black = SDL_MapRGBA(surface->format, 0, 0, 0, 255);
+    for (int y = 0; y < 32; y += 8) {
+        for (int x = 0; x < 32; x += 8) {
+            SDL_Rect rect = {x, y, 8, 8};
+            const bool bright_square = ((x / 8) + (y / 8)) % 2 == 0;
+            SDL_FillRect(surface, &rect, bright_square ? magenta : black);
+        }
+    }
+
+    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_FreeSurface(surface);
+    if (texture != nullptr) {
+        SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+    }
+    return texture;
+}
+
 } // namespace
 
 void Renderer::PruneTextCache() {
@@ -167,7 +213,10 @@ void Renderer::PruneTextCache() {
 void Renderer::Init() {
     if (initialized) return;
     if (TTF_Init() != 0) {
-        exit(0);
+        LogRendererWarningOnce("ttf:init",
+                               std::string("text rendering disabled: ") +
+                                   TTF_GetError());
+        return;
     }
     initialized = true;
 }
@@ -197,27 +246,40 @@ void Renderer::Shutdown() {
         TTF_Quit();
         initialized = false;
     }
+    g_renderer_warning_keys.clear();
+    g_renderer_warning_count = 0;
+    g_renderer_last_warning.clear();
 }
 
 // Resolve and cache one font family/size pair for later text rendering.
 TTF_Font *Renderer::GetFont(const std::string &font_name, int size) {
     if (font_name.empty()) return nullptr;
+    if (!initialized) return nullptr;
     auto family_it = font_cache.find(font_name);
     if (family_it != font_cache.end()) {
         auto size_it = family_it->second.find(size);
         if (size_it != family_it->second.end()) return size_it->second;
     }
 
-    const std::string path = ResolveFontPath(font_name);
+    std::string path = ResolveFontPath(font_name);
     if (path.empty()) {
-        std::cout << "error: font " << font_name << " missing";
-        exit(0);
+        LogRendererWarningOnce("font:missing:" + font_name,
+                               "font [" + font_name +
+                                   "] missing; using editor system font");
+        path = ResolveSystemFontPath();
+    }
+    if (path.empty()) {
+        LogRendererWarningOnce("font:missing-system",
+                               "system font missing; skipping text draw");
+        return nullptr;
     }
 
     TTF_Font *font = TTF_OpenFont(path.c_str(), size);
     if (font == nullptr) {
-        std::cout << "error: font " << font_name << " missing";
-        exit(0);
+        LogRendererWarningOnce("font:open:" + font_name,
+                               "font [" + font_name +
+                                   "] could not be opened; skipping text draw");
+        return nullptr;
     }
     font_cache[font_name][size] = font;
     return font;
@@ -236,8 +298,9 @@ SDL_Texture *Renderer::LoadTexture(const std::string &image_name,
     if (image_name == kDefaultParticleTextureName) {
         SDL_Texture *texture = CreateDefaultParticleTexture(renderer);
         if (texture == nullptr) {
-            std::cout << "error: failed to create default particle texture";
-            exit(0);
+            LogRendererWarningOnce("image:default-particle",
+                                   "failed to create default particle texture");
+            return nullptr;
         }
         image_cache[image_name] = texture;
         return texture;
@@ -245,17 +308,27 @@ SDL_Texture *Renderer::LoadTexture(const std::string &image_name,
 
     std::string image_path = ResolveImagePath(image_name);
     if (image_path.empty()) {
-        std::cout << "error: missing image " << image_name;
-        exit(0);
+        LogRendererWarningOnce("image:missing:" + image_name,
+                               "image [" + image_name +
+                                   "] missing; using placeholder");
+        SDL_Texture *placeholder = CreateMissingTexture(renderer);
+        if (placeholder != nullptr) {
+            image_cache[image_name] = placeholder;
+        }
+        return placeholder;
     }
 
     SDL_Texture *texture = IMG_LoadTexture(renderer, image_path.c_str());
     if (texture == nullptr) {
-        std::cout << "error: missing image " << image_name;
-        exit(0);
+        LogRendererWarningOnce("image:load:" + image_name,
+                               "image [" + image_name +
+                                   "] failed to load; using placeholder");
+        texture = CreateMissingTexture(renderer);
     }
 
-    image_cache[image_name] = texture;
+    if (texture != nullptr) {
+        image_cache[image_name] = texture;
+    }
     return texture;
 }
 
@@ -539,6 +612,14 @@ void Renderer::ClearCache() {
     scene_particle_batches.clear();
     ui_draw_requests.clear();
     pixel_draw_requests.clear();
+}
+
+int Renderer::GetResourceWarningCount() {
+    return g_renderer_warning_count;
+}
+
+const std::string &Renderer::GetLastResourceWarning() {
+    return g_renderer_last_warning;
 }
 
 void Engine::render() {

@@ -10,7 +10,6 @@
 #include "shared/scene_format/SceneFormat.h"
 #include <algorithm>
 #include <cmath>
-#include <cstdlib>
 #include <iostream>
 #include <type_traits>
 
@@ -269,9 +268,10 @@ void ComponentManager::InstantiateComponentForActor(
     } else {
         auto type_it = g_runtime.component_type_tables.find(component_spec.type);
         if (type_it == g_runtime.component_type_tables.end()) {
-            std::cout << "error: failed to locate component "
-                      << component_spec.type;
-            std::exit(0);
+            std::cout << "warning: failed to locate component "
+                      << component_spec.type << "; skipping component"
+                      << std::endl;
+            return;
         }
 
         // 创建实例 table + inherit + 注入系统字段

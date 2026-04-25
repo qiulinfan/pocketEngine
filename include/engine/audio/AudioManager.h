@@ -36,6 +36,8 @@ public:
     static bool IsPlaybackEnabled();
     static int GetAudioPlayFailureCount();
     static int GetMusicPlayFailureCount();
+    static int GetResourceWarningCount();
+    static const std::string &GetLastResourceWarning();
 
 private:
     // supports explicit extension and default wav / ogg lookup
