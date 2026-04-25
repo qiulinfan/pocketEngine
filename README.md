@@ -63,8 +63,8 @@ cmake --build --preset vs-release
 Run:
 
 ```powershell
-.\build\vs2022-x64\src\app\editor\Release\pocket.exe
-.\build\vs2022-x64\src\app\runtime\Release\game.exe
+.\pocket.exe
+.\game.exe
 ```
 
 #### Method 2: Windows Quick Install

@@ -101,8 +101,8 @@ finally {
     Pop-Location
 }
 
-$runtimeExe = Join-Path $InstallRoot "build\vs2022-x64\src\app\runtime\Release\game.exe"
-$editorExe = Join-Path $InstallRoot "build\vs2022-x64\src\app\editor\Release\pocket.exe"
+$runtimeExe = Join-Path $InstallRoot "game.exe"
+$editorExe = Join-Path $InstallRoot "pocket.exe"
 
 if (-not (Test-Path $runtimeExe)) {
     throw "Runtime executable was not found at $runtimeExe"

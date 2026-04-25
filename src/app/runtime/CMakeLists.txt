@@ -8,14 +8,15 @@ target_link_libraries(game_engine PRIVATE engine_runtime)
 game_engine_apply_cxx_warnings(game_engine)
 game_engine_link_sdl(game_engine)
 game_engine_stage_resources(game_engine)
-set_target_properties(game_engine PROPERTIES OUTPUT_NAME "game")
+game_engine_mirror_windows_runtime_to_root(game_engine)
+set_target_properties(
+    game_engine
+    PROPERTIES
+        OUTPUT_NAME "game"
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+)
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    set_target_properties(
-        game_engine
-        PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-    )
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" OR WIN32)
     add_custom_command(
         TARGET game_engine
         POST_BUILD

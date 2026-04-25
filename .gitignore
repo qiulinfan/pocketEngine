@@ -18,6 +18,9 @@ game_engine_osx
 game_engine_editor
 game
 pocket
+/game.exe
+/pocket.exe
+/*.dll
 
 # XCode build artifacts
 osx_build_derived_data

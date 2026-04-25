@@ -34,17 +34,21 @@ cmake --build --preset vs-debug
 cmake --build --preset vs-release
 
 Windows run runtime:
-.\build\vs2022-x64\src\app\runtime\Debug\game.exe
-.\build\vs2022-x64\src\app\runtime\Release\game.exe
+.\game.exe
+# fallback (build tree location):
+.\build\vs2022-x64\Debug\game.exe
+.\build\vs2022-x64\Release\game.exe
 
 Windows run editor:
-.\build\vs2022-x64\src\app\editor\Debug\pocket.exe
-.\build\vs2022-x64\src\app\editor\Release\pocket.exe
+.\pocket.exe
+# fallback (build tree location):
+.\build\vs2022-x64\Debug\pocket.exe
+.\build\vs2022-x64\Release\pocket.exe
 
 Windows audio smoke:
 set ENGINE_LOG_AUDIO=1
 set ENGINE_LOG_PERF=1
-.\build\vs2022-x64\src\app\runtime\Debug\game.exe
+.\game.exe
 
 Windows quick install:
 powershell -ExecutionPolicy Bypass -File .\scripts\win_install.ps1

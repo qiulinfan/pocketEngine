@@ -8,6 +8,55 @@ target_include_directories(
         "${PROJECT_SOURCE_DIR}/thirdparty"
 )
 
+function(_game_engine_collect_windows_runtime_dlls out_var)
+    if(NOT WIN32 OR NOT GAME_ENGINE_STAGE_SDL_RUNTIME)
+        set(${out_var} "" PARENT_SCOPE)
+        return()
+    endif()
+
+    file(GLOB _game_engine_runtime_dlls CONFIGURE_DEPENDS
+        "${PROJECT_SOURCE_DIR}/dlls/*.dll"
+        "${PROJECT_SOURCE_DIR}/thirdparty/SDL2/lib/*.dll"
+        "${PROJECT_SOURCE_DIR}/thirdparty/SDL2_image/lib/*.dll"
+        "${PROJECT_SOURCE_DIR}/thirdparty/SDL2_image/lib/optional/*.dll"
+        "${PROJECT_SOURCE_DIR}/thirdparty/SDL2_mixer/lib/*.dll"
+        "${PROJECT_SOURCE_DIR}/thirdparty/SDL2_mixer/lib/optional/*.dll"
+        "${PROJECT_SOURCE_DIR}/thirdparty/SDL2_ttf/lib/*.dll"
+    )
+    list(REMOVE_DUPLICATES _game_engine_runtime_dlls)
+    set(${out_var} "${_game_engine_runtime_dlls}" PARENT_SCOPE)
+endfunction()
+
+function(_game_engine_ensure_windows_root_runtime_target)
+    if(NOT WIN32 OR NOT GAME_ENGINE_STAGE_SDL_RUNTIME)
+        return()
+    endif()
+
+    if(TARGET game_engine_windows_root_runtime_dlls)
+        return()
+    endif()
+
+    _game_engine_collect_windows_runtime_dlls(_game_engine_runtime_dlls)
+
+    set(_game_engine_root_runtime_commands)
+    foreach(_game_engine_runtime_dll IN LISTS _game_engine_runtime_dlls)
+        list(APPEND _game_engine_root_runtime_commands
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${_game_engine_runtime_dll}"
+                    "${PROJECT_SOURCE_DIR}"
+        )
+    endforeach()
+
+    add_custom_target(
+        game_engine_windows_root_runtime_dlls
+        ${_game_engine_root_runtime_commands}
+        VERBATIM
+    )
+    set_target_properties(game_engine_windows_root_runtime_dlls PROPERTIES
+        FOLDER "runtime"
+    )
+endfunction()
+
 function(game_engine_ensure_sdl)
     if(NOT TARGET game_engine_sdl)
         add_library(game_engine_sdl INTERFACE)
@@ -95,16 +144,7 @@ function(game_engine_link_sdl target)
     target_link_libraries(${target} PRIVATE game_engine_sdl)
 
     if(WIN32 AND GAME_ENGINE_STAGE_SDL_RUNTIME)
-        file(GLOB _game_engine_runtime_dlls CONFIGURE_DEPENDS
-            "${PROJECT_SOURCE_DIR}/dlls/*.dll"
-            "${PROJECT_SOURCE_DIR}/thirdparty/SDL2/lib/*.dll"
-            "${PROJECT_SOURCE_DIR}/thirdparty/SDL2_image/lib/*.dll"
-            "${PROJECT_SOURCE_DIR}/thirdparty/SDL2_image/lib/optional/*.dll"
-            "${PROJECT_SOURCE_DIR}/thirdparty/SDL2_mixer/lib/*.dll"
-            "${PROJECT_SOURCE_DIR}/thirdparty/SDL2_mixer/lib/optional/*.dll"
-            "${PROJECT_SOURCE_DIR}/thirdparty/SDL2_ttf/lib/*.dll"
-        )
-        list(REMOVE_DUPLICATES _game_engine_runtime_dlls)
+        _game_engine_collect_windows_runtime_dlls(_game_engine_runtime_dlls)
 
         foreach(_game_engine_runtime_dll IN LISTS _game_engine_runtime_dlls)
             add_custom_command(
@@ -156,4 +196,13 @@ function(game_engine_link_sdl target)
                 INSTALL_RPATH "@executable_path/Frameworks"
         )
     endif()
+endfunction()
+
+function(game_engine_mirror_windows_runtime_to_root target)
+    if(NOT WIN32 OR NOT GAME_ENGINE_STAGE_SDL_RUNTIME)
+        return()
+    endif()
+
+    _game_engine_ensure_windows_root_runtime_target()
+    add_dependencies(${target} game_engine_windows_root_runtime_dlls)
 endfunction()
