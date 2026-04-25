@@ -296,14 +296,20 @@ EditorConfigData EditorConfig::Read() {
     EditorConfigData config;
 
     std::filesystem::path config_path = kEditorConfigPath;
+    bool using_legacy_config = false;
     if (!std::filesystem::exists(config_path) &&
         std::filesystem::exists(kLegacyEditorConfigPath)) {
         config_path = kLegacyEditorConfigPath;
+        using_legacy_config = true;
     }
 
     // Missing editor.config is fine; the editor falls back to sensible defaults.
     if (!std::filesystem::exists(config_path)) {
         ReadProjectHistoryConfig(config, nullptr);
+        EditorConfig::Write(config);
+        if (!std::filesystem::exists(kEditorProjectsConfigPath)) {
+            WriteProjectHistoryFile(config);
+        }
         return config;
     }
 
@@ -378,6 +384,12 @@ EditorConfigData EditorConfig::Read() {
 
     ReadExternalEditorConfig(editor_config, config);
     ReadProjectHistoryConfig(config, &editor_config);
+    if (using_legacy_config && !std::filesystem::exists(kEditorConfigPath)) {
+        EditorConfig::Write(config);
+    }
+    if (!std::filesystem::exists(kEditorProjectsConfigPath)) {
+        WriteProjectHistoryFile(config);
+    }
 
     return config;
 }

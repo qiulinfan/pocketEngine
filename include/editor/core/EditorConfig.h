@@ -20,12 +20,12 @@ enum class EditorExternalFileType {
 struct EditorConfigData {
     int window_width = 1600;
     int window_height = 960;
-    int window_x = 0;
-    int window_y = 0;
-    bool window_has_position = false;
+    int window_x = 160;
+    int window_y = 60;
+    bool window_has_position = true;
     bool window_fullscreen = false;
     bool window_maximized = false;
-    std::string window_title = "";
+    std::string window_title = "PocketEngine Editor";
     float ui_scale = 1.0f;
     int reference_width = 1600;
     int reference_height = 960;

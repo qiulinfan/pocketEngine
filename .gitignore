@@ -492,6 +492,8 @@ scripts/run_lua_component_manager_tests.sh
 .codex
 game_editor_linux
 .engine/editor_private_state.json
+.engine/editor/editor.config
+.engine/editor/projects.config
 .engine/project/
 resources/.pocketengine/
 **/.pocketengine/
