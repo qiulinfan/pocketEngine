@@ -57,9 +57,21 @@ private:
         }
     };
 
+    struct SDLKeycodeHash {
+        std::size_t operator()(SDL_Keycode keycode) const noexcept {
+            return static_cast<std::size_t>(keycode);
+        }
+    };
+
+    struct KeyBinding {
+        SDL_Scancode scancode = SDL_SCANCODE_UNKNOWN;
+        SDL_Keycode keycode = SDLK_UNKNOWN;
+    };
+
     // parse a string key name into SDL scancode
     // 把字符串按键名解析成 SDL scancode
     static SDL_Scancode ParseKeycode(const std::string &keycode);
+    static KeyBinding ParseKeyBinding(const std::string &keycode);
 
     // current implementation only supports left, middle, right
     // 当前只支持左键, 中键, 右键
@@ -70,6 +82,9 @@ private:
     static std::unordered_map<SDL_Scancode, INPUT_STATE, SDLScancodeHash> keyboard_states_;
     static std::vector<SDL_Scancode> just_became_down_scancodes_;
     static std::vector<SDL_Scancode> just_became_up_scancodes_;
+    static std::unordered_map<SDL_Keycode, INPUT_STATE, SDLKeycodeHash> keycode_states_;
+    static std::vector<SDL_Keycode> just_became_down_keycodes_;
+    static std::vector<SDL_Keycode> just_became_up_keycodes_;
 
     // mouse button held / down / up caches
     // 鼠标按住 / 本帧按下 / 本帧松开缓存

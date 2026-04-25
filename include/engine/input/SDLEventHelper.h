@@ -64,53 +64,55 @@ private:
         }
 
         // Optional recording mode (kept for debugging workflows).
-        if (RECORDING_MODE && input_status_ != InputStatus::InputFilePresent) {
-            SDL_PumpEvents();
-            SDL_Event incoming_events[100];
-            const int num_events = SDL_PeepEvents(incoming_events, 100, SDL_PEEKEVENT,
-                                                  SDL_FIRSTEVENT, SDL_LASTEVENT);
+        if constexpr (RECORDING_MODE) {
+            if (input_status_ != InputStatus::InputFilePresent) {
+                SDL_PumpEvents();
+                SDL_Event incoming_events[100];
+                const int num_events = SDL_PeepEvents(incoming_events, 100, SDL_PEEKEVENT,
+                                                      SDL_FIRSTEVENT, SDL_LASTEVENT);
 
-            std::vector<SDL_Event> relevant_events;
-            for (int i = 0; i < num_events; ++i) {
-                const Uint32 event_type = incoming_events[i].type;
-                if (event_type == SDL_KEYUP || event_type == SDL_KEYDOWN ||
-                    event_type == SDL_MOUSEMOTION ||
-                    event_type == SDL_MOUSEBUTTONDOWN ||
-                    event_type == SDL_MOUSEBUTTONUP ||
-                    event_type == SDL_MOUSEWHEEL || event_type == SDL_QUIT) {
-                    relevant_events.push_back(incoming_events[i]);
-                }
-            }
-
-            if (relevant_events.empty()) return;
-            if (!recording_file_.is_open()) {
-                recording_file_.open("recorded_sdl_user_input.txt");
-            }
-
-            recording_file_ << FrameClock::GetFrameNumber() << ";";
-            for (size_t i = 0; i < relevant_events.size(); ++i) {
-                const Uint32 event_type = relevant_events[i].type;
-                recording_file_ << event_type << ",";
-
-                if (event_type == SDL_KEYDOWN || event_type == SDL_KEYUP) {
-                    const SDL_Scancode keycode = relevant_events[i].key.keysym.scancode;
-                    recording_file_ << keycode;
-                } else if (event_type == SDL_MOUSEMOTION) {
-                    const Sint32 x = relevant_events[i].motion.x;
-                    const Sint32 y = relevant_events[i].motion.y;
-                    recording_file_ << x << "," << y;
-                } else if (event_type == SDL_MOUSEBUTTONDOWN ||
-                           event_type == SDL_MOUSEBUTTONUP) {
-                               const int button_index = static_cast<int>(relevant_events[i].button.button);
-                    recording_file_ << button_index;
-                } else if (event_type == SDL_MOUSEWHEEL) {
-                    const float scroll_amount = relevant_events[i].wheel.preciseY;
-                    recording_file_ << scroll_amount;
+                std::vector<SDL_Event> relevant_events;
+                for (int i = 0; i < num_events; ++i) {
+                    const Uint32 event_type = incoming_events[i].type;
+                    if (event_type == SDL_KEYUP || event_type == SDL_KEYDOWN ||
+                        event_type == SDL_MOUSEMOTION ||
+                        event_type == SDL_MOUSEBUTTONDOWN ||
+                        event_type == SDL_MOUSEBUTTONUP ||
+                        event_type == SDL_MOUSEWHEEL || event_type == SDL_QUIT) {
+                        relevant_events.push_back(incoming_events[i]);
+                    }
                 }
 
-                recording_file_ << ";";
+                if (relevant_events.empty()) return;
+                if (!recording_file_.is_open()) {
+                    recording_file_.open("recorded_sdl_user_input.txt");
+                }
+
+                recording_file_ << FrameClock::GetFrameNumber() << ";";
+                for (size_t i = 0; i < relevant_events.size(); ++i) {
+                    const Uint32 event_type = relevant_events[i].type;
+                    recording_file_ << event_type << ",";
+
+                    if (event_type == SDL_KEYDOWN || event_type == SDL_KEYUP) {
+                        const SDL_Scancode keycode = relevant_events[i].key.keysym.scancode;
+                        recording_file_ << keycode;
+                    } else if (event_type == SDL_MOUSEMOTION) {
+                        const Sint32 x = relevant_events[i].motion.x;
+                        const Sint32 y = relevant_events[i].motion.y;
+                        recording_file_ << x << "," << y;
+                    } else if (event_type == SDL_MOUSEBUTTONDOWN ||
+                               event_type == SDL_MOUSEBUTTONUP) {
+                        const int button_index = static_cast<int>(relevant_events[i].button.button);
+                        recording_file_ << button_index;
+                    } else if (event_type == SDL_MOUSEWHEEL) {
+                        const float scroll_amount = relevant_events[i].wheel.preciseY;
+                        recording_file_ << scroll_amount;
+                    }
+
+                    recording_file_ << ";";
+                }
+                recording_file_ << std::endl;
             }
-            recording_file_ << std::endl;
         }
     }
 

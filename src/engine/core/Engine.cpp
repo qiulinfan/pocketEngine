@@ -12,6 +12,7 @@
 #include "LuaBridge/LuaBridge.h"
 #include "SDL2_image/SDL_image.h"
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdlib>
 #include <functional>
@@ -127,6 +128,14 @@ bool ShouldLogRendererDiagnostics() {
 }
 
 #if defined(_WIN32)
+std::string ToLowerASCII(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(),
+                   [](unsigned char c) {
+                       return static_cast<char>(std::tolower(c));
+                   });
+    return value;
+}
+
 std::string ReadEnvironmentString(const char *name) {
     const char *value = std::getenv(name);
     return value == nullptr ? "" : value;
@@ -154,11 +163,17 @@ void LogRendererInfo(SDL_Renderer *renderer) {
 }
 
 SDL_Renderer *CreateRendererWithPlatformFallback(SDL_Window *window) {
-    const Uint32 accelerated_flags =
-        SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC |
-        SDL_RENDERER_TARGETTEXTURE;
+    Uint32 accelerated_flags =
+        SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE;
 
 #if defined(_WIN32)
+    const std::string requested_vsync =
+        ToLowerASCII(ReadEnvironmentString("POCKET_RENDER_VSYNC"));
+    if (requested_vsync == "1" || requested_vsync == "true" ||
+        requested_vsync == "on") {
+        accelerated_flags |= SDL_RENDERER_PRESENTVSYNC;
+    }
+
     std::vector<std::string> candidate_drivers;
     const std::string requested_driver =
         ReadEnvironmentString("POCKET_RENDER_DRIVER");
@@ -772,6 +787,7 @@ runtime window/renderer are needed by either the game or the editor host.
 */
 void Engine::initialize() {
     FrameClock::Reset();
+    SDL_SetHint(SDL_HINT_TIMER_RESOLUTION, "1");
     if (SDL_Init(SDL_INIT_VIDEO) != 0) exit(0);
 
     /* Create the SDL renderer lazily on demand. */

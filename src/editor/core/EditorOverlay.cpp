@@ -381,6 +381,10 @@ void BuildMainMenuBar(bool &show_metrics_window,
                       bool window_fullscreen,
                       bool scene_save_enabled,
                       EditorOverlayResult &result) {
+#if defined(_WIN32) || defined(__APPLE__)
+    (void)show_open_project_window;
+    (void)open_project_path;
+#endif
     if (!ImGui::BeginMainMenuBar()) return;
 
     if (ImGui::BeginMenu("File")) {
@@ -799,6 +803,15 @@ then: dependes on whether Imgui wants to capture it.
 */
 bool EditorOverlay::ProcessEvent(const SDL_Event &event) {
     if (!initialized_) return false;
+    /*
+    In play mode, runtime keyboard input wins before ImGui sees the event.
+    Otherwise ImGui keyboard navigation can move focus across Play/Pause/Stop
+    while the user is using arrow keys or WASD for gameplay.
+    */
+    if (play_mode_active_for_input_ && ShouldCaptureKeyboardEvent(event.type) &&
+        !IsEditorPlaybackHotkeyEvent(event)) {
+        return false;
+    }
 
     // give SDL input event to ImGui for processing
     ImGui_ImplSDL2_ProcessEvent(&event);

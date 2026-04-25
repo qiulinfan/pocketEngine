@@ -60,6 +60,7 @@ function(game_engine_apply_cxx_warnings target)
     target_compile_definitions(
         ${target}
         PRIVATE
+            $<$<CXX_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>
             $<$<CXX_COMPILER_ID:MSVC>:_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING>
             $<$<CXX_COMPILER_ID:MSVC>:_SILENCE_CXX17_ITERATOR_DEPRECATION_WARNING>
     )
@@ -67,6 +68,7 @@ function(game_engine_apply_cxx_warnings target)
         ${target}
         PRIVATE
             $<$<CXX_COMPILER_ID:MSVC>:/W4>
+            $<$<CXX_COMPILER_ID:MSVC>:/wd4702>
             $<$<CXX_COMPILER_ID:MSVC>:/permissive->
             $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall>
             $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wextra>
