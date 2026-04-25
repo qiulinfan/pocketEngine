@@ -129,7 +129,7 @@ private:
     bool show_transient_notice_ = false;
     double transient_notice_expire_time_ = 0.0;
     std::string transient_notice_text_;
-    std::string new_project_name_;
+    std::string new_project_path_;
     std::string new_project_error_;
     std::string open_project_path_;
     std::string open_project_error_;

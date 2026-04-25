@@ -177,6 +177,32 @@ std::string GenerateDefaultProjectName() {
     return "NewProject";
 }
 
+std::filesystem::path DefaultNewProjectPath() {
+    return (ProjectsRootPath() / GenerateDefaultProjectName())
+        .lexically_normal();
+}
+
+std::filesystem::path RemoveTrailingPathSeparators(
+    std::filesystem::path path) {
+    path = path.lexically_normal();
+    while (!path.empty() && path.filename().empty()) {
+        const std::filesystem::path parent_path = path.parent_path();
+        if (parent_path == path) break;
+        path = parent_path.lexically_normal();
+    }
+    return path;
+}
+
+std::filesystem::path NormalizeNewProjectPathInput(
+    const std::string &project_path) {
+    const std::string trimmed_path = TrimWhitespace(project_path);
+    if (trimmed_path.empty()) {
+        return DefaultNewProjectPath();
+    }
+    return RemoveTrailingPathSeparators(
+        std::filesystem::path(trimmed_path)).lexically_normal();
+}
+
 bool WriteTextFileIfMissing(const std::filesystem::path &path,
                             const std::string &contents) {
     if (std::filesystem::exists(path)) return true;
@@ -191,11 +217,22 @@ bool CreateProjectSkeleton(const std::filesystem::path &project_root,
                            std::string &error) {
     std::error_code fs_error;
     if (std::filesystem::exists(project_root, fs_error)) {
-        error = "Project folder already exists.";
-        return false;
-    }
-    if (!std::filesystem::create_directories(project_root, fs_error) ||
-        fs_error) {
+        if (fs_error) {
+            error = "Could not inspect project folder.";
+            return false;
+        }
+        if (!std::filesystem::is_directory(project_root, fs_error) ||
+            fs_error) {
+            error = "Project path already exists and is not a folder.";
+            return false;
+        }
+        if (!std::filesystem::is_empty(project_root, fs_error) ||
+            fs_error) {
+            error = "Project folder already exists and is not empty.";
+            return false;
+        }
+    } else if (!std::filesystem::create_directories(project_root, fs_error) ||
+               fs_error) {
         error = "Could not create project folder.";
         return false;
     }
@@ -216,7 +253,7 @@ bool CreateProjectSkeleton(const std::filesystem::path &project_root,
     const std::string game_config =
         "{\n"
         "  \"game_title\": \"" + project_name + "\",\n"
-        "  \"initial_scene\": \"\"\n"
+        "  \"initial_scene\": \"main\"\n"
         "}\n";
     if (!WriteTextFileIfMissing(project_root / "game.config", game_config)) {
         error = "Could not write game.config.";
@@ -234,6 +271,28 @@ bool CreateProjectSkeleton(const std::filesystem::path &project_root,
     if (!WriteTextFileIfMissing(project_root / "rendering.config",
                                 rendering_config)) {
         error = "Could not write rendering.config.";
+        return false;
+    }
+
+    const std::string main_scene =
+        "{\n"
+        "  \"actors\": []\n"
+        "}\n";
+    if (!WriteTextFileIfMissing(project_root / "scenes" / "main.scene",
+                                main_scene)) {
+        error = "Could not write scenes/main.scene.";
+        return false;
+    }
+
+    const std::string empty_template =
+        "{\n"
+        "  \"name\": \"empty\",\n"
+        "  \"components\": {}\n"
+        "}\n";
+    if (!WriteTextFileIfMissing(project_root / "actor_templates" /
+                                    "empty.template",
+                                empty_template)) {
+        error = "Could not write actor_templates/empty.template.";
         return false;
     }
 
@@ -264,7 +323,7 @@ std::optional<std::filesystem::path> OpenNativeProjectFolderPicker() {
         dialog->SetOptions(options | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM |
                            FOS_PATHMUSTEXIST);
     }
-    dialog->SetTitle(L"Open PocketEngine Project Folder");
+    dialog->SetTitle(L"Choose PocketEngine Project Folder");
 
     std::optional<std::filesystem::path> selected_path;
     if (SUCCEEDED(dialog->Show(nullptr))) {
@@ -286,7 +345,7 @@ std::optional<std::filesystem::path> OpenNativeProjectFolderPicker() {
 #elif defined(__APPLE__)
     FILE *pipe = popen(
         "osascript -e 'POSIX path of (choose folder with prompt "
-        "\"Open PocketEngine project folder\")'",
+        "\"Choose PocketEngine project folder\")'",
         "r");
     if (pipe == nullptr) return std::nullopt;
 
@@ -313,7 +372,7 @@ void BuildMainMenuBar(bool &show_metrics_window,
                       bool &show_external_editors_window,
                       bool &show_new_project_window,
                       bool &show_open_project_window,
-                      std::string &new_project_name,
+                      std::string &new_project_path,
                       std::string &new_project_error,
                       std::string &open_project_path,
                       const EditorConfigData &editor_config,
@@ -326,7 +385,7 @@ void BuildMainMenuBar(bool &show_metrics_window,
 
     if (ImGui::BeginMenu("File")) {
         if (ImGui::MenuItem("New Project...")) {
-            new_project_name.clear();
+            new_project_path = DefaultNewProjectPath().string();
             new_project_error.clear();
             show_new_project_window = true;
         }
@@ -513,7 +572,7 @@ so we gotta  provide that functionality.
 std::string <-> ImGui char buffer
 */
 bool InputTextString(const char *label, std::string &value, const char *hint) {
-    std::vector<char> buffer(std::max<std::size_t>(256, value.size() + 64), '\0');
+    std::vector<char> buffer(std::max<std::size_t>(1024, value.size() + 256), '\0');
     std::memcpy(buffer.data(), value.c_str(), value.size());
 
     bool changed = false;
@@ -857,7 +916,7 @@ EditorOverlayResult EditorOverlay::Render(Engine &engine,
                      show_editor_settings_window_, show_game_config_window_,
                      show_rendering_config_window_,
                      show_external_editors_window_, show_new_project_window_,
-                     show_open_project_window_, new_project_name_,
+                     show_open_project_window_, new_project_path_,
                      new_project_error_, open_project_path_, editor_config,
                      scene_document, play_mode_active, play_mode_paused,
                      window_fullscreen, scene_save_enabled, result);
@@ -1194,27 +1253,54 @@ void EditorOverlay::RenderProjectConfigWindows() {
 void EditorOverlay::RenderNewProjectWindow(EditorOverlayResult &result) {
     if (!show_new_project_window_) return;
 
-    ImGui::SetNextWindowSize(ImVec2(560.0f, 0.0f), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSize(ImVec2(640.0f, 0.0f), ImGuiCond_Appearing);
     if (!ImGui::Begin("New Project", &show_new_project_window_)) {
         ImGui::End();
         return;
     }
 
-    ImGui::TextUnformatted("Create a new project inside Projects/.");
+    ImGui::TextUnformatted("Create a new project folder.");
     ImGui::TextDisabled(
-        "Leave the name empty to use the next NewProject(n) folder.");
+        "Default is Projects/NewProject(n), but any absolute or relative path works.");
     ImGui::Separator();
 
-    InputTextString("Project Name", new_project_name_,
-                    "e.g. MyGame, Sandbox, NewProject(1)");
+    if (new_project_path_.empty()) {
+        new_project_path_ = DefaultNewProjectPath().string();
+    }
 
-    const std::string trimmed_name = TrimWhitespace(new_project_name_);
-    const std::string preview_name =
-        trimmed_name.empty() ? GenerateDefaultProjectName() : trimmed_name;
+    InputTextString("Project Path", new_project_path_,
+                    "e.g. Projects/NewProject(1), ../MyGame, C:\\\\Games\\\\MyProject");
+#if defined(_WIN32) || defined(__APPLE__)
+    if (ImGui::Button("Choose Parent Folder...", ImVec2(190.0f, 0.0f))) {
+        const std::optional<std::filesystem::path> selected_parent =
+            OpenNativeProjectFolderPicker();
+        if (selected_parent.has_value()) {
+            const std::filesystem::path current_path =
+                NormalizeNewProjectPathInput(new_project_path_);
+            std::string project_folder_name = current_path.filename().string();
+            if (project_folder_name.empty()) {
+                project_folder_name = GenerateDefaultProjectName();
+            }
+            new_project_path_ =
+                (selected_parent.value() / project_folder_name)
+                    .lexically_normal()
+                    .string();
+            new_project_error_.clear();
+        }
+    }
+    ImGui::SameLine();
+#endif
+    if (ImGui::Button("Reset Default", ImVec2(120.0f, 0.0f))) {
+        new_project_path_ = DefaultNewProjectPath().string();
+        new_project_error_.clear();
+    }
+
     const std::filesystem::path preview_path =
-        ProjectsRootPath() / preview_name;
-    ImGui::TextDisabled("Will create: %s",
+        NormalizeNewProjectPathInput(new_project_path_);
+    ImGui::TextDisabled("Will create/fill: %s",
                         preview_path.lexically_normal().string().c_str());
+    ImGui::TextDisabled(
+        "Target may be missing or an existing empty folder.");
 
     if (!new_project_error_.empty()) {
         ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.35f, 1.0f), "%s",
@@ -1222,14 +1308,15 @@ void EditorOverlay::RenderNewProjectWindow(EditorOverlayResult &result) {
     }
 
     if (ImGui::Button("Create", ImVec2(120.0f, 0.0f))) {
-        const std::string project_name =
-            trimmed_name.empty() ? GenerateDefaultProjectName() : trimmed_name;
+        const std::filesystem::path project_root =
+            NormalizeNewProjectPathInput(new_project_path_);
+        const std::string project_name = project_root.filename().string();
         std::string validation_error;
-        if (!IsValidProjectFolderName(project_name, validation_error)) {
+        if (project_root.empty() || project_root == ".") {
+            new_project_error_ = "Project path is empty.";
+        } else if (!IsValidProjectFolderName(project_name, validation_error)) {
             new_project_error_ = validation_error;
         } else {
-            const std::filesystem::path project_root =
-                (ProjectsRootPath() / project_name).lexically_normal();
             std::string creation_error;
             if (!CreateProjectSkeleton(project_root, project_name,
                                        creation_error)) {
@@ -1237,7 +1324,7 @@ void EditorOverlay::RenderNewProjectWindow(EditorOverlayResult &result) {
             } else {
                 result.open_project_requested = true;
                 result.requested_project_root = project_root;
-                new_project_name_.clear();
+                new_project_path_.clear();
                 new_project_error_.clear();
                 show_new_project_window_ = false;
             }
@@ -1246,7 +1333,7 @@ void EditorOverlay::RenderNewProjectWindow(EditorOverlayResult &result) {
     ImGui::SameLine();
     if (ImGui::Button("Cancel", ImVec2(120.0f, 0.0f))) {
         show_new_project_window_ = false;
-        new_project_name_.clear();
+        new_project_path_.clear();
         new_project_error_.clear();
     }
 

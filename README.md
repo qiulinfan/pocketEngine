@@ -29,29 +29,30 @@ The game has a Unity-like editor layout and runtime integration with:
 Install:
 ```bash
 git clone https://github.com/qiulinfan/pocketEngine.git
+```
+
+Build:
+```bash
 cd pocketEngine
 cmake --preset unix-makefiles-release
 cmake --build --preset unix-makefiles-release -j4
 ```
-Run from the project root:
+
+Run the editor from the project root:
 ```bash
 ./pocket
+```
+
+Run the game executable:
+```bash
 ./game
 ```
 
 ### Windows Release
 Requires:
 - Visual Studio 2022 with `Desktop development with C++`
-- Git in `PATH`
 
-#### Method 1: Manual Clone, Build, Run
-
-Clone this repository and enter the repo in PowerShell:
-
-```powershell
-git clone https://github.com/qiulinfan/pocketEngine.git
-cd .\pocketEngine
-```
+Download the source from GitHub and extract it. Then open PowerShell in the extracted `pocketEngine` folder.
 
 Build:
 
@@ -60,26 +61,16 @@ cmake --preset vs2022-x64
 cmake --build --preset vs-release
 ```
 
-Run:
+Run the editor:
 
 ```powershell
 .\pocket.exe
-.\game.exe
 ```
 
-#### Method 2: Windows Quick Install
-
-If you want a one-shot Windows install, the PowerShell helper below:
-- clones or updates PocketEngine into `C:\ProgramData\PocketEngine`
-- configures and builds the `Release` preset
-- creates `PocketEngine Editor` and `PocketEngine Runtime` shortcuts on the current user's desktop
-
-Run PowerShell as Administrator if you want to keep the default `C:\ProgramData\PocketEngine` install path and have the shortcuts created on Desktop:
+Run the game executable:
 
 ```powershell
-$script = Join-Path $env:TEMP "win_install.ps1"
-Invoke-WebRequest "https://raw.githubusercontent.com/qiulinfan/pocketEngine/main/scripts/win_install.ps1" -OutFile $script
-powershell -ExecutionPolicy Bypass -File $script
+.\game.exe
 ```
 
 ## Repository Layout and Architecture
@@ -94,13 +85,25 @@ powershell -ExecutionPolicy Bypass -File $script
 - `.engine/*`: editor-facing config, state, fonts, and icons
 - `thirdparty/*`: dependencies
 
+## Projects
+PocketEngine suggests project management in the `Projects/` directory, butyou are also welcome to create projects anywhere and open them with the editor through `File -> Open Project...`.
+
+There is a sample project(the ballgame) bundled with installation of the engine, located at `Projects/Default/`. The editor opens this project by default on startup, so it is recommended to keep it
+ and the editor's default project root. 
+
+`File -> New Project...` creates a complete minimal project. Linux users can type any local or absolute path, and Windows/macOS users can also use a system-native UI to choose the location.
+
+## Architecture Illustration
+A new project is initialized with `game.config`, `rendering.config`, `scenes/main.scene`, `actor_templates/empty.template`, and the standard project direcgtories: `audio/`, `component_types/`, `fonts/`, `images/`, `scenes/`, and `actor_templates/`.
+
 All files under `docs/architecture/` are diagram-only for explaining the architecture.
 - [Frame Pipeline](docs/architecture/frame-pipeline.md)
 - [Asset Pipeline](docs/architecture/asset-pipeline.md)
 - [Module Dependency](docs/architecture/module-dependency.md)
 - [Editor Workflow](docs/architecture/editor-workflow.md)
+
 ## Sample Project
-`Projects/Default/` contains the default sample project. You can also use the editor's `File -> Open Project...` menu to open another folder as the logical project resources root, either inside `Projects/` or anywhere outside the engine repository.
+`Projects/Default/` contains the default sample project.
 
 ## License
 
