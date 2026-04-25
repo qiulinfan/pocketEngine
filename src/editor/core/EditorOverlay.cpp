@@ -30,6 +30,7 @@
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <optional>
 #include <string>
 #include <vector>
@@ -117,6 +118,128 @@ std::string TrimTrailingLineBreaks(std::string value) {
 }
 #endif
 
+std::string TrimWhitespace(std::string value) {
+    while (!value.empty() &&
+           std::isspace(static_cast<unsigned char>(value.front()))) {
+        value.erase(value.begin());
+    }
+    while (!value.empty() &&
+           std::isspace(static_cast<unsigned char>(value.back()))) {
+        value.pop_back();
+    }
+    return value;
+}
+
+bool IsValidProjectFolderName(const std::string &name, std::string &error) {
+    if (name.empty()) {
+        error = "Project name is empty.";
+        return false;
+    }
+    if (name == "." || name == "..") {
+        error = "Project name cannot be '.' or '..'.";
+        return false;
+    }
+    if (name.back() == '.') {
+        error = "Project name cannot end with a dot.";
+        return false;
+    }
+    for (const char ch : name) {
+        const unsigned char uch = static_cast<unsigned char>(ch);
+        if (uch < 32) {
+            error = "Project name cannot contain control characters.";
+            return false;
+        }
+        if (ch == '/' || ch == '\\') {
+            error = "Project name cannot contain path separators.";
+            return false;
+        }
+        if (ch == '<' || ch == '>' || ch == ':' || ch == '"' ||
+            ch == '|' || ch == '?' || ch == '*') {
+            error = "Project name contains a character Windows cannot use.";
+            return false;
+        }
+    }
+    return true;
+}
+
+std::filesystem::path ProjectsRootPath() {
+    return std::filesystem::path("Projects");
+}
+
+std::string GenerateDefaultProjectName() {
+    const std::filesystem::path projects_root = ProjectsRootPath();
+    for (int index = 1; index < 10000; ++index) {
+        const std::string candidate = "NewProject(" + std::to_string(index) + ")";
+        if (!std::filesystem::exists(projects_root / candidate)) {
+            return candidate;
+        }
+    }
+    return "NewProject";
+}
+
+bool WriteTextFileIfMissing(const std::filesystem::path &path,
+                            const std::string &contents) {
+    if (std::filesystem::exists(path)) return true;
+    std::ofstream output_file(path, std::ios::out | std::ios::trunc);
+    if (!output_file.is_open()) return false;
+    output_file << contents;
+    return output_file.good();
+}
+
+bool CreateProjectSkeleton(const std::filesystem::path &project_root,
+                           const std::string &project_name,
+                           std::string &error) {
+    std::error_code fs_error;
+    if (std::filesystem::exists(project_root, fs_error)) {
+        error = "Project folder already exists.";
+        return false;
+    }
+    if (!std::filesystem::create_directories(project_root, fs_error) ||
+        fs_error) {
+        error = "Could not create project folder.";
+        return false;
+    }
+
+    const char *subdirectories[] = {
+        "actor_templates", "audio", "component_types", "fonts",
+        "images", "scenes"
+    };
+    for (const char *subdirectory : subdirectories) {
+        if (!std::filesystem::create_directories(project_root / subdirectory,
+                                                 fs_error) ||
+            fs_error) {
+            error = "Could not create project subfolders.";
+            return false;
+        }
+    }
+
+    const std::string game_config =
+        "{\n"
+        "  \"game_title\": \"" + project_name + "\",\n"
+        "  \"initial_scene\": \"\"\n"
+        "}\n";
+    if (!WriteTextFileIfMissing(project_root / "game.config", game_config)) {
+        error = "Could not write game.config.";
+        return false;
+    }
+
+    const std::string rendering_config =
+        "{\n"
+        "  \"clear_color_r\": 255,\n"
+        "  \"clear_color_g\": 255,\n"
+        "  \"clear_color_b\": 255,\n"
+        "  \"x_resolution\": 640,\n"
+        "  \"y_resolution\": 360\n"
+        "}\n";
+    if (!WriteTextFileIfMissing(project_root / "rendering.config",
+                                rendering_config)) {
+        error = "Could not write rendering.config.";
+        return false;
+    }
+
+    return true;
+}
+
 std::optional<std::filesystem::path> OpenNativeProjectFolderPicker() {
 #if defined(_WIN32)
     HRESULT init_result =
@@ -188,7 +311,10 @@ void BuildMainMenuBar(bool &show_metrics_window,
                       bool &show_game_config_window,
                       bool &show_rendering_config_window,
                       bool &show_external_editors_window,
+                      bool &show_new_project_window,
                       bool &show_open_project_window,
+                      std::string &new_project_name,
+                      std::string &new_project_error,
                       std::string &open_project_path,
                       const EditorConfigData &editor_config,
                       const SceneDocument &scene_document,
@@ -199,6 +325,11 @@ void BuildMainMenuBar(bool &show_metrics_window,
     if (!ImGui::BeginMainMenuBar()) return;
 
     if (ImGui::BeginMenu("File")) {
+        if (ImGui::MenuItem("New Project...")) {
+            new_project_name.clear();
+            new_project_error.clear();
+            show_new_project_window = true;
+        }
         if (ImGui::MenuItem("Open Project...")) {
             const std::optional<std::filesystem::path> selected_path =
                 OpenNativeProjectFolderPicker();
@@ -720,10 +851,11 @@ EditorOverlayResult EditorOverlay::Render(Engine &engine,
     BuildMainMenuBar(show_metrics_window_,
                      show_editor_settings_window_, show_game_config_window_,
                      show_rendering_config_window_,
-                     show_external_editors_window_, show_open_project_window_,
-                     open_project_path_, editor_config, scene_document,
-                     play_mode_active, play_mode_paused, window_fullscreen,
-                     scene_save_enabled, result);
+                     show_external_editors_window_, show_new_project_window_,
+                     show_open_project_window_, new_project_name_,
+                     new_project_error_, open_project_path_, editor_config,
+                     scene_document, play_mode_active, play_mode_paused,
+                     window_fullscreen, scene_save_enabled, result);
 
     ImGuiViewport *main_viewport = ImGui::GetMainViewport();
     ImGui::DockSpaceOverViewport(0, main_viewport, ImGuiDockNodeFlags_None);
@@ -822,6 +954,7 @@ EditorOverlayResult EditorOverlay::Render(Engine &engine,
 
     RenderEditorSettingsWindow(engine, editor_config, result);
     RenderProjectConfigWindows();
+    RenderNewProjectWindow(result);
     RenderOpenProjectWindow(result);
     RenderEditorConfigConfirmationWindow(editor_config_confirmation_pending,
                                          result);
@@ -1051,6 +1184,68 @@ void EditorOverlay::RenderProjectConfigWindows() {
         }
         ImGui::End();
     }
+}
+
+void EditorOverlay::RenderNewProjectWindow(EditorOverlayResult &result) {
+    if (!show_new_project_window_) return;
+
+    ImGui::SetNextWindowSize(ImVec2(560.0f, 0.0f), ImGuiCond_Appearing);
+    if (!ImGui::Begin("New Project", &show_new_project_window_)) {
+        ImGui::End();
+        return;
+    }
+
+    ImGui::TextUnformatted("Create a new project inside Projects/.");
+    ImGui::TextDisabled(
+        "Leave the name empty to use the next NewProject(n) folder.");
+    ImGui::Separator();
+
+    InputTextString("Project Name", new_project_name_,
+                    "e.g. MyGame, Sandbox, NewProject(1)");
+
+    const std::string trimmed_name = TrimWhitespace(new_project_name_);
+    const std::string preview_name =
+        trimmed_name.empty() ? GenerateDefaultProjectName() : trimmed_name;
+    const std::filesystem::path preview_path =
+        ProjectsRootPath() / preview_name;
+    ImGui::TextDisabled("Will create: %s",
+                        preview_path.lexically_normal().string().c_str());
+
+    if (!new_project_error_.empty()) {
+        ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.35f, 1.0f), "%s",
+                           new_project_error_.c_str());
+    }
+
+    if (ImGui::Button("Create", ImVec2(120.0f, 0.0f))) {
+        const std::string project_name =
+            trimmed_name.empty() ? GenerateDefaultProjectName() : trimmed_name;
+        std::string validation_error;
+        if (!IsValidProjectFolderName(project_name, validation_error)) {
+            new_project_error_ = validation_error;
+        } else {
+            const std::filesystem::path project_root =
+                (ProjectsRootPath() / project_name).lexically_normal();
+            std::string creation_error;
+            if (!CreateProjectSkeleton(project_root, project_name,
+                                       creation_error)) {
+                new_project_error_ = creation_error;
+            } else {
+                result.open_project_requested = true;
+                result.requested_project_root = project_root;
+                new_project_name_.clear();
+                new_project_error_.clear();
+                show_new_project_window_ = false;
+            }
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel", ImVec2(120.0f, 0.0f))) {
+        show_new_project_window_ = false;
+        new_project_name_.clear();
+        new_project_error_.clear();
+    }
+
+    ImGui::End();
 }
 
 void EditorOverlay::RenderOpenProjectWindow(EditorOverlayResult &result) {

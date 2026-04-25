@@ -83,6 +83,7 @@ private:
     void ShowExternalEditorMissingConfigNotice(EditorExternalFileType type);
     // Render the project-level config editors that write directly to disk.
     void RenderProjectConfigWindows();
+    void RenderNewProjectWindow(EditorOverlayResult &result);
     void RenderOpenProjectWindow(EditorOverlayResult &result);
     // Render the editor-local settings window that edits overlay/window
     // parameters instead of asking users to edit editor.config by hand.
@@ -103,6 +104,7 @@ private:
     bool show_game_config_window_ = false;
     bool show_rendering_config_window_ = false;
     bool show_external_editors_window_ = false;
+    bool show_new_project_window_ = false;
     bool show_open_project_window_ = false;
     float applied_ui_scale_ = 1.0f;
     bool project_config_loaded_ = false;
@@ -125,6 +127,8 @@ private:
     bool show_transient_notice_ = false;
     double transient_notice_expire_time_ = 0.0;
     std::string transient_notice_text_;
+    std::string new_project_name_;
+    std::string new_project_error_;
     std::string open_project_path_;
     std::string open_project_error_;
 };
