@@ -51,6 +51,8 @@ private:
     SDL_Texture *runtime_render_target_ = nullptr;
     int runtime_render_target_width_ = 0;
     int runtime_render_target_height_ = 0;
+    int requested_runtime_render_target_width_ = 0;
+    int requested_runtime_render_target_height_ = 0;
     SDL_Texture *scene_preview_render_target_ = nullptr;
     int scene_preview_render_target_width_ = 0;
     int scene_preview_render_target_height_ = 0;
@@ -170,6 +172,8 @@ public:
     // Toggle offscreen runtime rendering for the docked editor viewport.
     // 切换用于编辑器嵌入视口的离屏运行时渲染.
     void SetRenderRuntimeToTexture(bool enabled);
+    // Request the editor runtime target size for the next runtime render pass.
+    void SetRuntimeRenderTargetSize(int width, int height);
     // Return the latest runtime render target for ImGui::Image().
     // 返回给 ImGui::Image() 使用的最新运行时渲染目标.
     SDL_Texture *GetRuntimeRenderTarget() const;

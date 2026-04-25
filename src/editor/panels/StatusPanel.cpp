@@ -77,10 +77,13 @@ void RenderStatusPanel(const Engine &engine, const SceneDocument &scene_document
                        bool play_mode_active, bool play_mode_paused,
                        bool edit_mode_live_preview_enabled,
                        float applied_ui_scale) {
+    if (!ImGui::Begin("Status")) {
+        ImGui::End();
+        return;
+    }
+
     UpdateEditorFrameSample();
     const StatusSampleState &state = GetStatusSampleState();
-
-    ImGui::Begin("Status");
 
     const char *mode_label =
         !play_mode_active

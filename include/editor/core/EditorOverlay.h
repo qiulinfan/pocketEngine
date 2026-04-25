@@ -39,6 +39,7 @@ struct EditorOverlayResult {
     bool play_mode_stop_requested = false;
     bool edit_mode_live_preview_toggle_requested = false;
     bool toggle_fullscreen_requested = false;
+    bool runtime_view_visible = false;
     std::size_t scene_edit_commands_runtime_synced_begin_index = 0;
     std::size_t scene_edit_commands_runtime_synced_end_index = 0;
 };

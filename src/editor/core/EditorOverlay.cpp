@@ -1031,6 +1031,12 @@ EditorOverlayResult EditorOverlay::Render(Engine &engine,
     const EditorPanels::ViewportControlsResult viewport_controls =
         EditorPanels::RenderViewportPanel(engine, play_mode_active,
                                           play_mode_paused);
+    result.runtime_view_visible = viewport_controls.panel_visible;
+    if (viewport_controls.panel_visible) {
+        engine.SetRuntimeRenderTargetSize(
+            viewport_controls.requested_texture_width,
+            viewport_controls.requested_texture_height);
+    }
     result.play_mode_start_requested |= viewport_controls.play_mode_start_requested;
     result.play_mode_pause_toggle_requested |= viewport_controls.play_mode_pause_toggle_requested;
     result.play_mode_stop_requested |= viewport_controls.play_mode_stop_requested;

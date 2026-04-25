@@ -735,6 +735,18 @@ void Engine::SetRenderRuntimeToTexture(bool enabled) {
     ensureRuntimeRenderTarget();
 }
 
+void Engine::SetRuntimeRenderTargetSize(int width, int height) {
+    const int safe_width = std::max(1, width);
+    const int safe_height = std::max(1, height);
+    if (requested_runtime_render_target_width_ == safe_width &&
+        requested_runtime_render_target_height_ == safe_height) {
+        return;
+    }
+
+    requested_runtime_render_target_width_ = safe_width;
+    requested_runtime_render_target_height_ = safe_height;
+}
+
 /* Return the latest runtime render target for ImGui::Image(). */
 SDL_Texture *Engine::GetRuntimeRenderTarget() const {return runtime_render_target_;}
 int Engine::GetRuntimeRenderTargetWidth() const {return runtime_render_target_width_;}
@@ -1546,24 +1558,33 @@ void Engine::ensureRuntimeRenderTarget() {
     if (!render_runtime_to_texture_) return;
     if (renderer == nullptr) return;
 
+    const int desired_width =
+        std::max(1, requested_runtime_render_target_width_ > 0
+                        ? requested_runtime_render_target_width_
+                        : config_.window_width);
+    const int desired_height =
+        std::max(1, requested_runtime_render_target_height_ > 0
+                        ? requested_runtime_render_target_height_
+                        : config_.window_height);
+
     if (runtime_render_target_ != nullptr &&
-        runtime_render_target_width_ == config_.window_width &&
-        runtime_render_target_height_ == config_.window_height) {
+        runtime_render_target_width_ == desired_width &&
+        runtime_render_target_height_ == desired_height) {
         return;
     }
 
     destroyRuntimeRenderTarget();
     runtime_render_target_ = SDL_CreateTexture(
         renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET,
-        config_.window_width, config_.window_height);
+        desired_width, desired_height);
     if (runtime_render_target_ == nullptr) {
         render_runtime_to_texture_ = false;
         return;
     }
 
     SDL_SetTextureBlendMode(runtime_render_target_, SDL_BLENDMODE_BLEND);
-    runtime_render_target_width_ = config_.window_width;
-    runtime_render_target_height_ = config_.window_height;
+    runtime_render_target_width_ = desired_width;
+    runtime_render_target_height_ = desired_height;
 }
 
 /*

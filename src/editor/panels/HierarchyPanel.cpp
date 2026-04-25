@@ -496,7 +496,10 @@ bool RenderHierarchyPanel(Engine &engine, SceneDocument &scene_document,
                           std::vector<SceneFormat::SceneEditCommand>
                               *out_edit_commands) {
     bool scene_changed = false;
-    ImGui::Begin("Hierarchy");
+    if (!ImGui::Begin("Hierarchy")) {
+        ImGui::End();
+        return false;
+    }
     EnsureValidSceneSelection(scene_document, selected_actor_index);
     EnsureValidRuntimeSelection(engine, selected_runtime_actor_uid);
 

@@ -6,6 +6,9 @@ class Engine;
 namespace EditorPanels {
 
 struct ViewportControlsResult {
+    bool panel_visible = false;
+    int requested_texture_width = 0;
+    int requested_texture_height = 0;
     bool play_mode_start_requested = false;
     bool play_mode_pause_toggle_requested = false;
     bool play_mode_stop_requested = false;

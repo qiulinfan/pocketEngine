@@ -557,7 +557,10 @@ bool RenderInspectorPanel(const Engine &engine, SceneDocument &scene_document,
     */
     bool scene_changed = false;
 
-    ImGui::Begin("Inspector");
+    if (!ImGui::Begin("Inspector")) {
+        ImGui::End();
+        return false;
+    }
     EnsureValidSelection(scene_document, selected_actor_index);
 
     if (selected_actor_index < 0) {

@@ -469,6 +469,7 @@ bool EditorApp::BootstrapEngineForCurrentProject() {
     ApplyEditorWindowSettings();
     engine_->SetRenderRuntimeToTexture(true);
     engine_->SetAudioPlaybackEnabled(false);
+    runtime_view_visible_last_frame_ = true;
     scene_session_.LoadInitialScene(*engine_);
 
     if (!overlay_.Initialize(engine_->GetWindow(), engine_->GetRenderer())) {
@@ -567,6 +568,11 @@ void EditorApp::Run() {
             engine_->RunSingleFrame(quit_requested_this_frame);
         } else if (play_mode_active && play_mode_paused) {
             // Pause keeps the exact last gameplay frame visible.
+            engine_->RunPresentPausedFrame(quit_requested_this_frame);
+        } else if (!runtime_view_visible_last_frame_ &&
+                   !edit_mode_live_preview_enabled) {
+            // No visible game viewport in edit mode: keep the editor host
+            // frame fresh without spending a pass on an unused runtime target.
             engine_->RunPresentPausedFrame(quit_requested_this_frame);
         } else {
             // Edit mode renders a non-simulating preview from current state.
@@ -672,6 +678,7 @@ void EditorApp::Run() {
                 pending_project_root =
                     overlay_result.requested_project_root;
             }
+            runtime_view_visible_last_frame_ = overlay_result.runtime_view_visible;
         }
         // Present once after both runtime and editor UI have been drawn
         engine_->PresentFrame(advance_gameplay_frame);

@@ -44,6 +44,7 @@ private:
     std::unique_ptr<Engine> engine_;
     EditorOverlay overlay_;
     EditorSceneSession scene_session_;
+    bool runtime_view_visible_last_frame_ = true;
 };
 
 #endif

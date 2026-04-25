@@ -3,6 +3,7 @@
 #include "imgui.h"
 #include "SDL2/SDL.h"
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 
 namespace EditorPanels {
@@ -27,6 +28,10 @@ ImVec2 FitRuntimeImage(const ImVec2 &available_size, int texture_width, int text
     const float height_scale = available_size.y / safe_texture_height;
     const float image_scale = std::max(0.0f, std::min(width_scale, height_scale));
     return ImVec2(safe_texture_width * image_scale, safe_texture_height * image_scale);
+}
+
+int TextureDimensionFromPanelSpace(float value) {
+    return std::max(1, static_cast<int>(std::floor(value)));
 }
 
 void DrawTransportIcon(ImDrawList *draw_list, const ImVec2 &min, const ImVec2 &max, TransportIcon icon, ImU32 icon_color) {
@@ -166,9 +171,20 @@ ViewportControlsResult RenderViewportPanel(const Engine &engine,
     ViewportControlsResult controls_result;
     // Viewport is the bridge between runtime and editor: runtime renders into
     // an offscreen SDL texture, then ImGui displays that texture in-panel.
-    ImGui::Begin("Viewport", nullptr,
-                 ImGuiWindowFlags_NoScrollbar |
-                     ImGuiWindowFlags_NoScrollWithMouse);
+    if (!ImGui::Begin("Viewport", nullptr,
+                      ImGuiWindowFlags_NoScrollbar |
+                          ImGuiWindowFlags_NoScrollWithMouse)) {
+        ImGui::End();
+        return controls_result;
+    }
+
+    controls_result.panel_visible = true;
+    const ImVec2 available_size = ImGui::GetContentRegionAvail();
+    controls_result.requested_texture_width =
+        TextureDimensionFromPanelSpace(available_size.x);
+    controls_result.requested_texture_height =
+        TextureDimensionFromPanelSpace(available_size.y);
+
     SDL_Texture *runtime_texture = engine.GetRuntimeRenderTarget();
     if (runtime_texture == nullptr) {
         ImGui::TextUnformatted("Runtime viewport is not available yet.");
@@ -176,7 +192,6 @@ ViewportControlsResult RenderViewportPanel(const Engine &engine,
         return controls_result;
     }
 
-    const ImVec2 available_size = ImGui::GetContentRegionAvail();
     const ImVec2 image_size = FitRuntimeImage(available_size, engine.GetRuntimeRenderTargetWidth(), engine.GetRuntimeRenderTargetHeight());
     const ImVec2 cursor_screen_pos = ImGui::GetCursorScreenPos();
     const ImVec2 centered_cursor(

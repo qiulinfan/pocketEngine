@@ -699,9 +699,16 @@ void Engine::render() {
     ParticleManager::QueueRenderBatches();
 
     const float zoom_factor = std::clamp(runtime_zoom_factor, kMinZoomFactor, kMaxZoomFactor);
+    const int render_width =
+        (render_runtime_to_texture_ && runtime_render_target_ != nullptr)
+            ? runtime_render_target_width_
+            : config_.window_width;
+    const int render_height =
+        (render_runtime_to_texture_ && runtime_render_target_ != nullptr)
+            ? runtime_render_target_height_
+            : config_.window_height;
     Renderer::RenderFrame(renderer, camera_position.x, camera_position.y,
-                          zoom_factor, config_.window_width,
-                          config_.window_height);
+                          zoom_factor, render_width, render_height);
     RecordRuntimeRenderFrame();
 
     if (render_runtime_to_texture_) {
