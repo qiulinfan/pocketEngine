@@ -20,6 +20,7 @@ struct ProjectPanelResult {
 // Render a read-only browser tree for the active project root.
 // 渲染当前项目根目录的只读工程浏览树.
 ProjectPanelResult RenderProjectPanel( const std::filesystem::path &resources_root, SDL_Renderer *renderer);
+void InvalidateProjectPanelCache();
 
 } // namespace EditorPanels
 

@@ -138,14 +138,26 @@ inline int PathPriority(const std::filesystem::path &relative_parent,
     return 2;
 }
 
+inline std::filesystem::path LexicalRelativeParentPath(
+    const std::filesystem::path &path, const std::filesystem::path &root) {
+    const std::filesystem::path normalized_root = root.lexically_normal();
+    const std::filesystem::path normalized_parent =
+        path.parent_path().lexically_normal();
+    if (!IsPathWithinDirectory(normalized_parent, normalized_root)) {
+        return NormalizeRelativePath(normalized_parent);
+    }
+    return NormalizeRelativePath(
+        normalized_parent.lexically_relative(normalized_root));
+}
+
 inline bool ComparePathsWithPreference(
     const std::filesystem::path &a, const std::filesystem::path &b,
     const std::filesystem::path &root,
     const std::filesystem::path &preferred_subdirectory) {
     const std::filesystem::path a_relative_parent =
-        NormalizeRelativePath(std::filesystem::relative(a.parent_path(), root));
+        LexicalRelativeParentPath(a, root);
     const std::filesystem::path b_relative_parent =
-        NormalizeRelativePath(std::filesystem::relative(b.parent_path(), root));
+        LexicalRelativeParentPath(b, root);
         const int a_priority = PathPriority(a_relative_parent, preferred_subdirectory);
         const int b_priority = PathPriority(b_relative_parent, preferred_subdirectory);
     if (a_priority != b_priority) return a_priority < b_priority;

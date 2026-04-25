@@ -788,6 +788,7 @@ void EditorOverlay::SetRuntimeInputRoutingState(bool play_mode_active,
 }
 
 void EditorOverlay::NotifyProjectChanged() {
+    EditorPanels::InvalidateProjectPanelCache();
     project_config_loaded_ = false;
     selected_actor_index_ = -1;
     selected_runtime_actor_uid_ = Actor::kInvalidUID;

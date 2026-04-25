@@ -27,6 +27,23 @@ struct ProjectEntry {
     bool is_directory = false;
 };
 
+struct DirectoryListing {
+    std::vector<ProjectEntry> entries;
+    bool loaded = false;
+    bool is_directory = false;
+    int last_refresh_frame = -1;
+};
+
+struct DirectoryListingCache {
+    std::filesystem::path resources_root;
+    std::unordered_map<std::string, DirectoryListing> directories;
+};
+
+struct ProjectPanelState {
+    std::filesystem::path selected_directory;
+    std::filesystem::path selected_entry;
+};
+
 // File type classification drives icon choice plus double-click behavior.
 enum class EntryKind {
     Directory,
@@ -72,6 +89,8 @@ struct SpritesheetPopupState {
     int columns = 1;
 };
 
+constexpr int kDirectoryListingRefreshIntervalFrames = 60;
+
 std::string ToLower(std::string text) {
     std::transform(text.begin(), text.end(), text.begin(),
                    [](unsigned char ch) {
@@ -81,15 +100,22 @@ std::string ToLower(std::string text) {
 }
 
 /*
-Read one directory and return entries in a stable UI order:
+Read one directory from disk and return entries in a stable UI order:
 directories first, then files, both alphabetically.
 */
-std::vector<ProjectEntry> CollectSortedEntries(const std::filesystem::path &directory_path) {
+std::vector<ProjectEntry> LoadSortedEntries(
+    const std::filesystem::path &directory_path, bool &out_is_directory) {
     std::vector<ProjectEntry> entries;
-    if (!std::filesystem::exists(directory_path) ||
-        !std::filesystem::is_directory(directory_path)) {
+    out_is_directory = false;
+
+    std::error_code status_error;
+    if (!std::filesystem::exists(directory_path, status_error) ||
+        status_error ||
+        !std::filesystem::is_directory(directory_path, status_error) ||
+        status_error) {
         return entries;
     }
+    out_is_directory = true;
 
     std::error_code iterate_error;
     // list directories first, then files, both sorted alphabetically
@@ -100,9 +126,10 @@ std::vector<ProjectEntry> CollectSortedEntries(const std::filesystem::path &dire
         if (!filename.empty() && filename.front() == '.') {
             continue;
         }
+        std::error_code entry_error;
         ProjectEntry project_entry;
-        project_entry.path = entry.path();
-        project_entry.is_directory = entry.is_directory();
+        project_entry.path = entry.path().lexically_normal();
+        project_entry.is_directory = entry.is_directory(entry_error);
         entries.emplace_back(std::move(project_entry));
     }
 
@@ -200,6 +227,16 @@ ImageTextureCache &GetImageTextureCache() {
     return cache;
 }
 
+DirectoryListingCache &GetDirectoryListingCache() {
+    static DirectoryListingCache cache;
+    return cache;
+}
+
+ProjectPanelState &GetProjectPanelState() {
+    static ProjectPanelState state;
+    return state;
+}
+
 SpritesheetPopupState &GetSpritesheetPopupState() {
     static SpritesheetPopupState state;
     return state;
@@ -208,6 +245,14 @@ SpritesheetPopupState &GetSpritesheetPopupState() {
 std::unordered_map<std::string, bool> &GetExpandedSpritesheetState() {
     static std::unordered_map<std::string, bool> state;
     return state;
+}
+
+std::string DirectoryCacheKey(const std::filesystem::path &directory_path) {
+    return directory_path.lexically_normal().generic_string();
+}
+
+void InvalidateDirectoryListings() {
+    GetDirectoryListingCache().directories.clear();
 }
 
 void DestroyTextureCache(ImageTextureCache &cache) {
@@ -219,16 +264,53 @@ void DestroyTextureCache(ImageTextureCache &cache) {
     cache.textures.clear();
 }
 
-void ResetIconTextureCacheIfRendererChanged(SDL_Renderer *renderer) {
-    IconTextureCache &cache = GetIconTextureCache();
-    if (cache.renderer == renderer) return;
-
+void DestroyIconTextureCache(IconTextureCache &cache) {
     for (const auto &entry : cache.textures) {
         if (entry.second != nullptr) {
             SDL_DestroyTexture(entry.second);
         }
     }
     cache.textures.clear();
+}
+
+const DirectoryListing &GetCachedDirectoryListing(
+    const std::filesystem::path &directory_path, bool force_refresh = false) {
+    DirectoryListingCache &cache = GetDirectoryListingCache();
+    const int frame_count = ImGui::GetFrameCount();
+    const std::string cache_key = DirectoryCacheKey(directory_path);
+    DirectoryListing &listing = cache.directories[cache_key];
+    const bool refresh_due =
+        !listing.loaded ||
+        frame_count - listing.last_refresh_frame >=
+            kDirectoryListingRefreshIntervalFrames;
+    if (force_refresh || refresh_due) {
+        listing.entries =
+            LoadSortedEntries(directory_path.lexically_normal(),
+                              listing.is_directory);
+        listing.loaded = true;
+        listing.last_refresh_frame = frame_count;
+    }
+    return listing;
+}
+
+void ResetProjectPanelForRoot(const std::filesystem::path &resources_root) {
+    DirectoryListingCache &cache = GetDirectoryListingCache();
+    const std::filesystem::path normalized_root = resources_root.lexically_normal();
+    if (cache.resources_root == normalized_root) return;
+
+    cache.resources_root = normalized_root;
+    cache.directories.clear();
+    ProjectPanelState &state = GetProjectPanelState();
+    state.selected_directory.clear();
+    state.selected_entry.clear();
+    GetExpandedSpritesheetState().clear();
+}
+
+void ResetIconTextureCacheIfRendererChanged(SDL_Renderer *renderer) {
+    IconTextureCache &cache = GetIconTextureCache();
+    if (cache.renderer == renderer) return;
+
+    DestroyIconTextureCache(cache);
     cache.renderer = renderer;
 }
 
@@ -523,15 +605,21 @@ std::string BuildTreeLabel(const ProjectEntry &entry) {
 
 std::string BuildDirectoryCaption(const std::filesystem::path &resources_root,
                                   const std::filesystem::path &directory_path) {
-    if (directory_path == resources_root) {
+    const std::filesystem::path normalized_root = resources_root.lexically_normal();
+    const std::filesystem::path normalized_directory =
+        directory_path.lexically_normal();
+    if (normalized_directory == normalized_root) {
         return "Project/";
     }
 
-    std::error_code relative_error;
-    const std::filesystem::path relative_path = std::filesystem::relative( directory_path, resources_root, relative_error);
-    if (relative_error || relative_path.empty()) {
+    if (!ResourcePath::IsPathWithinDirectory(normalized_directory,
+                                             normalized_root)) {
         return "Project/";
     }
+    const std::filesystem::path relative_path =
+        ResourcePath::NormalizeRelativePath(
+            normalized_directory.lexically_relative(normalized_root));
+    if (relative_path.empty()) return "Project/";
     return "Project/" + relative_path.generic_string();
 }
 
@@ -557,14 +645,17 @@ bool BuildDragResourceName(const std::filesystem::path &entry_path,
                            const std::filesystem::path &resource_root,
                            const std::string &expected_extension,
                            std::string &out_resource_name) {
-    if (!ResourcePath::IsPathWithinDirectory(entry_path, resource_root)) {
+    const std::filesystem::path normalized_entry = entry_path.lexically_normal();
+    const std::filesystem::path normalized_root = resource_root.lexically_normal();
+    if (!ResourcePath::IsPathWithinDirectory(normalized_entry,
+                                             normalized_root)) {
         return false;
     }
 
-    std::error_code relative_error;
     std::filesystem::path relative_path =
-        std::filesystem::relative(entry_path, resource_root, relative_error);
-    if (relative_error || relative_path.empty()) {
+        ResourcePath::NormalizeRelativePath(
+            normalized_entry.lexically_relative(normalized_root));
+    if (relative_path.empty()) {
         return false;
     }
 
@@ -673,16 +764,25 @@ void RenderEntryDragSourceIfSupported(const ProjectEntry &entry,
 void RenderDirectoryTree(const std::filesystem::path &resources_root,
                          const std::filesystem::path &directory_path,
                          std::filesystem::path &selected_directory) {
-    const std::vector<ProjectEntry> entries = CollectSortedEntries(directory_path);
+    const DirectoryListing &listing = GetCachedDirectoryListing(directory_path);
+    if (!listing.is_directory) return;
+    const std::filesystem::path normalized_root =
+        resources_root.lexically_normal();
 
-    for (const ProjectEntry &entry : entries) {
+    for (const ProjectEntry &entry : listing.entries) {
         if (!entry.is_directory) {
             continue;
         }
 
-        std::error_code relative_error;
-        const std::filesystem::path relative_path = std::filesystem::relative(entry.path, resources_root, relative_error);
-        if (relative_error) continue;
+        const std::filesystem::path relative_path =
+            ResourcePath::NormalizeRelativePath(
+                entry.path.lexically_normal().lexically_relative(
+                    normalized_root));
+        if (relative_path.empty() ||
+            !ResourcePath::IsPathWithinDirectory(entry.path,
+                                                 normalized_root)) {
+            continue;
+        }
 
         ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
         if (entry.path == selected_directory) {
@@ -946,8 +1046,12 @@ void RenderDirectoryGrid(const std::filesystem::path &resources_root,
                          std::filesystem::path &selected_entry,
                          SDL_Renderer *renderer,
                          ProjectPanelResult &result) {
-    const std::vector<ProjectEntry> entries = CollectSortedEntries(directory_path);
-    if (entries.empty()) {
+    const DirectoryListing &listing = GetCachedDirectoryListing(directory_path);
+    if (!listing.is_directory) {
+        ImGui::TextDisabled("This folder is not available.");
+        return;
+    }
+    if (listing.entries.empty()) {
         ImGui::TextDisabled("This folder is empty.");
         return;
     }
@@ -965,7 +1069,7 @@ void RenderDirectoryGrid(const std::filesystem::path &resources_root,
     */
     std::filesystem::path next_directory;
     int column_index = 0;
-    for (const ProjectEntry &entry : entries) {
+    for (const ProjectEntry &entry : listing.entries) {
         if (column_index > 0) {
             ImGui::SameLine(0.0f, kTileSpacing);
         }
@@ -1038,31 +1142,49 @@ void RenderDirectoryGrid(const std::filesystem::path &resources_root,
 ProjectPanelResult RenderProjectPanel( const std::filesystem::path &resources_root, SDL_Renderer *renderer) {
     // Project panel owns only UI-navigation state. The actual file-system state
     // lives on disk, and open requests are returned to the host as a result.
-    static std::filesystem::path selected_directory;
-    static std::filesystem::path selected_entry;
     ProjectPanelResult result;
+    ResetProjectPanelForRoot(resources_root);
     ResetIconTextureCacheIfRendererChanged(renderer);
     ResetImageTextureCacheIfRendererChanged(renderer);
 
-    ImGui::Begin("Project");
+    const bool window_visible = ImGui::Begin("Project");
+    if (!window_visible) {
+        ImGui::End();
+        return result;
+    }
 
-    if (!std::filesystem::exists(resources_root) ||
-        !std::filesystem::is_directory(resources_root)) {
+    const std::filesystem::path normalized_root = resources_root.lexically_normal();
+    if (ImGui::Button("Refresh")) {
+        InvalidateDirectoryListings();
+        DestroyTextureCache(GetImageTextureCache());
+    }
+    ImGui::Separator();
+
+    const DirectoryListing &root_listing =
+        GetCachedDirectoryListing(normalized_root);
+    if (!root_listing.is_directory) {
         ImGui::TextUnformatted("Project folder not found.");
         ImGui::End();
         return result;
     }
 
+    ProjectPanelState &state = GetProjectPanelState();
     // If the remembered directory disappeared, fall back to the project root.
-    if (selected_directory.empty() || !std::filesystem::exists(selected_directory) ||
-        !std::filesystem::is_directory(selected_directory) ||
-        !ResourcePath::IsPathWithinDirectory(selected_directory,
-                                             resources_root)) {
-        selected_directory = resources_root;
-        selected_entry.clear();
+    if (state.selected_directory.empty() ||
+        !ResourcePath::IsPathWithinDirectory(state.selected_directory,
+                                             normalized_root)) {
+        state.selected_directory = normalized_root;
+        state.selected_entry.clear();
+    } else {
+        const DirectoryListing &selected_listing =
+            GetCachedDirectoryListing(state.selected_directory);
+        if (!selected_listing.is_directory) {
+            state.selected_directory = normalized_root;
+            state.selected_entry.clear();
+        }
     }
 
-    const std::filesystem::path previous_directory = selected_directory;
+    const std::filesystem::path previous_directory = state.selected_directory;
     const ImGuiTableFlags layout_flags = ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV;
     if (ImGui::BeginTable("project_layout", 2, layout_flags)) {
         ImGui::TableSetupColumn("Tree", ImGuiTableColumnFlags_WidthStretch, 0.32f);
@@ -1074,39 +1196,57 @@ ProjectPanelResult RenderProjectPanel( const std::filesystem::path &resources_ro
         ImGui::Separator();
         ImGui::BeginChild("project_tree", ImVec2(0.0f, 0.0f), false);
         ImGuiTreeNodeFlags root_flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
-        if (selected_directory == resources_root) {
+        if (state.selected_directory == normalized_root) {
             root_flags |= ImGuiTreeNodeFlags_Selected;
         }
         const bool root_open = ImGui::TreeNodeEx("project_root", root_flags, "[DIR] Project");
         if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
-            selected_directory = resources_root;
+            state.selected_directory = normalized_root;
         }
         if (root_open) {
-            RenderDirectoryTree(resources_root, resources_root, selected_directory);
+            RenderDirectoryTree(normalized_root, normalized_root,
+                                state.selected_directory);
             ImGui::TreePop();
         }
         ImGui::EndChild();
 
         // Right: Unity-like tile grid for entries in the current folder.
         ImGui::TableNextColumn();
-        ImGui::Text("Current Folder: %s", BuildDirectoryCaption(resources_root, selected_directory).c_str());
+        ImGui::Text("Current Folder: %s",
+                    BuildDirectoryCaption(normalized_root,
+                                          state.selected_directory)
+                        .c_str());
         ImGui::TextDisabled("click folder to enter, double-click scene to open.");
         ImGui::Separator();
         ImGui::BeginChild("project_grid", ImVec2(0.0f, 0.0f), false);
-        RenderDirectoryGrid(resources_root, selected_directory,
-                            selected_directory, selected_entry, renderer, result);
+        RenderDirectoryGrid(normalized_root, state.selected_directory,
+                            state.selected_directory, state.selected_entry,
+                            renderer, result);
         ImGui::EndChild();
 
         ImGui::EndTable();
     }
 
-    if (selected_directory != previous_directory) {
-        selected_entry.clear();
+    if (state.selected_directory != previous_directory) {
+        state.selected_entry.clear();
     }
 
     RenderSpritesheetPopup(renderer);
     ImGui::End();
     return result;
+}
+
+void InvalidateProjectPanelCache() {
+    InvalidateDirectoryListings();
+
+    ProjectPanelState &state = GetProjectPanelState();
+    state.selected_directory.clear();
+    state.selected_entry.clear();
+
+    GetExpandedSpritesheetState().clear();
+    GetSpritesheetPopupState() = SpritesheetPopupState{};
+    DestroyIconTextureCache(GetIconTextureCache());
+    DestroyTextureCache(GetImageTextureCache());
 }
 
 }
