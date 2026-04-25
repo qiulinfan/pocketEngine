@@ -75,15 +75,17 @@ void RenderStatusPanel(const Engine &engine, const SceneDocument &scene_document
                        int selected_actor_index,
                        Actor::UID selected_runtime_actor_uid,
                        bool play_mode_active, bool play_mode_paused,
+                       bool edit_mode_live_preview_enabled,
                        float applied_ui_scale) {
     UpdateEditorFrameSample();
     const StatusSampleState &state = GetStatusSampleState();
 
     ImGui::Begin("Status");
 
-    const char *mode_label = !play_mode_active
-                                 ? "Edit"
-                                 : (play_mode_paused ? "Play (Paused)" : "Play");
+    const char *mode_label =
+        !play_mode_active
+            ? (edit_mode_live_preview_enabled ? "Edit (Live Preview)" : "Edit")
+            : (play_mode_paused ? "Play (Paused)" : "Play");
     ImGui::Text("Mode: %s", mode_label);
     ImGui::Text("Runtime Scene: %s", engine.GetCurrentSceneName().c_str());
     ImGui::Text("Authoring Scene: %s", scene_document.GetSceneName().c_str());

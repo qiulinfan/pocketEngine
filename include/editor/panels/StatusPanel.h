@@ -14,6 +14,7 @@ void RenderStatusPanel(const Engine &engine, const SceneDocument &scene_document
                        int selected_actor_index,
                        Actor::UID selected_runtime_actor_uid,
                        bool play_mode_active, bool play_mode_paused,
+                       bool edit_mode_live_preview_enabled,
                        float applied_ui_scale);
 
 } // namespace EditorPanels

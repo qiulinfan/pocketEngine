@@ -559,6 +559,8 @@ void EditorApp::Run() {
 
         const bool play_mode_active = scene_session_.IsPlayModeActive();
         const bool play_mode_paused = scene_session_.IsPlayModePaused();
+        const bool edit_mode_live_preview_enabled =
+            scene_session_.IsEditModeLivePreviewEnabled();
         const bool advance_gameplay_frame = play_mode_active && !play_mode_paused;
         if (advance_gameplay_frame) {
             // Play mode advances simulation (OnUpdate + physics).
@@ -568,7 +570,8 @@ void EditorApp::Run() {
             engine_->RunPresentPausedFrame(quit_requested_this_frame);
         } else {
             // Edit mode renders a non-simulating preview from current state.
-            engine_->RunRenderFrozenFrame(quit_requested_this_frame);
+            engine_->RunRenderFrozenFrame(quit_requested_this_frame,
+                                          edit_mode_live_preview_enabled);
         }
         std::filesystem::path pending_project_root;
         {
@@ -578,6 +581,7 @@ void EditorApp::Run() {
                                 editor_config_dirty_,
                                 scene_session_.IsPlayModeActive(),
                                 scene_session_.IsPlayModePaused(),
+                                scene_session_.IsEditModeLivePreviewEnabled(),
                                 scene_session_.IsSceneEditingEnabled(),
                                 scene_session_.IsSceneSaveEnabled());
             for (std::size_t command_index = 0;
@@ -608,6 +612,9 @@ void EditorApp::Run() {
             }
             if (overlay_result.play_mode_stop_requested) {
                 scene_session_.ExitPlayMode(*engine_);
+            }
+            if (overlay_result.edit_mode_live_preview_toggle_requested) {
+                scene_session_.ToggleEditModeLivePreview();
             }
             /*
             Panels report scene_changed for any document mutation, but command-

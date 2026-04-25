@@ -290,13 +290,22 @@ TTF_Font *Renderer::GetFont(const std::string &font_name, int size) {
 }
 
 // resource loading and draw queue entry points
-SDL_Texture *Renderer::LoadTexture(const std::string &image_name,
-                                   SDL_Renderer *renderer) {
-    if (image_name.empty()) return nullptr;
+Renderer::CachedImageTexture *Renderer::LoadTextureResource(
+    const std::string &image_name, SDL_Renderer *renderer) {
+    if (image_name.empty() || renderer == nullptr) return nullptr;
+
+    const std::filesystem::path resources_root =
+        ResourcePath::ResourcesRootPath();
+    if (image_cache_resources_root.empty()) {
+        image_cache_resources_root = resources_root;
+    } else if (image_cache_resources_root != resources_root) {
+        ClearImageTextureCache();
+        image_cache_resources_root = resources_root;
+    }
 
     auto it = image_cache.find(image_name);
     if (it != image_cache.end()) {
-        return it->second;
+        return &it->second;
     }
 
     if (image_name == kDefaultParticleTextureName) {
@@ -306,8 +315,12 @@ SDL_Texture *Renderer::LoadTexture(const std::string &image_name,
                                    "failed to create default particle texture");
             return nullptr;
         }
-        image_cache[image_name] = texture;
-        return texture;
+        CachedImageTexture cached;
+        cached.texture = texture;
+        cached.width = 8.0f;
+        cached.height = 8.0f;
+        auto inserted = image_cache.emplace(image_name, cached);
+        return &inserted.first->second;
     }
 
     std::string image_path = ResolveImagePath(image_name);
@@ -316,10 +329,15 @@ SDL_Texture *Renderer::LoadTexture(const std::string &image_name,
                                "image [" + image_name +
                                    "] missing; using placeholder");
         SDL_Texture *placeholder = CreateMissingTexture(renderer);
-        if (placeholder != nullptr) {
-            image_cache[image_name] = placeholder;
+        if (placeholder == nullptr) {
+            return nullptr;
         }
-        return placeholder;
+        CachedImageTexture cached;
+        cached.texture = placeholder;
+        cached.width = 32.0f;
+        cached.height = 32.0f;
+        auto inserted = image_cache.emplace(image_name, cached);
+        return &inserted.first->second;
     }
 
     SDL_Texture *texture = IMG_LoadTexture(renderer, image_path.c_str());
@@ -330,10 +348,36 @@ SDL_Texture *Renderer::LoadTexture(const std::string &image_name,
         texture = CreateMissingTexture(renderer);
     }
 
-    if (texture != nullptr) {
-        image_cache[image_name] = texture;
+    if (texture == nullptr) {
+        return nullptr;
     }
-    return texture;
+
+    int texture_width = 0;
+    int texture_height = 0;
+    SDL_QueryTexture(texture, nullptr, nullptr, &texture_width, &texture_height);
+
+    CachedImageTexture cached;
+    cached.texture = texture;
+    cached.width = static_cast<float>(texture_width);
+    cached.height = static_cast<float>(texture_height);
+    auto inserted = image_cache.emplace(image_name, cached);
+    return &inserted.first->second;
+}
+
+SDL_Texture *Renderer::LoadTexture(const std::string &image_name,
+                                   SDL_Renderer *renderer) {
+    CachedImageTexture *cached = LoadTextureResource(image_name, renderer);
+    return cached == nullptr ? nullptr : cached->texture;
+}
+
+SDL_Texture *Renderer::LoadTexture(const std::string &image_name,
+                                   SDL_Renderer *renderer, float *width,
+                                   float *height) {
+    CachedImageTexture *cached = LoadTextureResource(image_name, renderer);
+    if (cached == nullptr) return nullptr;
+    if (width != nullptr) *width = cached->width;
+    if (height != nullptr) *height = cached->height;
+    return cached->texture;
 }
 
 // resource loading and draw queue entry points
@@ -417,12 +461,12 @@ void Renderer::RenderAndClearAllImages(SDL_Renderer *renderer, float camera_x,
     const float viewport_height = static_cast<float>(camera_height) * (1.0f / safe_zoom);
 
     const auto render_scene_request = [&](const ImageDrawRequest &request) {
-        SDL_Texture *texture = LoadTexture(request.image_name, renderer);
-        if (texture == nullptr) return;
-
         float texture_w = 0.0f;
         float texture_h = 0.0f;
-        SDLRenderHelper::SDL_QueryTexture(texture, &texture_w, &texture_h);
+        SDL_Texture *texture =
+            LoadTexture(request.image_name, renderer, &texture_w, &texture_h);
+        if (texture == nullptr) return;
+
         SDL_FRect source_rect;
         SDL_FRect *source_rect_ptr = nullptr;
         float draw_width = texture_w;
@@ -504,12 +548,12 @@ void Renderer::RenderAndClearAllImages(SDL_Renderer *renderer, float camera_x,
     SDL_RenderSetScale(renderer, 1.0f, 1.0f);
 
     for (const ImageDrawRequest &request : ui_draw_requests) {
-        SDL_Texture *texture = LoadTexture(request.image_name, renderer);
-        if (texture == nullptr) continue;
-
         float texture_w = 0.0f;
         float texture_h = 0.0f;
-        SDLRenderHelper::SDL_QueryTexture(texture, &texture_w, &texture_h);
+        SDL_Texture *texture =
+            LoadTexture(request.image_name, renderer, &texture_w, &texture_h);
+        if (texture == nullptr) continue;
+
         SDL_FRect source_rect;
         SDL_FRect *source_rect_ptr = nullptr;
         float draw_width = texture_w;
@@ -608,11 +652,18 @@ void Renderer::RenderAndClearAllPixels(SDL_Renderer *renderer) {
 }
 
 // Clear resource caches and per-frame draw queues.
-void Renderer::ClearCache() {
+void Renderer::ClearImageTextureCache() {
     for (auto &entry : image_cache) {
-        if (entry.second != nullptr) SDL_DestroyTexture(entry.second);
+        if (entry.second.texture != nullptr) {
+            SDL_DestroyTexture(entry.second.texture);
+        }
     }
     image_cache.clear();
+}
+
+void Renderer::ClearCache() {
+    ClearImageTextureCache();
+    image_cache_resources_root.clear();
     scene_draw_requests.clear();
     scene_particle_batches.clear();
     ui_draw_requests.clear();

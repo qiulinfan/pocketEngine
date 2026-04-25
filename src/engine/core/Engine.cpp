@@ -436,20 +436,23 @@ void Engine::RunSingleFrame(bool quit_requested_this_frame) {
 /*
 renders a frozen preview frame:
 no gameplay update (component updates, physics step, or any frame advance).
-except  deferred scene load / OnStart work so the preview reflects.
-(we consider them to be logically last frames' behaviors)
+Edit mode stays static by default; live preview may explicitly flush OnStart.
 */
-void Engine::RunRenderFrozenFrame(bool quit_requested_this_frame) {
+void Engine::RunRenderFrozenFrame(bool quit_requested_this_frame,
+                                  bool process_pending_on_start) {
     
     if (!IsRunning()) return;
 
     /*
-    Deferred runtime state still needs to become visible in the frozen
-    preview, even though simulation itself is paused.
+    Deferred scene loads still need to become visible in the frozen preview.
+    Startup lifecycle is separate so edit mode does not accidentally run game
+    logic unless live preview is enabled.
     */
     processPendingSceneLoad();
     ComponentManager::ApplyEffectiveRigidbodyBodyTypes();
-    ComponentManager::ProcessPendingOnStart();
+    if (process_pending_on_start) {
+        ComponentManager::ProcessPendingOnStart();
+    }
     render();
     ::Input::LateUpdate();
 

@@ -119,10 +119,11 @@ public:
     // 内部轮询事件并执行一个运行时帧.
     void RunSingleFrame();
     void RunSingleFrame(bool quit_requested_this_frame);
-    // Execute one frozen preview frame for editor edit/pause mode.
-    // It flushes deferred scene/startup state, then renders without advancing
-    // gameplay simulation.
-    void RunRenderFrozenFrame(bool quit_requested_this_frame);
+    // Execute one frozen preview frame for editor edit mode.
+    // It renders without advancing gameplay simulation. Editor live preview may
+    // opt into flushing pending OnStart work for components in the mirror.
+    void RunRenderFrozenFrame(bool quit_requested_this_frame,
+                              bool process_pending_on_start);
     // Keep showing the last runtime texture while paused, without re-rendering
     // or mutating runtime state.
     void RunPresentPausedFrame(bool quit_requested_this_frame);

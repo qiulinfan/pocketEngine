@@ -16,7 +16,9 @@ constexpr const char *kSpritesheetsKey = "spritesheets";
 struct SpritesheetMetadataCache {
     bool loaded = false;
     std::filesystem::path metadata_path;
+    std::filesystem::path resources_root;
     std::unordered_map<std::string, SpritesheetGridSpec> grid_specs;
+    std::unordered_map<std::string, SpritesheetGridSpec> resource_specs;
 };
 
 SpritesheetMetadataCache &GetSpritesheetMetadataCache() {
@@ -102,11 +104,18 @@ void EnsureSpritesheetMetadataLoaded() {
     SpritesheetMetadataCache &cache = GetSpritesheetMetadataCache();
     const std::filesystem::path metadata_path =
         SpritesheetConfig::MetadataPath();
-    if (cache.loaded && cache.metadata_path == metadata_path) return;
+    const std::filesystem::path resources_root =
+        ResourcePath::ResourcesRootPath();
+    if (cache.loaded && cache.metadata_path == metadata_path &&
+        cache.resources_root == resources_root) {
+        return;
+    }
 
     cache.loaded = true;
     cache.metadata_path = metadata_path;
+    cache.resources_root = resources_root;
     cache.grid_specs.clear();
+    cache.resource_specs.clear();
 
     const rapidjson::Document document = ReadSpritesheetMetadataDocument();
     const rapidjson::Value &spritesheets = document[kSpritesheetsKey];
@@ -178,19 +187,41 @@ bool SpritesheetConfig::WriteForImagePath(
     SpritesheetMetadataCache &cache = GetSpritesheetMetadataCache();
     cache.grid_specs[BuildMetadataKey(resources_root, image_path)] = {
         std::max(1, spec.rows), std::max(1, spec.columns)};
+    cache.resource_specs.clear();
     return PersistSpritesheetMetadata();
 }
 
 SpritesheetGridSpec SpritesheetConfig::ReadForImageResource(
     const std::string &image_name,
     const std::filesystem::path &preferred_subdirectory) {
+    EnsureSpritesheetMetadataLoaded();
+
+    SpritesheetMetadataCache &cache = GetSpritesheetMetadataCache();
+    std::stringstream cache_key_stream;
+    cache_key_stream << ResourcePath::ResourcesRootPath().generic_string()
+                     << '\n'
+                     << preferred_subdirectory.lexically_normal()
+                            .generic_string()
+                     << '\n'
+                     << image_name;
+    const std::string cache_key = cache_key_stream.str();
+    const auto cached_spec = cache.resource_specs.find(cache_key);
+    if (cached_spec != cache.resource_specs.end()) {
+        return cached_spec->second;
+    }
+
     const std::string resolved_image_path = ResourcePath::ResolveResourcePath(
         ResourcePath::ResourceSubdirectory("images"), image_name,
         kSupportedImageExtensions,
         preferred_subdirectory);
     if (resolved_image_path.empty()) {
+        cache.resource_specs.emplace(cache_key, SpritesheetGridSpec{});
         return {};
     }
-    return ReadForImagePath(ResourcePath::ResourcesRootPath(),
-                            resolved_image_path);
+
+    const SpritesheetGridSpec spec =
+        ReadForImagePath(ResourcePath::ResourcesRootPath(),
+                         resolved_image_path);
+    cache.resource_specs[cache_key] = spec;
+    return spec;
 }

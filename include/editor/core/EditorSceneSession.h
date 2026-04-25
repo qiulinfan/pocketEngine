@@ -61,6 +61,8 @@ public:
     // Report current mode flags used by overlay and panel edit gates.
     bool IsPlayModeActive() const;
     bool IsPlayModePaused() const;
+    bool IsEditModeLivePreviewEnabled() const;
+    bool ToggleEditModeLivePreview();
     bool IsSceneEditingEnabled() const;
     bool IsSceneSaveEnabled() const;
 
@@ -78,6 +80,7 @@ private:
     bool runtime_scene_dirty_ = false;
     bool play_mode_active_ = false;
     bool play_mode_paused_ = false;
+    bool edit_mode_live_preview_enabled_ = false;
 };
 
 #endif

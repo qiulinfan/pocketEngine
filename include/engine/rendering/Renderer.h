@@ -3,6 +3,7 @@
 
 #include "SDL2/SDL.h"
 #include "SDL2_ttf/SDL_ttf.h"
+#include <filesystem>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -83,6 +84,9 @@ public:
     // 资源加载和绘制队列入口
     static SDL_Texture *LoadTexture(const std::string &image_name,
                                     SDL_Renderer *renderer);
+    static SDL_Texture *LoadTexture(const std::string &image_name,
+                                    SDL_Renderer *renderer, float *width,
+                                    float *height);
     static void QueueSceneImageDraw(const ImageDrawRequest &request);
     static void QueueSceneParticleBatch(const ParticleBatchRequest &request);
     static void QueueUIImageDraw(const ImageDrawRequest &request);
@@ -102,6 +106,15 @@ public:
     static const std::string &GetLastResourceWarning();
 
 private:
+    struct CachedImageTexture {
+        SDL_Texture *texture = nullptr;
+        float width = 0.0f;
+        float height = 0.0f;
+    };
+
+    static CachedImageTexture *LoadTextureResource(
+        const std::string &image_name, SDL_Renderer *renderer);
+    static void ClearImageTextureCache();
     static TTF_Font *GetFont(const std::string &font_name, int size);
     static void PruneTextCache();
     static void RenderAndClearAllImages(SDL_Renderer *renderer, float camera_x,
@@ -113,7 +126,8 @@ private:
     // caches and per-frame draw queues
     // 资源缓存和逐帧绘制队列
     static inline bool initialized = false;
-    static inline std::unordered_map<std::string, SDL_Texture *> image_cache;
+    static inline std::filesystem::path image_cache_resources_root;
+    static inline std::unordered_map<std::string, CachedImageTexture> image_cache;
     static inline std::unordered_map<std::string, std::unordered_map<int, TTF_Font *>>
         font_cache;
     static inline std::unordered_map<std::string, CachedTextTexture> text_cache;

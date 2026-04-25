@@ -378,6 +378,7 @@ void BuildMainMenuBar(bool &show_metrics_window,
                       const EditorConfigData &editor_config,
                       const SceneDocument &scene_document,
                       bool play_mode_active, bool play_mode_paused,
+                      bool edit_mode_live_preview_enabled,
                       bool window_fullscreen,
                       bool scene_save_enabled,
                       EditorOverlayResult &result) {
@@ -460,6 +461,12 @@ void BuildMainMenuBar(bool &show_metrics_window,
             if (ImGui::MenuItem("Stop", "F5", false, true)) {
                 result.play_mode_stop_requested = true;
             }
+        }
+        ImGui::Separator();
+        if (ImGui::MenuItem("Live Preview", nullptr,
+                            edit_mode_live_preview_enabled,
+                            !play_mode_active)) {
+            result.edit_mode_live_preview_toggle_requested = true;
         }
         ImGui::EndMenu();
     }
@@ -888,6 +895,7 @@ EditorOverlayResult EditorOverlay::Render(Engine &engine,
                                           bool editor_config_confirmation_pending,
                                           bool play_mode_active,
                                           bool play_mode_paused,
+                                          bool edit_mode_live_preview_enabled,
                                           bool scene_editing_enabled,
                                           bool scene_save_enabled) {
     EditorOverlayResult result;
@@ -942,7 +950,8 @@ EditorOverlayResult EditorOverlay::Render(Engine &engine,
                      show_open_project_window_, new_project_path_,
                      new_project_error_, open_project_path_, editor_config,
                      scene_document, play_mode_active, play_mode_paused,
-                     window_fullscreen, scene_save_enabled, result);
+                     edit_mode_live_preview_enabled, window_fullscreen,
+                     scene_save_enabled, result);
 
     ImGuiViewport *main_viewport = ImGui::GetMainViewport();
     ImGui::DockSpaceOverViewport(0, main_viewport, ImGuiDockNodeFlags_None);
@@ -951,6 +960,7 @@ EditorOverlayResult EditorOverlay::Render(Engine &engine,
                                     selected_actor_index_,
                                     selected_runtime_actor_uid_,
                                     play_mode_active, play_mode_paused,
+                                    edit_mode_live_preview_enabled,
                                     applied_ui_scale_);
 
     const EditorPanels::ProjectPanelResult project_panel_result =

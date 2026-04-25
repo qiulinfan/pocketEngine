@@ -11,6 +11,7 @@ void EditorSceneSession::LoadInitialScene(const Engine &engine) {
     runtime_scene_dirty_ = false;
     play_mode_active_ = false;
     play_mode_paused_ = false;
+    edit_mode_live_preview_enabled_ = false;
 
     const std::string initial_scene_name = engine.GetConfig().initial_scene_name;
     if (initial_scene_name.empty()) {
@@ -194,6 +195,17 @@ bool EditorSceneSession::IsPlayModeActive() const {
 
 bool EditorSceneSession::IsPlayModePaused() const {
     return play_mode_active_ && play_mode_paused_;
+}
+
+bool EditorSceneSession::IsEditModeLivePreviewEnabled() const {
+    return edit_mode_live_preview_enabled_;
+}
+
+bool EditorSceneSession::ToggleEditModeLivePreview() {
+    if (play_mode_active_) return false;
+    edit_mode_live_preview_enabled_ = !edit_mode_live_preview_enabled_;
+    runtime_scene_dirty_ = true;
+    return true;
 }
 
 bool EditorSceneSession::IsSceneEditingEnabled() const {

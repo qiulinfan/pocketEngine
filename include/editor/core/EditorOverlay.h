@@ -37,6 +37,7 @@ struct EditorOverlayResult {
     bool play_mode_start_requested = false;
     bool play_mode_pause_toggle_requested = false;
     bool play_mode_stop_requested = false;
+    bool edit_mode_live_preview_toggle_requested = false;
     bool toggle_fullscreen_requested = false;
     std::size_t scene_edit_commands_runtime_synced_begin_index = 0;
     std::size_t scene_edit_commands_runtime_synced_end_index = 0;
@@ -69,6 +70,7 @@ public:
                                EditorConfigData &editor_config,
                                bool editor_config_confirmation_pending,
                                bool play_mode_active, bool play_mode_paused,
+                               bool edit_mode_live_preview_enabled,
                                bool scene_editing_enabled,
                                bool scene_save_enabled);
     // Release ImGui backend resources and destroy the ImGui context.

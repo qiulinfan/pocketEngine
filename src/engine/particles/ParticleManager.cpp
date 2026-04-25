@@ -361,12 +361,11 @@ void ParticleManager::RenderEmitterBatch(int emitter_id, SDL_Renderer *renderer,
     if (!emitter.runtime_enabled) return;
     if (emitter.active_count == 0) return;
 
-    SDL_Texture *texture = Renderer::LoadTexture(image_names[emitter.shared_image_id], renderer);
-    if (texture == nullptr) return;
-
     float texture_w = 0.0f;
     float texture_h = 0.0f;
-    SDLRenderHelper::SDL_QueryTexture(texture, &texture_w, &texture_h);
+    SDL_Texture *texture = Renderer::LoadTexture(
+        image_names[emitter.shared_image_id], renderer, &texture_w, &texture_h);
+    if (texture == nullptr) return;
 
     const float safe_zoom = (zoom_factor > 0.0f) ? zoom_factor : 1.0f;
     const float viewport_width = static_cast<float>(camera_width) * (1.0f / safe_zoom);

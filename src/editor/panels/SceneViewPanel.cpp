@@ -1161,17 +1161,37 @@ SceneViewPanelResult RenderSceneViewPanel(
         bool play_mode_paused, bool scene_editing_enabled,
         std::vector<SceneFormat::SceneEditCommand> *out_edit_commands) {
 
+    (void)scene_view_width;
+    (void)scene_view_height;
     SceneViewPanelResult controls_result;
     EnsureSceneCameraInitialized(engine, scene_document);
     const std::size_t scene_panel_command_begin_index = (out_edit_commands != nullptr) ? out_edit_commands->size() : 0;
     bool scene_panel_commands_applied_immediately = false;
 
 
-    ImGui::Begin("Scene", nullptr, ImGuiWindowFlags_NoScrollbar |  ImGuiWindowFlags_NoScrollWithMouse);
+    const bool window_visible =
+        ImGui::Begin("Scene", nullptr,
+                     ImGuiWindowFlags_NoScrollbar |
+                         ImGuiWindowFlags_NoScrollWithMouse);
+    if (!window_visible) {
+        ImGui::End();
+        return controls_result;
+    }
+
+    const ImVec2 available_size = ImGui::GetContentRegionAvail();
+    if (available_size.x <= 1.0f || available_size.y <= 1.0f) {
+        ImGui::End();
+        return controls_result;
+    }
+
+    const int preview_width =
+        std::max(1, static_cast<int>(std::floor(available_size.x)));
+    const int preview_height =
+        std::max(1, static_cast<int>(std::floor(available_size.y)));
     SDL_Texture *scene_preview_texture = engine.RenderScenePreview(g_scene_camera_state.world_x,
                                         g_scene_camera_state.world_y,
                                         g_scene_camera_state.zoom,
-                                        scene_view_width, scene_view_height,
+                                        preview_width, preview_height,
                                         !play_mode_active);
     if (scene_preview_texture == nullptr) {
         ImGui::TextUnformatted("Runtime scene view is not available yet.");
@@ -1179,7 +1199,6 @@ SceneViewPanelResult RenderSceneViewPanel(
         return controls_result;
     }
 
-    const ImVec2 available_size = ImGui::GetContentRegionAvail();
     const ImVec2 image_size = FitPreviewImage(available_size, engine.GetScenePreviewRenderTargetWidth(), engine.GetScenePreviewRenderTargetHeight());
     const ImVec2 cursor_screen_pos = ImGui::GetCursorScreenPos();
     const ImVec2 centered_cursor(cursor_screen_pos.x + std::max(0.0f, (available_size.x - image_size.x) * 0.5f),
@@ -1268,7 +1287,7 @@ SceneViewPanelResult RenderSceneViewPanel(
     if (preview_refresh_requested) {
         scene_preview_texture = engine.RenderScenePreview(
             g_scene_camera_state.world_x, g_scene_camera_state.world_y,
-            g_scene_camera_state.zoom, scene_view_width, scene_view_height,
+            g_scene_camera_state.zoom, preview_width, preview_height,
             !play_mode_active);
     }
 
