@@ -21,7 +21,6 @@
         },
         {
             "uid": 3,
-            "parent_uid": 2,
             "name": "HUD",
             "components": {
                 "1": {
@@ -35,22 +34,6 @@
             "components": {
                 "1": {
                     "type": "Transform"
-                }
-            }
-        },
-        {
-            "uid": 5,
-            "name": "new actor (4)",
-            "components": {
-                "1": {
-                    "type": "Transform",
-                    "x": 0.33861762285232546,
-                    "y": 0.03152024745941162
-                },
-                "SpriteRenderer": {
-                    "type": "SpriteRenderer",
-                    "sprite": "Run",
-                    "sprite_column": 2
                 }
             }
         }
