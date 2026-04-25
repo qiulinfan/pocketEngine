@@ -495,3 +495,13 @@ game_editor_linux
 .engine/project/
 resources/.pocketengine/
 **/.pocketengine/
+/Projects/*
+!/Projects/Default/
+!/Projects/Default/**
+/Projects/Default/.pocketengine/
+/Projects/Default/**/*.meta
+/Projects/Default/**/*.mp3
+/Projects/Default/**/*.MP3
+/Projects/Default/**/*.raw
+/Projects/Default/**/*.mp4
+/Projects/Default/**/*.mov

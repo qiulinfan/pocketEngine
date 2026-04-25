@@ -25,7 +25,7 @@ public:
     Load one scene file into the editor-owned cache
     */
     bool LoadFromSceneName(const std::string &scene_name);
-    // Load one scene file from an explicit .scene path under resources/scenes
+    // Load one scene file from an explicit .scene path under <project-root>/scenes.
     bool LoadFromScenePath(const std::filesystem::path &scene_path);
     // Persist the current cache back into the original scene file
     bool Save();
@@ -36,7 +36,7 @@ public:
     const std::string &GetSceneName() const;
     // Return the resolved .scene source path on disk.
     const std::filesystem::path &GetScenePath() const;
-    // Return the scene subdirectory relative to resources/scenes.
+    // Return the scene subdirectory relative to <project-root>/scenes.
     const std::filesystem::path &GetSceneSubdirectory() const;
 
     // Return immutable access to the raw actor cache.

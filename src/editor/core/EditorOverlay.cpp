@@ -141,7 +141,7 @@ std::optional<std::filesystem::path> OpenNativeProjectFolderPicker() {
         dialog->SetOptions(options | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM |
                            FOS_PATHMUSTEXIST);
     }
-    dialog->SetTitle(L"Open PocketEngine Project Resources Folder");
+    dialog->SetTitle(L"Open PocketEngine Project Folder");
 
     std::optional<std::filesystem::path> selected_path;
     if (SUCCEEDED(dialog->Show(nullptr))) {
@@ -163,7 +163,7 @@ std::optional<std::filesystem::path> OpenNativeProjectFolderPicker() {
 #elif defined(__APPLE__)
     FILE *pipe = popen(
         "osascript -e 'POSIX path of (choose folder with prompt "
-        "\"Open PocketEngine project resources folder\")'",
+        "\"Open PocketEngine project folder\")'",
         "r");
     if (pipe == nullptr) return std::nullopt;
 
@@ -204,7 +204,7 @@ void BuildMainMenuBar(bool &show_metrics_window,
                 OpenNativeProjectFolderPicker();
             if (selected_path.has_value()) {
                 result.open_project_requested = true;
-                result.requested_project_resources_root =
+                result.requested_project_root =
                     selected_path->lexically_normal();
             }
 #if !defined(_WIN32) && !defined(__APPLE__)
@@ -214,13 +214,13 @@ void BuildMainMenuBar(bool &show_metrics_window,
             }
 #endif
         }
-        if (!editor_config.recent_project_resources_roots.empty() &&
+        if (!editor_config.recent_project_roots.empty() &&
             ImGui::BeginMenu("Recent Projects")) {
             for (const std::filesystem::path &project_root :
-                 editor_config.recent_project_resources_roots) {
+                 editor_config.recent_project_roots) {
                 if (ImGui::MenuItem(project_root.string().c_str())) {
                     result.open_project_requested = true;
-                    result.requested_project_resources_root =
+                    result.requested_project_root =
                         project_root.lexically_normal();
                 }
             }
@@ -755,7 +755,7 @@ EditorOverlayResult EditorOverlay::Render(Engine &engine,
             result.open_external_editor_requested = true;
             result.requested_external_file_type = file_type;
             result.requested_external_file_path = project_panel_result.requested_external_file_path;
-            result.requested_external_resources_root = project_panel_result.requested_external_resources_root;
+            result.requested_external_project_root = project_panel_result.requested_external_project_root;
         }
     }
     if (!play_mode_active) {
@@ -1063,13 +1063,13 @@ void EditorOverlay::RenderOpenProjectWindow(EditorOverlayResult &result) {
     }
 
     ImGui::TextUnformatted(
-        "Choose the folder that should behave as this project's resources/.");
+        "Choose the folder that should behave as this project's root.");
     ImGui::TextDisabled(
         "Absolute paths and paths relative to the engine working directory both work.");
     ImGui::Separator();
 
-    InputTextString("Project Resources Folder", open_project_path_,
-                    "e.g. resources, ../my-game/resources, C:\\\\Games\\\\MyProject");
+    InputTextString("Project Folder", open_project_path_,
+                    "e.g. Projects/Default, Projects/MyGame, ../my-game, C:\\\\Games\\\\MyProject");
     if (!open_project_error_.empty()) {
         ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.35f, 1.0f), "%s",
                            open_project_error_.c_str());
@@ -1085,7 +1085,7 @@ void EditorOverlay::RenderOpenProjectWindow(EditorOverlayResult &result) {
             open_project_error_ = "Folder does not exist.";
         } else {
             result.open_project_requested = true;
-            result.requested_project_resources_root = candidate;
+            result.requested_project_root = candidate;
             open_project_error_.clear();
             show_open_project_window_ = false;
         }

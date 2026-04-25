@@ -36,7 +36,7 @@ private:
     // React to SDL window lifecycle changes that can affect layout persistence.
     void HandleWindowEvent(const SDL_WindowEvent &window_event);
     bool BootstrapEngineForCurrentProject();
-    bool SwitchProject(const std::filesystem::path &resources_root);
+    bool SwitchProject(const std::filesystem::path &project_root);
     EditorConfigData confirmed_editor_config_;
     bool confirmed_editor_config_persist_dirty_ = false;
     EditorConfigData editor_config_;

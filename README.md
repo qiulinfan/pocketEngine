@@ -9,7 +9,7 @@ PocketEngine Lua API documentation lives here:
 - GitHub Pages: https://qiulinfan.github.io/pocketEngine/
 
 > Below is a demo of the editor and runtime in action, running the example
-> "ball game" included in `resources/`. This example game originates from the
+> "ball game" included in `Projects/Default/`. This example game originates from the
 > [A2 Engine](https://a2engine.org/) ecosystem.
 
 ![PocketEngine Demo](docs/show.gif)
@@ -17,7 +17,7 @@ PocketEngine Lua API documentation lives here:
 The game has a Unity-like editor layout and runtime integration with:
 - `SceneView` panel with actor-picking and drag&drop editing;
 - embedded `Viewport` panel for pure runtime output;
-- `Project` browser rooted at `resources/` with scene opening and asset drag&drop support;
+- `Project` browser rooted at the currently opened project folder with scene opening and asset drag&drop support;
 - `Hierarchy` tree with create, duplicate, delete, rename, actor reparenting;
 - `Inspector` for component add/remove/rename and property editing
 - actor parenting with local/world `Transform` and physics hierarchy inspection
@@ -89,7 +89,8 @@ powershell -ExecutionPolicy Bypass -File $script
 - `src/editor/*`: editor shell, documents, panels
 - `src/shared/*`: config, scene format, resource helpers
 - `include/*`: public headers for the same layers
-- `resources/*`: the project space and you design it!
+- `Projects/Default/*`: the default sample project
+- `Projects/*`: local project slots; every project except `Default` is ignored by this engine repository
 - `.engine/*`: editor-facing config, state, fonts, and icons
 - `thirdparty/*`: dependencies
 
@@ -99,7 +100,7 @@ All files under `docs/architecture/` are diagram-only for explaining the archite
 - [Module Dependency](docs/architecture/module-dependency.md)
 - [Editor Workflow](docs/architecture/editor-workflow.md)
 ## Sample Project
-`resources_ballgame_example/` contains a sample project with a simple ball game and some sprites. You can open the scene `ballgame.scene` in the editor and run it to see how it works. The Lua script for the ball game is located at `scripting` subdirectory of the same folder.
+`Projects/Default/` contains the default sample project. You can also use the editor's `File -> Open Project...` menu to open another folder as the logical project resources root, either inside `Projects/` or anywhere outside the engine repository.
 
 ## License
 

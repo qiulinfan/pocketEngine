@@ -14,7 +14,7 @@
 #include <unordered_map>
 #include <vector>
 
-// Project panel: a read-only resources browser for the editor.
+// Project panel: a read-only browser for the active project root.
 // It never mutates runtime or scene-document state directly. Instead, it
 // surfaces user intent (open scene / open external editor) through
 // ProjectPanelResult so the host can decide what to do next.
@@ -524,15 +524,15 @@ std::string BuildTreeLabel(const ProjectEntry &entry) {
 std::string BuildDirectoryCaption(const std::filesystem::path &resources_root,
                                   const std::filesystem::path &directory_path) {
     if (directory_path == resources_root) {
-        return "resources/";
+        return "Project/";
     }
 
     std::error_code relative_error;
     const std::filesystem::path relative_path = std::filesystem::relative( directory_path, resources_root, relative_error);
     if (relative_error || relative_path.empty()) {
-        return "resources/";
+        return "Project/";
     }
-    return "resources/" + relative_path.generic_string();
+    return "Project/" + relative_path.generic_string();
 }
 
 std::string TruncateTextToWidth(const std::string &text, float max_width) {
@@ -1006,7 +1006,7 @@ void RenderDirectoryGrid(const std::filesystem::path &resources_root,
                 result.open_external_editor_requested = true;
                 result.requested_external_file_type = ToExternalFileType(entry_kind);
                 result.requested_external_file_path = entry.path.lexically_normal();
-                result.requested_external_resources_root = resources_root.lexically_normal();
+                result.requested_external_project_root = resources_root.lexically_normal();
             }
         }
         column_index = (column_index + 1) % columns;
@@ -1034,7 +1034,7 @@ void RenderDirectoryGrid(const std::filesystem::path &resources_root,
 
 } // namespace
 
-// Render a read-only project browser tree for the resources directory.
+// Render a read-only project browser tree for the active project root.
 ProjectPanelResult RenderProjectPanel( const std::filesystem::path &resources_root, SDL_Renderer *renderer) {
     // Project panel owns only UI-navigation state. The actual file-system state
     // lives on disk, and open requests are returned to the host as a result.
@@ -1048,12 +1048,12 @@ ProjectPanelResult RenderProjectPanel( const std::filesystem::path &resources_ro
 
     if (!std::filesystem::exists(resources_root) ||
         !std::filesystem::is_directory(resources_root)) {
-        ImGui::TextUnformatted("resources directory not found.");
+        ImGui::TextUnformatted("Project folder not found.");
         ImGui::End();
         return result;
     }
 
-    // If the remembered directory disappeared, fall back to the resources root.
+    // If the remembered directory disappeared, fall back to the project root.
     if (selected_directory.empty() || !std::filesystem::exists(selected_directory) ||
         !std::filesystem::is_directory(selected_directory) ||
         !ResourcePath::IsPathWithinDirectory(selected_directory,
@@ -1077,7 +1077,7 @@ ProjectPanelResult RenderProjectPanel( const std::filesystem::path &resources_ro
         if (selected_directory == resources_root) {
             root_flags |= ImGuiTreeNodeFlags_Selected;
         }
-        const bool root_open = ImGui::TreeNodeEx("resources_root", root_flags, "[DIR] resources");
+        const bool root_open = ImGui::TreeNodeEx("project_root", root_flags, "[DIR] Project");
         if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
             selected_directory = resources_root;
         }

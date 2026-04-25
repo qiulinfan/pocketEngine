@@ -31,9 +31,9 @@ struct EditorOverlayResult {
     bool open_external_editor_requested = false;
     EditorExternalFileType requested_external_file_type = EditorExternalFileType::Generic;
     std::filesystem::path requested_external_file_path;
-    std::filesystem::path requested_external_resources_root;
+    std::filesystem::path requested_external_project_root;
     bool open_project_requested = false;
-    std::filesystem::path requested_project_resources_root;
+    std::filesystem::path requested_project_root;
     bool play_mode_start_requested = false;
     bool play_mode_pause_toggle_requested = false;
     bool play_mode_stop_requested = false;

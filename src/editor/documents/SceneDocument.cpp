@@ -214,7 +214,7 @@ const std::filesystem::path &SceneDocument::GetScenePath() const {
     return scene_asset_.scene_path;
 }
 
-/* Return the scene subdirectory relative to resources/scenes. */
+/* Return the scene subdirectory relative to <project-root>/scenes. */
 const std::filesystem::path &SceneDocument::GetSceneSubdirectory() const {
     return scene_asset_.scene_subdirectory;
 }

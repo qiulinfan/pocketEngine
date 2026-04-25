@@ -21,6 +21,10 @@ inline std::filesystem::path EditorProjectsConfigPath() {
 }
 
 inline std::filesystem::path DefaultResourcesRoot() {
+    return std::filesystem::path("Projects") / "Default";
+}
+
+inline std::filesystem::path LegacyResourcesRoot() {
     return std::filesystem::path("resources");
 }
 

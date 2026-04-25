@@ -15,7 +15,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 option(
     GAME_ENGINE_STAGE_RESOURCES
-    "Copy resources/ into the executable output directory after each build."
+    "Copy Projects/Default into the executable output directory after each build."
     ON
 )
 option(
@@ -49,9 +49,9 @@ function(game_engine_stage_resources target)
             POST_BUILD
             COMMAND
                 ${CMAKE_COMMAND} -E copy_directory
-                "${PROJECT_SOURCE_DIR}/resources"
-                "$<TARGET_FILE_DIR:${target}>/resources"
-            COMMENT "Staging resources for ${target}"
+                "${PROJECT_SOURCE_DIR}/Projects/Default"
+                "$<TARGET_FILE_DIR:${target}>/Projects/Default"
+            COMMENT "Staging default project for ${target}"
         )
     endif()
 endfunction()

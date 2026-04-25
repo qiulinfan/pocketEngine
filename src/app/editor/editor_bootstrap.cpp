@@ -389,14 +389,14 @@ bool IsExistingDirectory(const std::filesystem::path &path) {
 std::filesystem::path ChooseStartupProjectRoot(EditorConfigData &editor_config) {
     const std::filesystem::path configured_root =
         ResourcePath::NormalizeProjectRoot(
-            editor_config.current_project_resources_root);
+            editor_config.current_project_root);
     if (IsExistingDirectory(configured_root)) {
         EditorConfig::RememberProject(editor_config, configured_root);
         return configured_root;
     }
 
     for (const std::filesystem::path &recent_root :
-         editor_config.recent_project_resources_roots) {
+         editor_config.recent_project_roots) {
         const std::filesystem::path normalized_recent =
             ResourcePath::NormalizeProjectRoot(recent_root);
         if (!IsExistingDirectory(normalized_recent)) continue;
@@ -406,6 +406,18 @@ std::filesystem::path ChooseStartupProjectRoot(EditorConfigData &editor_config) 
 
     const std::filesystem::path default_root =
         ResourcePath::DefaultResourcesRoot();
+    if (IsExistingDirectory(default_root)) {
+        EditorConfig::RememberProject(editor_config, default_root);
+        return default_root;
+    }
+
+    const std::filesystem::path legacy_root =
+        ResourcePath::LegacyResourcesRoot();
+    if (IsExistingDirectory(legacy_root)) {
+        EditorConfig::RememberProject(editor_config, legacy_root);
+        return legacy_root;
+    }
+
     ResourcePath::EnsureDirectoryExists(default_root);
     EditorConfig::RememberProject(editor_config, default_root);
     return default_root;
@@ -430,9 +442,9 @@ bool EditorApp::BootstrapEngineForCurrentProject() {
     return true;
 }
 
-bool EditorApp::SwitchProject(const std::filesystem::path &resources_root) {
+bool EditorApp::SwitchProject(const std::filesystem::path &project_root) {
     const std::filesystem::path normalized_root =
-        ResourcePath::NormalizeProjectRoot(resources_root);
+        ResourcePath::NormalizeProjectRoot(project_root);
     if (!IsExistingDirectory(normalized_root)) {
         return false;
     }
@@ -603,11 +615,11 @@ void EditorApp::Run() {
                 OpenExternalEditor(editor_config_,
                                    overlay_result.requested_external_file_type,
                                    overlay_result.requested_external_file_path,
-                                   overlay_result.requested_external_resources_root);
+                                   overlay_result.requested_external_project_root);
             }
             if (overlay_result.open_project_requested) {
                 pending_project_root =
-                    overlay_result.requested_project_resources_root;
+                    overlay_result.requested_project_root;
             }
         }
         // Present once after both runtime and editor UI have been drawn

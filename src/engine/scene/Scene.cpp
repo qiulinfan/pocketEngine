@@ -17,12 +17,12 @@ void Scene::SetActiveSceneSubdirectory( const std::filesystem::path &subdirector
     }
 }
 
-// relative subdirectory under resources/scenes for the currently active scene
+// relative subdirectory under <project-root>/scenes for the active scene
 const std::filesystem::path &Scene::GetActiveSceneSubdirectory() {
     return active_scene_subdirectory;
 }
 
-// load actors from resources/scenes/<scene_name>.scene
+// load actors from <project-root>/scenes/<scene_name>.scene
 std::vector<Actor> Scene::LoadScene(const std::string &scene_name) {
     std::vector<Actor> actors;
 

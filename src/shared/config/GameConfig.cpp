@@ -142,7 +142,7 @@ GameConfigData GameConfig::Read() {
 
     if (!std::filesystem::exists(resources_root) ||
         !std::filesystem::is_directory(resources_root)) {
-        std::cout << "warning: project resources folder missing ["
+        std::cout << "warning: project folder missing ["
                   << resources_root.string() << "]; using default config"
                   << std::endl;
         return config;

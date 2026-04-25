@@ -44,10 +44,11 @@ struct EditorConfigData {
     std::string external_editor_generic;
 
     // Engine/editor-level project history. The selected path is the logical
-    // resources root used by the editor; project-private state lives inside
+    // project root used by the editor; project-private state lives inside
     // that folder rather than under .engine.
-    std::filesystem::path current_project_resources_root = "resources";
-    std::vector<std::filesystem::path> recent_project_resources_roots;
+    std::filesystem::path current_project_root =
+        std::filesystem::path("Projects") / "Default";
+    std::vector<std::filesystem::path> recent_project_roots;
 };
 
 class EditorConfig {
@@ -72,7 +73,7 @@ public:
     ExternalEditorCommand(const EditorConfigData &config,
                           EditorExternalFileType type);
     static void RememberProject(EditorConfigData &config,
-                                const std::filesystem::path &resources_root);
+                                const std::filesystem::path &project_root);
 };
 
 #endif
