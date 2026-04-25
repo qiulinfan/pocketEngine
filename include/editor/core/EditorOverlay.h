@@ -32,6 +32,8 @@ struct EditorOverlayResult {
     EditorExternalFileType requested_external_file_type = EditorExternalFileType::Generic;
     std::filesystem::path requested_external_file_path;
     std::filesystem::path requested_external_resources_root;
+    bool open_project_requested = false;
+    std::filesystem::path requested_project_resources_root;
     bool play_mode_start_requested = false;
     bool play_mode_pause_toggle_requested = false;
     bool play_mode_stop_requested = false;
@@ -54,6 +56,8 @@ public:
     // runtime while the viewport is embedded.
     void SetRuntimeInputRoutingState(bool play_mode_active,
                                      bool play_mode_paused);
+    // Reset project-specific UI caches after the logical resources root changes.
+    void NotifyProjectChanged();
     // Forward one SDL event to ImGui and report whether the editor captured it.
     // 将一个 SDL 事件转发给 ImGui, 并报告编辑器是否捕获了它.
     bool ProcessEvent(const SDL_Event &event);
@@ -79,6 +83,7 @@ private:
     void ShowExternalEditorMissingConfigNotice(EditorExternalFileType type);
     // Render the project-level config editors that write directly to disk.
     void RenderProjectConfigWindows();
+    void RenderOpenProjectWindow(EditorOverlayResult &result);
     // Render the editor-local settings window that edits overlay/window
     // parameters instead of asking users to edit editor.config by hand.
     void RenderEditorSettingsWindow(Engine &engine, EditorConfigData &editor_config,
@@ -98,6 +103,7 @@ private:
     bool show_game_config_window_ = false;
     bool show_rendering_config_window_ = false;
     bool show_external_editors_window_ = false;
+    bool show_open_project_window_ = false;
     float applied_ui_scale_ = 1.0f;
     bool project_config_loaded_ = false;
     GameConfigData project_config_cache_;
@@ -119,6 +125,8 @@ private:
     bool show_transient_notice_ = false;
     double transient_notice_expire_time_ = 0.0;
     std::string transient_notice_text_;
+    std::string open_project_path_;
+    std::string open_project_error_;
 };
 
 #endif

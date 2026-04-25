@@ -5,6 +5,8 @@
 #include "editor/core/EditorOverlay.h"
 #include "editor/core/EditorSceneSession.h"
 #include "engine/core/Engine.h"
+#include <filesystem>
+#include <memory>
 
 struct SDL_WindowEvent;
 
@@ -33,11 +35,13 @@ private:
     void SyncWindowStateFromLiveWindow();
     // React to SDL window lifecycle changes that can affect layout persistence.
     void HandleWindowEvent(const SDL_WindowEvent &window_event);
+    bool BootstrapEngineForCurrentProject();
+    bool SwitchProject(const std::filesystem::path &resources_root);
     EditorConfigData confirmed_editor_config_;
     bool confirmed_editor_config_persist_dirty_ = false;
     EditorConfigData editor_config_;
     bool editor_config_dirty_ = false;
-    Engine engine_;
+    std::unique_ptr<Engine> engine_;
     EditorOverlay overlay_;
     EditorSceneSession scene_session_;
 };

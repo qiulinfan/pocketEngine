@@ -62,7 +62,8 @@ void EstablishInheritance(luabridge::LuaRef &instance_table,
 void LoadComponentTypes() {
     g_runtime.component_type_tables.clear();
 
-    const std::filesystem::path component_root = "resources/component_types";
+    const std::filesystem::path component_root =
+        ResourcePath::ResourceSubdirectory("component_types");
     if (!std::filesystem::exists(component_root) ||
         !std::filesystem::is_directory(component_root)) {
         return;

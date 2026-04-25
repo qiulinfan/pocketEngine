@@ -96,6 +96,10 @@ std::vector<ProjectEntry> CollectSortedEntries(const std::filesystem::path &dire
     for (std::filesystem::directory_iterator it(directory_path, iterate_error), end;
          !iterate_error && it != end; it.increment(iterate_error)) {
         const std::filesystem::directory_entry &entry = *it;
+        const std::string filename = entry.path().filename().string();
+        if (!filename.empty() && filename.front() == '.') {
+            continue;
+        }
         ProjectEntry project_entry;
         project_entry.path = entry.path();
         project_entry.is_directory = entry.is_directory();
@@ -244,8 +248,9 @@ std::string ResolveIconPath(const std::string &icon_asset) {
     if (path.empty()) {
         // Backward compatibility while older projects still keep icons in
         // resources/images/system.
-        path = ResourcePath::ResolveResourcePath("resources/images/system",
-                                                icon_asset, {".png"});
+        path = ResourcePath::ResolveResourcePath(
+            ResourcePath::ResourceSubdirectory("images/system"), icon_asset,
+            {".png"});
     }
     return path;
 }
@@ -579,9 +584,10 @@ bool BuildDragResourceName(const std::filesystem::path &entry_path,
 }
 
 bool BuildLuaComponentTypeName(const std::filesystem::path &entry_path,
+                               const std::filesystem::path &resources_root,
                                std::string &out_component_type) {
-    if (!ResourcePath::IsPathWithinDirectory(entry_path,
-                                             "resources/component_types")) {
+    if (!ResourcePath::IsPathWithinDirectory(
+            entry_path, (resources_root / "component_types").lexically_normal())) {
         return false;
     }
 
@@ -596,15 +602,19 @@ bool BuildLuaComponentTypeName(const std::filesystem::path &entry_path,
 }
 
 bool BuildImageResourceName(const std::filesystem::path &entry_path,
+                            const std::filesystem::path &resources_root,
                             std::string &out_resource_name) {
-    return BuildDragResourceName(entry_path, "resources/images", "",
-                                 out_resource_name);
+    return BuildDragResourceName(
+        entry_path, (resources_root / "images").lexically_normal(), "",
+        out_resource_name);
 }
 
 bool BuildAudioResourceName(const std::filesystem::path &entry_path,
+                            const std::filesystem::path &resources_root,
                             std::string &out_resource_name) {
-    return BuildDragResourceName(entry_path, "resources/audio", "",
-                                 out_resource_name);
+    return BuildDragResourceName(
+        entry_path, (resources_root / "audio").lexically_normal(), "",
+        out_resource_name);
 }
 
 void CopySpritePayloadResourceName(EditorDragDrop::SpriteAssetPayload &payload,
@@ -615,7 +625,8 @@ void CopySpritePayloadResourceName(EditorDragDrop::SpriteAssetPayload &payload,
 }
 
 void RenderEntryDragSourceIfSupported(const ProjectEntry &entry,
-                                      EntryKind entry_kind) {
+                                      EntryKind entry_kind,
+                                      const std::filesystem::path &resources_root) {
     std::string payload_value;
     const char *payload_type = nullptr;
     const char *payload_label = nullptr;
@@ -623,20 +634,24 @@ void RenderEntryDragSourceIfSupported(const ProjectEntry &entry,
     // Only built-in project asset kinds that map cleanly into editor actions
     // become drag sources in this first pass.
     if (entry_kind == EntryKind::Lua &&
-        BuildLuaComponentTypeName(entry.path, payload_value)) {
+        BuildLuaComponentTypeName(entry.path, resources_root, payload_value)) {
         payload_type = EditorDragDrop::kLuaComponentPayload;
         payload_label = "Lua Component";
     } else if (entry_kind == EntryKind::Image &&
-               BuildImageResourceName(entry.path, payload_value)) {
+               BuildImageResourceName(entry.path, resources_root,
+                                      payload_value)) {
         payload_type = EditorDragDrop::kImageAssetPayload;
         payload_label = "Image";
     } else if (entry_kind == EntryKind::Audio &&
-               BuildAudioResourceName(entry.path, payload_value)) {
+               BuildAudioResourceName(entry.path, resources_root,
+                                      payload_value)) {
         payload_type = EditorDragDrop::kAudioAssetPayload;
         payload_label = "Audio";
     } else if (entry_kind == EntryKind::Template &&
-               BuildDragResourceName(entry.path, "resources/actor_templates",
-                                     ".template", payload_value)) {
+               BuildDragResourceName(
+                   entry.path,
+                   (resources_root / "actor_templates").lexically_normal(),
+                   ".template", payload_value)) {
         payload_type = EditorDragDrop::kActorTemplatePayload;
         payload_label = "Actor Template";
     }
@@ -693,6 +708,7 @@ void RenderDirectoryTree(const std::filesystem::path &resources_root,
 TileRenderResult RenderEntryTile(const ProjectEntry &entry,
                                  EntryKind entry_kind,
                                  const EntryVisualStyle &style,
+                                 const std::filesystem::path &resources_root,
                                  SDL_Renderer *renderer, bool selected,
                                  const SpritesheetGridSpec &spritesheet_spec,
                                  bool spritesheet_expanded,
@@ -708,7 +724,7 @@ TileRenderResult RenderEntryTile(const ProjectEntry &entry,
     const bool hovered = ImGui::IsItemHovered();
     result.clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
     result.double_clicked = hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
-    RenderEntryDragSourceIfSupported(entry, entry_kind);
+    RenderEntryDragSourceIfSupported(entry, entry_kind, resources_root);
 
     ImDrawList *draw_list = ImGui::GetWindowDrawList();
     const ImVec2 tile_max(tile_min.x + tile_size.x, tile_min.y + tile_size.y);
@@ -871,12 +887,14 @@ ImVec2 ComputeSpritesheetSpritePreviewSize(SDL_Texture *texture, int rows,
 
 void RenderExpandedSpritesheetTileGrid(const ProjectEntry &entry,
                                        const SpritesheetGridSpec &spec,
+                                       const std::filesystem::path &resources_root,
                                        SDL_Renderer *renderer) {
     SDL_Texture *texture = GetImageTexture(renderer, entry.path);
     if (texture == nullptr) return;
 
     std::string image_resource_name;
-    if (!BuildImageResourceName(entry.path, image_resource_name)) {
+    if (!BuildImageResourceName(entry.path, resources_root,
+                                image_resource_name)) {
         image_resource_name.clear();
     }
 
@@ -966,9 +984,9 @@ void RenderDirectoryGrid(const std::filesystem::path &resources_root,
             expanded_state[expanded_key];
         const bool is_selected = selected_entry == entry.path;
         const TileRenderResult tile_result =
-            RenderEntryTile(entry, entry_kind, style, renderer, is_selected,
-                            spritesheet_spec, is_spritesheet_expanded,
-                            kTileWidth, kTileHeight);
+            RenderEntryTile(entry, entry_kind, style, resources_root, renderer,
+                            is_selected, spritesheet_spec,
+                            is_spritesheet_expanded, kTileWidth, kTileHeight);
 
         if (tile_result.clicked) {
             selected_entry = entry.path;
@@ -1003,7 +1021,8 @@ void RenderDirectoryGrid(const std::filesystem::path &resources_root,
             ImGui::NewLine();
             column_index = 0;
         }
-        RenderExpandedSpritesheetTileGrid(entry, spritesheet_spec, renderer);
+        RenderExpandedSpritesheetTileGrid(entry, spritesheet_spec,
+                                          resources_root, renderer);
         ImGui::Spacing();
     }
 
@@ -1036,7 +1055,9 @@ ProjectPanelResult RenderProjectPanel( const std::filesystem::path &resources_ro
 
     // If the remembered directory disappeared, fall back to the resources root.
     if (selected_directory.empty() || !std::filesystem::exists(selected_directory) ||
-        !std::filesystem::is_directory(selected_directory)) {
+        !std::filesystem::is_directory(selected_directory) ||
+        !ResourcePath::IsPathWithinDirectory(selected_directory,
+                                             resources_root)) {
         selected_directory = resources_root;
         selected_entry.clear();
     }

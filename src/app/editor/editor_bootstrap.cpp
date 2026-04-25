@@ -170,7 +170,8 @@ bool OpenExternalEditor(const EditorConfigData &editor_config,
                         const std::filesystem::path &clicked_file,
                         const std::filesystem::path &resources_root) {
     const std::filesystem::path normalized_resources =
-        ResolveExistingPathOrFallback(resources_root, "resources");
+        ResolveExistingPathOrFallback(resources_root,
+                                      ResourcePath::ResourcesRootPath());
     const std::filesystem::path normalized_file =
         ResolveExistingPathOrFallback(clicked_file, normalized_resources);
 
@@ -250,10 +251,11 @@ void EditorApp::RevertUnconfirmedEditorConfigChanges() {
 
 // Apply the cached editor host config to the live SDL window.
 void EditorApp::ApplyEditorWindowSettings() {
-    SDL_Window *window = engine_.GetWindow();
+    if (!engine_) return;
+    SDL_Window *window = engine_->GetWindow();
     if (window == nullptr) return;
 
-    const GameConfigData &runtime_config = engine_.GetConfig();
+    const GameConfigData &runtime_config = engine_->GetConfig();
     const WindowedPlacement placement = BuildWindowedPlacement(editor_config_, runtime_config, window);
 
     // The editor host window is independent from the runtime resolution.
@@ -279,7 +281,8 @@ void EditorApp::ApplyEditorWindowSettings() {
 }
 
 void EditorApp::SetEditorFullscreen(bool enabled) {
-    SDL_Window *window = engine_.GetWindow();
+    if (!engine_) return;
+    SDL_Window *window = engine_->GetWindow();
     if (window == nullptr) return;
 
     if (enabled) {
@@ -287,7 +290,7 @@ void EditorApp::SetEditorFullscreen(bool enabled) {
     } else {
         SDL_SetWindowFullscreen(window, 0);
         const WindowedPlacement placement =
-            BuildWindowedPlacement(editor_config_, engine_.GetConfig(), window);
+            BuildWindowedPlacement(editor_config_, engine_->GetConfig(), window);
         SDL_RestoreWindow(window);
         SDL_SetWindowSize(window, placement.width, placement.height);
         SDL_SetWindowPosition(window, placement.x, placement.y);
@@ -301,7 +304,8 @@ void EditorApp::SetEditorFullscreen(bool enabled) {
 }
 
 bool EditorApp::IsEditorWindowFullscreen() const {
-    SDL_Window *window = engine_.GetWindow();
+    if (!engine_) return false;
+    SDL_Window *window = engine_->GetWindow();
     if (window == nullptr) return false;
 
     const Uint32 window_flags = SDL_GetWindowFlags(window);
@@ -310,7 +314,8 @@ bool EditorApp::IsEditorWindowFullscreen() const {
 }
 
 bool EditorApp::IsEditorWindowMaximized() const {
-    SDL_Window *window = engine_.GetWindow();
+    if (!engine_) return false;
+    SDL_Window *window = engine_->GetWindow();
     if (window == nullptr) return false;
 
     const Uint32 window_flags = SDL_GetWindowFlags(window);
@@ -319,11 +324,12 @@ bool EditorApp::IsEditorWindowMaximized() const {
 
 // Pull the live SDL window geometry back into editor config.
 void EditorApp::SyncWindowStateFromLiveWindow() {
-    SDL_Window *window = engine_.GetWindow();
+    if (!engine_) return;
+    SDL_Window *window = engine_->GetWindow();
     if (window == nullptr) return;
 
-    int width = engine_.GetWindowWidth();
-    int height = engine_.GetWindowHeight();
+    int width = engine_->GetWindowWidth();
+    int height = engine_->GetWindowHeight();
     if (width <= 0 || height <= 0) return;
 
     const bool is_fullscreen = IsEditorWindowFullscreen();
@@ -373,6 +379,83 @@ void EditorApp::HandleWindowEvent(const SDL_WindowEvent &window_event) {
     }
 }
 
+namespace {
+
+bool IsExistingDirectory(const std::filesystem::path &path) {
+    return !path.empty() && std::filesystem::exists(path) &&
+           std::filesystem::is_directory(path);
+}
+
+std::filesystem::path ChooseStartupProjectRoot(EditorConfigData &editor_config) {
+    const std::filesystem::path configured_root =
+        ResourcePath::NormalizeProjectRoot(
+            editor_config.current_project_resources_root);
+    if (IsExistingDirectory(configured_root)) {
+        EditorConfig::RememberProject(editor_config, configured_root);
+        return configured_root;
+    }
+
+    for (const std::filesystem::path &recent_root :
+         editor_config.recent_project_resources_roots) {
+        const std::filesystem::path normalized_recent =
+            ResourcePath::NormalizeProjectRoot(recent_root);
+        if (!IsExistingDirectory(normalized_recent)) continue;
+        EditorConfig::RememberProject(editor_config, normalized_recent);
+        return normalized_recent;
+    }
+
+    const std::filesystem::path default_root =
+        ResourcePath::DefaultResourcesRoot();
+    ResourcePath::EnsureDirectoryExists(default_root);
+    EditorConfig::RememberProject(editor_config, default_root);
+    return default_root;
+}
+
+} // namespace
+
+bool EditorApp::BootstrapEngineForCurrentProject() {
+    engine_ = std::make_unique<Engine>();
+    engine_->InitializeRuntime();
+    ApplyEditorWindowIcon(engine_->GetWindow());
+    ApplyEditorWindowSettings();
+    engine_->SetRenderRuntimeToTexture(true);
+    engine_->SetAudioPlaybackEnabled(false);
+    scene_session_.LoadInitialScene(*engine_);
+
+    if (!overlay_.Initialize(engine_->GetWindow(), engine_->GetRenderer())) {
+        return false;
+    }
+    overlay_.NotifyProjectChanged();
+    SyncWindowStateFromLiveWindow();
+    return true;
+}
+
+bool EditorApp::SwitchProject(const std::filesystem::path &resources_root) {
+    const std::filesystem::path normalized_root =
+        ResourcePath::NormalizeProjectRoot(resources_root);
+    if (!IsExistingDirectory(normalized_root)) {
+        return false;
+    }
+
+    scene_session_.PersistDocumentOnEditorShutdown();
+    overlay_.Shutdown();
+    if (engine_) {
+        engine_->ShutdownRuntime();
+        engine_.reset();
+    }
+
+    ResourcePath::SetResourcesRootPath(normalized_root);
+    EditorConfig::RememberProject(editor_config_, normalized_root);
+    confirmed_editor_config_ = editor_config_;
+    editor_config_dirty_ = false;
+    confirmed_editor_config_persist_dirty_ = false;
+    EditorConfig::WriteProjectHistory(confirmed_editor_config_);
+
+    scene_session_ = EditorSceneSession();
+    overlay_.NotifyProjectChanged();
+    return BootstrapEngineForCurrentProject();
+}
+
 /*
 editor app.
 Initialize the editor host and runtime to be embedded.
@@ -383,31 +466,29 @@ then start the editor main loop:
 void EditorApp::Run() {
     // Boot the editor host first, then attach the shared runtime to the docked viewport
     editor_config_ = EditorConfig::Read();
+    const std::filesystem::path startup_project_root =
+        ChooseStartupProjectRoot(editor_config_);
+    ResourcePath::SetResourcesRootPath(startup_project_root);
     confirmed_editor_config_ = editor_config_;
+    EditorConfig::WriteProjectHistory(confirmed_editor_config_);
     editor_config_dirty_ = false;
     confirmed_editor_config_persist_dirty_ = false;
 
     // start engine runtime
-    engine_.InitializeRuntime();
-    ApplyEditorWindowIcon(engine_.GetWindow());
-    ApplyEditorWindowSettings();
-    engine_.SetRenderRuntimeToTexture(true);
-    engine_.SetAudioPlaybackEnabled(false);
-    scene_session_.LoadInitialScene(engine_);
-
-    overlay_.Initialize(engine_.GetWindow(), engine_.GetRenderer());
-    SyncWindowStateFromLiveWindow();
+    if (!BootstrapEngineForCurrentProject()) {
+        return;
+    }
     confirmed_editor_config_ = editor_config_;
     editor_config_dirty_ = false;
     confirmed_editor_config_persist_dirty_ = false;
 
-    while (engine_.IsRunning()) {
+    while (engine_ && engine_->IsRunning()) {
         /*
         Scene edits are mirrored into runtime at frame boundaries so the UI
         never mutates live runtime state in the middle of a frame.
         */
-        engine_.SetAudioPlaybackEnabled(scene_session_.IsPlayModeActive());
-        scene_session_.SyncRuntimeMirrorIfDirty(engine_);
+        engine_->SetAudioPlaybackEnabled(scene_session_.IsPlayModeActive());
+        scene_session_.SyncRuntimeMirrorIfDirty(*engine_);
         overlay_.SetRuntimeInputRoutingState(scene_session_.IsPlayModeActive(), scene_session_.IsPlayModePaused());
 
         bool quit_requested_this_frame = false;
@@ -423,7 +504,7 @@ void EditorApp::Run() {
             */
             const bool always_forward_to_runtime = event.type == SDL_QUIT || event.type == SDL_WINDOWEVENT;
             if (!captured_by_editor || always_forward_to_runtime) {
-                engine_.ProcessSDLEvent(event, quit_requested_this_frame);
+                engine_->ProcessSDLEvent(event, quit_requested_this_frame);
             }
         }
 
@@ -432,17 +513,18 @@ void EditorApp::Run() {
         const bool advance_gameplay_frame = play_mode_active && !play_mode_paused;
         if (advance_gameplay_frame) {
             // Play mode advances simulation (OnUpdate + physics).
-            engine_.RunSingleFrame(quit_requested_this_frame);
+            engine_->RunSingleFrame(quit_requested_this_frame);
         } else if (play_mode_active && play_mode_paused) {
             // Pause keeps the exact last gameplay frame visible.
-            engine_.RunPresentPausedFrame(quit_requested_this_frame);
+            engine_->RunPresentPausedFrame(quit_requested_this_frame);
         } else {
             // Edit mode renders a non-simulating preview from current state.
-            engine_.RunRenderFrozenFrame(quit_requested_this_frame);
+            engine_->RunRenderFrozenFrame(quit_requested_this_frame);
         }
-        if (scene_session_.HasSceneDocument()) {
+        std::filesystem::path pending_project_root;
+        {
             const EditorOverlayResult overlay_result =
-                overlay_.Render(engine_, scene_session_.GetSceneDocument(),
+                overlay_.Render(*engine_, scene_session_.GetSceneDocument(),
                                 editor_config_,
                                 editor_config_dirty_,
                                 scene_session_.IsPlayModeActive(),
@@ -460,16 +542,16 @@ void EditorApp::Run() {
                             .scene_edit_commands_runtime_synced_end_index) {
                     continue;
                 }
-                scene_session_.HandleSceneEditCommand( overlay_result.scene_edit_commands[command_index], engine_);
+                scene_session_.HandleSceneEditCommand( overlay_result.scene_edit_commands[command_index], *engine_);
             }
             if (overlay_result.play_mode_start_requested) {
-                scene_session_.EnterPlayMode(engine_);
+                scene_session_.EnterPlayMode(*engine_);
             }
             if (overlay_result.play_mode_pause_toggle_requested) {
                 scene_session_.TogglePlayPause();
             }
             if (overlay_result.play_mode_stop_requested) {
-                scene_session_.ExitPlayMode(engine_);
+                scene_session_.ExitPlayMode(*engine_);
             }
             /*
             Panels report scene_changed for any document mutation, but command-
@@ -508,13 +590,13 @@ void EditorApp::Run() {
                     OpenExternalEditor(editor_config_,
                                        EditorExternalFileType::Scene,
                                        overlay_result.requested_scene_path,
-                                       "resources");
+                                       ResourcePath::ResourcesRootPath());
                 } else {
                     /*
                     scene switch: flush dirty cache first, 
                     then load the new document and rebuild runtime mirror on the next frame boundary.
                     */
-                    scene_session_.OpenSceneFromPath(overlay_result.requested_scene_path, engine_);
+                    scene_session_.OpenSceneFromPath(overlay_result.requested_scene_path, *engine_);
                 }
             }
             if (overlay_result.open_external_editor_requested) {
@@ -523,17 +605,24 @@ void EditorApp::Run() {
                                    overlay_result.requested_external_file_path,
                                    overlay_result.requested_external_resources_root);
             }
+            if (overlay_result.open_project_requested) {
+                pending_project_root =
+                    overlay_result.requested_project_resources_root;
+            }
         }
         // Present once after both runtime and editor UI have been drawn
-        engine_.PresentFrame(advance_gameplay_frame);
+        engine_->PresentFrame(advance_gameplay_frame);
+        if (!pending_project_root.empty()) {
+            SwitchProject(pending_project_root);
+        }
     }
 
     // On shutdown, persist only editor document cache and discard runtime-only play-state mutations
     scene_session_.PersistDocumentOnEditorShutdown();
-    if (confirmed_editor_config_persist_dirty_) {
-        EditorConfig::Write(confirmed_editor_config_);
-        confirmed_editor_config_persist_dirty_ = false;
-    }
+    EditorConfig::Write(confirmed_editor_config_);
+    confirmed_editor_config_persist_dirty_ = false;
     overlay_.Shutdown();
-    engine_.ShutdownRuntime();
+    if (engine_) {
+        engine_->ShutdownRuntime();
+    }
 }

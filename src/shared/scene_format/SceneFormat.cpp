@@ -19,10 +19,16 @@
 namespace SceneFormat {
 namespace {
 
-constexpr const char *kSceneRoot = "resources/scenes";
-constexpr const char *kTemplateRoot = "resources/actor_templates";
 constexpr const char *kArrayTypeKey = "__array_type";
 constexpr const char *kArrayItemsKey = "items";
+
+std::filesystem::path SceneRootPath() {
+    return ResourcePath::ResourceSubdirectory("scenes");
+}
+
+std::filesystem::path TemplateRootPath() {
+    return ResourcePath::ResourceSubdirectory("actor_templates");
+}
 
 enum class PropertyArrayType {
     Bool,
@@ -358,7 +364,7 @@ ActorRecord ParseActorRecord(const rapidjson::Value &actor_json) {
 std::string ResolveScenePath(
     const std::string &scene_name,
     const std::filesystem::path &preferred_subdirectory) {
-    return ResourcePath::ResolveResourcePath(kSceneRoot, scene_name, {".scene"},
+    return ResourcePath::ResolveResourcePath(SceneRootPath(), scene_name, {".scene"},
                                              preferred_subdirectory);
 }
 
@@ -374,8 +380,9 @@ SceneAsset LoadSceneAsset(const std::string &scene_name,
     }
 
     scene_asset.scene_path = resolved_scene_path;
+    const std::filesystem::path scene_root = SceneRootPath();
     scene_asset.scene_subdirectory = ResourcePath::NormalizeRelativePath(
-        std::filesystem::relative(scene_asset.scene_path.parent_path(), kSceneRoot));
+        std::filesystem::relative(scene_asset.scene_path.parent_path(), scene_root));
 
     rapidjson::Document scene_document;
     ReadJsonFile(scene_asset.scene_path, scene_document);
@@ -467,7 +474,7 @@ bool SaveSceneAsset(const SceneAsset &scene_asset) {
 std::string ResolveTemplatePath(
     const std::string &template_name,
     const std::filesystem::path &preferred_subdirectory) {
-    return ResourcePath::ResolveResourcePath(kTemplateRoot, template_name,
+    return ResourcePath::ResolveResourcePath(TemplateRootPath(), template_name,
                                              {".template"},
                                              preferred_subdirectory);
 }
@@ -486,9 +493,10 @@ ActorTemplateAsset LoadActorTemplateAsset(
     }
 
     template_asset.template_path = resolved_template_path;
+    const std::filesystem::path template_root = TemplateRootPath();
     template_asset.template_subdirectory = ResourcePath::NormalizeRelativePath(
         std::filesystem::relative(template_asset.template_path.parent_path(),
-                                  kTemplateRoot));
+                                  template_root));
 
     rapidjson::Document template_document;
     ReadJsonFile(template_asset.template_path, template_document);

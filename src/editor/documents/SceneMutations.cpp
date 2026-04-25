@@ -2,6 +2,7 @@
 #include "rapidjson/document.h"
 #include "rapidjson/prettywriter.h"
 #include "rapidjson/stringbuffer.h"
+#include "shared/resources/ResourcePath.h"
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -62,15 +63,13 @@ void ResolveReparentedLocalTransform(float actor_world_x, float actor_world_y,
     out_local_rotation = actor_world_rotation - *parent_world_rotation;
 }
 
-constexpr const char *kEnginePrivateDir = ".engine";
-constexpr const char *kEditorPrivateStatePath =
-    ".engine/editor_private_state.json";
 constexpr const char *kActorCounterTableKey = "new_actor_counter_by_scene";
+constexpr const char *kLegacyEditorPrivateStatePath =
+    ".engine/editor_private_state.json";
 
 /*
-Editor-private state is intentionally stored outside resources/ so project
-content stays player-facing. Right now it only persists per-scene editor
-counters, but the helper layer keeps that storage extensible.
+Project-private editor state is stored in a hidden folder inside the logical
+resources root. It moves with the project and is hidden from the Project panel.
 */
 rapidjson::Document BuildDefaultEditorPrivateState() {
     rapidjson::Document document;
@@ -83,13 +82,12 @@ rapidjson::Document BuildDefaultEditorPrivateState() {
 }
 
 void EnsureEnginePrivateStorageExists() {
-    const std::filesystem::path private_directory(kEnginePrivateDir);
-    if (!std::filesystem::exists(private_directory)) {
-        std::filesystem::create_directories(private_directory);
-    }
+    ResourcePath::EnsureDirectoryExists(ResourcePath::ProjectHiddenRoot());
 
-    const std::filesystem::path private_state_file(kEditorPrivateStatePath);
+    const std::filesystem::path private_state_file =
+        ResourcePath::ProjectEditorPrivateStatePath();
     if (std::filesystem::exists(private_state_file)) return;
+    if (std::filesystem::exists(kLegacyEditorPrivateStatePath)) return;
 
     const rapidjson::Document default_state = BuildDefaultEditorPrivateState();
     rapidjson::StringBuffer buffer;
@@ -104,10 +102,23 @@ void EnsureEnginePrivateStorageExists() {
     output_file << buffer.GetString() << std::endl;
 }
 
+std::filesystem::path ResolveEditorPrivateStateReadPath() {
+    const std::filesystem::path private_state_file =
+        ResourcePath::ProjectEditorPrivateStatePath();
+    if (std::filesystem::exists(private_state_file)) {
+        return private_state_file;
+    }
+    if (std::filesystem::exists(kLegacyEditorPrivateStatePath)) {
+        return kLegacyEditorPrivateStatePath;
+    }
+    return private_state_file;
+}
+
 rapidjson::Document ReadEditorPrivateState() {
     EnsureEnginePrivateStorageExists();
 
-    const std::filesystem::path private_state_file(kEditorPrivateStatePath);
+    const std::filesystem::path private_state_file =
+        ResolveEditorPrivateStateReadPath();
     std::ifstream input_file(private_state_file, std::ios::in);
     if (!input_file.is_open()) {
         return BuildDefaultEditorPrivateState();
@@ -142,7 +153,7 @@ void WriteEditorPrivateState(const rapidjson::Document &document) {
     rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
     document.Accept(writer);
 
-    std::ofstream output_file(kEditorPrivateStatePath,
+    std::ofstream output_file(ResourcePath::ProjectEditorPrivateStatePath(),
                               std::ios::out | std::ios::trunc);
     if (!output_file.is_open()) {
         return;
@@ -152,6 +163,14 @@ void WriteEditorPrivateState(const rapidjson::Document &document) {
 
 std::string BuildSceneCounterKey(const SceneFormat::SceneAsset &scene_asset) {
     if (!scene_asset.scene_path.empty()) {
+        std::error_code relative_error;
+        const std::filesystem::path relative_path = std::filesystem::relative(
+            scene_asset.scene_path.lexically_normal(),
+            ResourcePath::ResourcesRootPath().lexically_normal(),
+            relative_error);
+        if (!relative_error && !relative_path.empty()) {
+            return relative_path.generic_string();
+        }
         return scene_asset.scene_path.lexically_normal().generic_string();
     }
     if (!scene_asset.scene_name.empty()) {

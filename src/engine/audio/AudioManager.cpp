@@ -105,7 +105,8 @@ void AudioManager::Shutdown() {
 // supports explicit extension and default wav / ogg lookup
 std::string AudioManager::FindAudioFile(const std::string &base_name) {
     return ResourcePath::ResolveResourcePath(
-        "resources/audio", base_name, {".wav", ".ogg", ".mp3"},
+        ResourcePath::ResourceSubdirectory("audio"), base_name,
+        {".wav", ".ogg", ".mp3"},
         Scene::GetActiveSceneSubdirectory());
 }
 

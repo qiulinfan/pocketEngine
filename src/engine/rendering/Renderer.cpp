@@ -21,13 +21,13 @@ constexpr std::size_t kMaxTextCacheEntries = 512;
 
 std::string ResolveFontPath(const std::string &font_name) {
     return ResourcePath::ResolveResourcePath(
-        "resources/fonts", font_name, {".ttf"},
+        ResourcePath::ResourceSubdirectory("fonts"), font_name, {".ttf"},
         Scene::GetActiveSceneSubdirectory());
 }
 
 std::string ResolveImagePath(const std::string &image_name) {
     return ResourcePath::ResolveResourcePath(
-        "resources/images", image_name,
+        ResourcePath::ResourceSubdirectory("images"), image_name,
         {".png", ".jpg", ".jpeg", ".bmp", ".tga", ".gif", ".webp"},
         Scene::GetActiveSceneSubdirectory());
 }

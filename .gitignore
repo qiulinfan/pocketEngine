@@ -491,4 +491,7 @@ sdl_user_input.txt
 scripts/run_lua_component_manager_tests.sh
 .codex
 game_editor_linux
-.engine/project/spritesheets.json
+.engine/editor_private_state.json
+.engine/project/
+resources/.pocketengine/
+**/.pocketengine/

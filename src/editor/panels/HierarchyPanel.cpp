@@ -115,7 +115,8 @@ Collect available actor templates for the add-actor popup and template drops.
 Template names are sorted with scene-local folders preferred over global ones.
 */
 std::vector<std::string> CollectTemplateNames(const std::filesystem::path &scene_subdirectory) {
-    const std::filesystem::path template_root("resources/actor_templates");
+    const std::filesystem::path template_root =
+        ResourcePath::ResourceSubdirectory("actor_templates");
     std::vector<std::filesystem::path> template_files = ResourcePath::CollectFilesRecursively(template_root, ".template");
     ResourcePath::SortPathsWithPreference(template_files, template_root, scene_subdirectory);
 
@@ -170,7 +171,7 @@ bool RenderAddActorPopup(
     const std::string filter = template_filter;
     const std::vector<std::string> template_names = CollectTemplateNames(scene_document.GetSceneSubdirectory());
     if (template_names.empty()) {
-        ImGui::TextDisabled("No .template file found in resources/actor_templates.");
+        ImGui::TextDisabled("No .template file found in actor_templates/.");
     } 
     else {
         for (const std::string &template_name : template_names) {

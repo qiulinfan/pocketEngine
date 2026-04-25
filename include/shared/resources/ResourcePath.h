@@ -16,6 +16,54 @@ inline std::filesystem::path EditorConfigPath() {
     return EngineRootPath() / "editor" / "editor.config";
 }
 
+inline std::filesystem::path EditorProjectsConfigPath() {
+    return EngineRootPath() / "editor" / "projects.config";
+}
+
+inline std::filesystem::path DefaultResourcesRoot() {
+    return std::filesystem::path("resources");
+}
+
+inline std::filesystem::path NormalizeProjectRoot(
+    const std::filesystem::path &resources_root) {
+    const std::filesystem::path normalized =
+        resources_root.empty() ? DefaultResourcesRoot()
+                               : resources_root.lexically_normal();
+    return normalized == "." ? DefaultResourcesRoot() : normalized;
+}
+
+inline std::filesystem::path &MutableResourcesRootPath() {
+    static std::filesystem::path resources_root = DefaultResourcesRoot();
+    return resources_root;
+}
+
+inline void SetResourcesRootPath(
+    const std::filesystem::path &resources_root) {
+    MutableResourcesRootPath() = NormalizeProjectRoot(resources_root);
+}
+
+inline std::filesystem::path ResourcesRootPath() {
+    return MutableResourcesRootPath();
+}
+
+inline std::filesystem::path ResourceSubdirectory(
+    const std::filesystem::path &subdirectory) {
+    if (subdirectory.empty()) return ResourcesRootPath();
+    return (ResourcesRootPath() / subdirectory).lexically_normal();
+}
+
+inline std::filesystem::path ProjectHiddenRoot() {
+    return ResourceSubdirectory(".pocketengine");
+}
+
+inline std::filesystem::path ProjectEditorPrivateStatePath() {
+    return ProjectHiddenRoot() / "editor_private_state.json";
+}
+
+inline std::filesystem::path ProjectSpritesheetMetadataPath() {
+    return ProjectHiddenRoot() / "spritesheets.json";
+}
+
 inline std::filesystem::path EngineSystemImagesRoot() {
     return EngineRootPath() / "system" / "images";
 }

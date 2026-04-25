@@ -15,6 +15,7 @@ constexpr const char *kSpritesheetsKey = "spritesheets";
 
 struct SpritesheetMetadataCache {
     bool loaded = false;
+    std::filesystem::path metadata_path;
     std::unordered_map<std::string, SpritesheetGridSpec> grid_specs;
 };
 
@@ -49,7 +50,13 @@ rapidjson::Document BuildDefaultSpritesheetMetadata() {
 }
 
 rapidjson::Document ReadSpritesheetMetadataDocument() {
-    const std::filesystem::path metadata_path = SpritesheetConfig::MetadataPath();
+    std::filesystem::path metadata_path = SpritesheetConfig::MetadataPath();
+    const std::filesystem::path legacy_metadata_path =
+        ResourcePath::EngineRootPath() / "project" / "spritesheets.json";
+    if (!std::filesystem::exists(metadata_path) &&
+        std::filesystem::exists(legacy_metadata_path)) {
+        metadata_path = legacy_metadata_path;
+    }
     if (!std::filesystem::exists(metadata_path)) {
         return BuildDefaultSpritesheetMetadata();
     }
@@ -93,9 +100,12 @@ bool WriteSpritesheetMetadataDocument(const rapidjson::Document &document) {
 
 void EnsureSpritesheetMetadataLoaded() {
     SpritesheetMetadataCache &cache = GetSpritesheetMetadataCache();
-    if (cache.loaded) return;
+    const std::filesystem::path metadata_path =
+        SpritesheetConfig::MetadataPath();
+    if (cache.loaded && cache.metadata_path == metadata_path) return;
 
     cache.loaded = true;
+    cache.metadata_path = metadata_path;
     cache.grid_specs.clear();
 
     const rapidjson::Document document = ReadSpritesheetMetadataDocument();
@@ -141,7 +151,7 @@ bool PersistSpritesheetMetadata() {
 } // namespace
 
 std::filesystem::path SpritesheetConfig::MetadataPath() {
-    return ResourcePath::EngineRootPath() / "project" / "spritesheets.json";
+    return ResourcePath::ProjectSpritesheetMetadataPath();
 }
 
 SpritesheetGridSpec SpritesheetConfig::ReadForImagePath(
@@ -175,10 +185,12 @@ SpritesheetGridSpec SpritesheetConfig::ReadForImageResource(
     const std::string &image_name,
     const std::filesystem::path &preferred_subdirectory) {
     const std::string resolved_image_path = ResourcePath::ResolveResourcePath(
-        "resources/images", image_name, kSupportedImageExtensions,
+        ResourcePath::ResourceSubdirectory("images"), image_name,
+        kSupportedImageExtensions,
         preferred_subdirectory);
     if (resolved_image_path.empty()) {
         return {};
     }
-    return ReadForImagePath("resources", resolved_image_path);
+    return ReadForImagePath(ResourcePath::ResourcesRootPath(),
+                            resolved_image_path);
 }

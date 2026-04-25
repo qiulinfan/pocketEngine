@@ -5,6 +5,9 @@ add_executable(
     "${PROJECT_SOURCE_DIR}/include/app/editor/EditorApp.h"
 )
 target_link_libraries(game_editor PRIVATE editor_core)
+if(WIN32)
+    target_link_libraries(game_editor PRIVATE ole32 shell32)
+endif()
 game_engine_apply_cxx_warnings(game_editor)
 game_engine_link_sdl(game_editor)
 game_engine_stage_resources(game_editor)

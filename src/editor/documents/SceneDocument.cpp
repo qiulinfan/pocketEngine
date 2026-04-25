@@ -145,7 +145,8 @@ bool SceneDocument::LoadFromScenePath(const std::filesystem::path &scene_path) {
         return false;
     }
 
-    const std::filesystem::path scene_root("resources/scenes");
+    const std::filesystem::path scene_root =
+        ResourcePath::ResourceSubdirectory("scenes");
     const std::filesystem::path normalized_scene_path = scene_path.lexically_normal();
 
     std::error_code relative_error;

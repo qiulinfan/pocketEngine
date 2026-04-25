@@ -2,7 +2,9 @@
 #define EDITOR_CONFIG_H
 
 #include <array>
+#include <filesystem>
 #include <string>
+#include <vector>
 
 enum class EditorExternalFileType {
     Audio,
@@ -40,6 +42,12 @@ struct EditorConfigData {
     std::string external_editor_font;
     std::string external_editor_scene;
     std::string external_editor_generic;
+
+    // Engine/editor-level project history. The selected path is the logical
+    // resources root used by the editor; project-private state lives inside
+    // that folder rather than under .engine.
+    std::filesystem::path current_project_resources_root = "resources";
+    std::vector<std::filesystem::path> recent_project_resources_roots;
 };
 
 class EditorConfig {
@@ -48,6 +56,8 @@ public:
     static EditorConfigData Read();
     // Persist the current editor host settings back to editor.config.
     static void Write(const EditorConfigData &config);
+    // Persist frequently updated project history to editor/projects.config.
+    static void WriteProjectHistory(const EditorConfigData &config);
     // Return all built-in file types that support external editor mapping.
     static const std::array<EditorExternalFileType, 8> &
     ExternalEditorFileTypes();
@@ -61,6 +71,8 @@ public:
     static const std::string &
     ExternalEditorCommand(const EditorConfigData &config,
                           EditorExternalFileType type);
+    static void RememberProject(EditorConfigData &config,
+                                const std::filesystem::path &resources_root);
 };
 
 #endif

@@ -1,3 +1,9 @@
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#endif
+
 #include "editor/core/EditorOverlay.h"
 #include "editor/core/EditorConfig.h"
 #include "editor/documents/SceneDocument.h"
@@ -13,11 +19,18 @@
 #include "backends/imgui_impl_sdl2.h"
 #include "backends/imgui_impl_sdlrenderer2.h"
 #include "SDL2/SDL.h"
+#if defined(_WIN32)
+#include <objbase.h>
+#include <shobjidl.h>
+#include <windows.h>
+#endif
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -94,6 +107,80 @@ bool IsWindowFullscreen(SDL_Window *window) {
            (window_flags & SDL_WINDOW_FULLSCREEN_DESKTOP) != 0;
 }
 
+#if defined(__APPLE__)
+std::string TrimTrailingLineBreaks(std::string value) {
+    while (!value.empty() &&
+           (value.back() == '\n' || value.back() == '\r')) {
+        value.pop_back();
+    }
+    return value;
+}
+#endif
+
+std::optional<std::filesystem::path> OpenNativeProjectFolderPicker() {
+#if defined(_WIN32)
+    HRESULT init_result =
+        CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED |
+                                    COINIT_DISABLE_OLE1DDE);
+    const bool should_uninitialize = SUCCEEDED(init_result);
+    if (FAILED(init_result) && init_result != RPC_E_CHANGED_MODE) {
+        return std::nullopt;
+    }
+
+    IFileOpenDialog *dialog = nullptr;
+    HRESULT dialog_result = CoCreateInstance(
+        CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER,
+        IID_PPV_ARGS(&dialog));
+    if (FAILED(dialog_result) || dialog == nullptr) {
+        if (should_uninitialize) CoUninitialize();
+        return std::nullopt;
+    }
+
+    DWORD options = 0;
+    if (SUCCEEDED(dialog->GetOptions(&options))) {
+        dialog->SetOptions(options | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM |
+                           FOS_PATHMUSTEXIST);
+    }
+    dialog->SetTitle(L"Open PocketEngine Project Resources Folder");
+
+    std::optional<std::filesystem::path> selected_path;
+    if (SUCCEEDED(dialog->Show(nullptr))) {
+        IShellItem *item = nullptr;
+        if (SUCCEEDED(dialog->GetResult(&item)) && item != nullptr) {
+            PWSTR wide_path = nullptr;
+            if (SUCCEEDED(item->GetDisplayName(SIGDN_FILESYSPATH,
+                                               &wide_path)) &&
+                wide_path != nullptr) {
+                selected_path = std::filesystem::path(wide_path);
+                CoTaskMemFree(wide_path);
+            }
+            item->Release();
+        }
+    }
+    dialog->Release();
+    if (should_uninitialize) CoUninitialize();
+    return selected_path;
+#elif defined(__APPLE__)
+    FILE *pipe = popen(
+        "osascript -e 'POSIX path of (choose folder with prompt "
+        "\"Open PocketEngine project resources folder\")'",
+        "r");
+    if (pipe == nullptr) return std::nullopt;
+
+    std::string output;
+    char buffer[4096];
+    while (std::fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+        output += buffer;
+    }
+    const int close_result = pclose(pipe);
+    output = TrimTrailingLineBreaks(output);
+    if (close_result != 0 || output.empty()) return std::nullopt;
+    return std::filesystem::path(output);
+#else
+    return std::nullopt;
+#endif
+}
+
 // Top-level menu owns document-wide commands such as save. Panels below stay
 // focused on selection and property editing.
 void BuildMainMenuBar(bool &show_metrics_window,
@@ -101,6 +188,9 @@ void BuildMainMenuBar(bool &show_metrics_window,
                       bool &show_game_config_window,
                       bool &show_rendering_config_window,
                       bool &show_external_editors_window,
+                      bool &show_open_project_window,
+                      std::string &open_project_path,
+                      const EditorConfigData &editor_config,
                       const SceneDocument &scene_document,
                       bool play_mode_active, bool play_mode_paused,
                       bool window_fullscreen,
@@ -109,11 +199,43 @@ void BuildMainMenuBar(bool &show_metrics_window,
     if (!ImGui::BeginMainMenuBar()) return;
 
     if (ImGui::BeginMenu("File")) {
+        if (ImGui::MenuItem("Open Project...")) {
+            const std::optional<std::filesystem::path> selected_path =
+                OpenNativeProjectFolderPicker();
+            if (selected_path.has_value()) {
+                result.open_project_requested = true;
+                result.requested_project_resources_root =
+                    selected_path->lexically_normal();
+            }
+#if !defined(_WIN32) && !defined(__APPLE__)
+            else {
+                open_project_path = ResourcePath::ResourcesRootPath().string();
+                show_open_project_window = true;
+            }
+#endif
+        }
+        if (!editor_config.recent_project_resources_roots.empty() &&
+            ImGui::BeginMenu("Recent Projects")) {
+            for (const std::filesystem::path &project_root :
+                 editor_config.recent_project_resources_roots) {
+                if (ImGui::MenuItem(project_root.string().c_str())) {
+                    result.open_project_requested = true;
+                    result.requested_project_resources_root =
+                        project_root.lexically_normal();
+                }
+            }
+            ImGui::EndMenu();
+        }
+        ImGui::Separator();
         if (ImGui::MenuItem("Save Scene", "Ctrl+S", false,
                             scene_save_enabled)) {
             result.save_scene_requested = true;
         }
         ImGui::Separator();
+        ImGui::TextDisabled("Project: %s",
+                            ResourcePath::ResourcesRootPath()
+                                .string()
+                                .c_str());
         ImGui::TextDisabled("%s", scene_document.GetScenePath().string().c_str());
         ImGui::EndMenu();
     }
@@ -238,8 +360,8 @@ void LoadEditorDefaultFont(ImGuiIO &io) {
     if (font_path.empty()) {
         // Backward compatibility for projects that have not moved local editor
         // assets out of resources yet.
-        font_path = ResourcePath::ResolveResourcePath("resources/fonts",
-                                                      "system", {".ttf"});
+        font_path = ResourcePath::ResolveResourcePath(
+            ResourcePath::ResourceSubdirectory("fonts"), "system", {".ttf"});
     }
     if (!font_path.empty()) {
         if (ImFont *font = io.Fonts->AddFontFromFileTTF(font_path.c_str(), kEditorFontPixelSize)) {
@@ -284,7 +406,8 @@ const char *ExternalEditorCommandHint(EditorExternalFileType type) {
 }
 
 std::vector<std::string> CollectAvailableSceneNames() {
-    const std::filesystem::path scene_root("resources/scenes");
+    const std::filesystem::path scene_root =
+        ResourcePath::ResourceSubdirectory("scenes");
     std::vector<std::string> scene_names;
     if (!std::filesystem::exists(scene_root) ||
         !std::filesystem::is_directory(scene_root)) {
@@ -457,6 +580,20 @@ void EditorOverlay::SetRuntimeInputRoutingState(bool play_mode_active,
     }
 }
 
+void EditorOverlay::NotifyProjectChanged() {
+    project_config_loaded_ = false;
+    selected_actor_index_ = -1;
+    selected_runtime_actor_uid_ = Actor::kInvalidUID;
+    play_mode_active_for_input_ = false;
+    play_mode_paused_for_input_ = false;
+    runtime_input_focus_ = false;
+    viewport_runtime_image_valid_ = false;
+    viewport_transport_bar_valid_ = false;
+    applied_ui_scale_ = 0.0f;
+    show_open_project_window_ = false;
+    open_project_error_.clear();
+}
+
 // Forward one SDL event to ImGui and report whether the editor/runtime capture it
 /*
 Editor not initialized -> runtime
@@ -583,7 +720,8 @@ EditorOverlayResult EditorOverlay::Render(Engine &engine,
     BuildMainMenuBar(show_metrics_window_,
                      show_editor_settings_window_, show_game_config_window_,
                      show_rendering_config_window_,
-                     show_external_editors_window_, scene_document,
+                     show_external_editors_window_, show_open_project_window_,
+                     open_project_path_, editor_config, scene_document,
                      play_mode_active, play_mode_paused, window_fullscreen,
                      scene_save_enabled, result);
 
@@ -596,7 +734,9 @@ EditorOverlayResult EditorOverlay::Render(Engine &engine,
                                     play_mode_active, play_mode_paused,
                                     applied_ui_scale_);
 
-    const EditorPanels::ProjectPanelResult project_panel_result = EditorPanels::RenderProjectPanel("resources", renderer);
+    const EditorPanels::ProjectPanelResult project_panel_result =
+        EditorPanels::RenderProjectPanel(ResourcePath::ResourcesRootPath(),
+                                         renderer);
     if (project_panel_result.open_scene_requested) {
         result.open_scene_requested = true;
         result.requested_scene_path = project_panel_result.requested_scene_path;
@@ -682,6 +822,7 @@ EditorOverlayResult EditorOverlay::Render(Engine &engine,
 
     RenderEditorSettingsWindow(engine, editor_config, result);
     RenderProjectConfigWindows();
+    RenderOpenProjectWindow(result);
     RenderEditorConfigConfirmationWindow(editor_config_confirmation_pending,
                                          result);
     RenderExternalEditorsWindow(editor_config, show_external_editors_window_,
@@ -798,14 +939,17 @@ void EditorOverlay::RenderProjectConfigWindows() {
     auto persist_project_config = [this]() {
         if (!GameConfig::Write(project_config_cache_)) {
             ShowTransientNotice(
-                "Unable to write project config. Check resources/game.config and resources/rendering.config.",
+                "Unable to write project config. Check the current project's game.config and rendering.config.",
                 5.0);
         }
     };
 
     if (show_game_config_window_) {
         if (ImGui::Begin("Game Config", &show_game_config_window_)) {
-            ImGui::TextUnformatted( "These values write to resources/game.config immediately.");
+            ImGui::Text("These values write to %s immediately.",
+                        (ResourcePath::ResourcesRootPath() / "game.config")
+                            .string()
+                            .c_str());
             ImGui::TextDisabled( "Current runtime/editor session keeps its already-loaded config.");
             if (ImGui::Button("Reload from Disk")) {
                 project_config_cache_ = GameConfig::Read();
@@ -849,7 +993,11 @@ void EditorOverlay::RenderProjectConfigWindows() {
 
     if (show_rendering_config_window_) {
         if (ImGui::Begin("Rendering Config", &show_rendering_config_window_)) {
-            ImGui::TextUnformatted( "These values write to resources/rendering.config immediately.");
+            ImGui::Text("These values write to %s immediately.",
+                        (ResourcePath::ResourcesRootPath() /
+                         "rendering.config")
+                            .string()
+                            .c_str());
             ImGui::TextDisabled( "Current runtime/editor session keeps its already-loaded config.");
             if (ImGui::Button("Reload from Disk")) {
                 project_config_cache_ = GameConfig::Read();
@@ -903,6 +1051,52 @@ void EditorOverlay::RenderProjectConfigWindows() {
         }
         ImGui::End();
     }
+}
+
+void EditorOverlay::RenderOpenProjectWindow(EditorOverlayResult &result) {
+    if (!show_open_project_window_) return;
+
+    ImGui::SetNextWindowSize(ImVec2(560.0f, 0.0f), ImGuiCond_Appearing);
+    if (!ImGui::Begin("Open Project", &show_open_project_window_)) {
+        ImGui::End();
+        return;
+    }
+
+    ImGui::TextUnformatted(
+        "Choose the folder that should behave as this project's resources/.");
+    ImGui::TextDisabled(
+        "Absolute paths and paths relative to the engine working directory both work.");
+    ImGui::Separator();
+
+    InputTextString("Project Resources Folder", open_project_path_,
+                    "e.g. resources, ../my-game/resources, C:\\\\Games\\\\MyProject");
+    if (!open_project_error_.empty()) {
+        ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.35f, 1.0f), "%s",
+                           open_project_error_.c_str());
+    }
+
+    if (ImGui::Button("Open", ImVec2(120.0f, 0.0f))) {
+        const std::filesystem::path candidate =
+            ResourcePath::NormalizeProjectRoot(open_project_path_);
+        if (candidate.empty()) {
+            open_project_error_ = "Path is empty.";
+        } else if (!std::filesystem::exists(candidate) ||
+                   !std::filesystem::is_directory(candidate)) {
+            open_project_error_ = "Folder does not exist.";
+        } else {
+            result.open_project_requested = true;
+            result.requested_project_resources_root = candidate;
+            open_project_error_.clear();
+            show_open_project_window_ = false;
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel", ImVec2(120.0f, 0.0f))) {
+        show_open_project_window_ = false;
+        open_project_error_.clear();
+    }
+
+    ImGui::End();
 }
 
 void EditorOverlay::RenderEditorConfigConfirmationWindow( bool editor_config_confirmation_pending, EditorOverlayResult &result) {
@@ -984,4 +1178,5 @@ void EditorOverlay::Shutdown() {
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
     initialized_ = false;
+    NotifyProjectChanged();
 }

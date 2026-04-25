@@ -1,4 +1,5 @@
 #include "shared/config/GameConfig.h"
+#include "shared/resources/ResourcePath.h"
 #include "rapidjson/document.h"
 #include "rapidjson/filereadstream.h"
 #include "rapidjson/prettywriter.h"
@@ -11,8 +12,13 @@
 
 namespace {
 
-constexpr const char *kGameConfigPath = "resources/game.config";
-constexpr const char *kRenderingConfigPath = "resources/rendering.config";
+std::filesystem::path GameConfigPath() {
+    return ResourcePath::ResourcesRootPath() / "game.config";
+}
+
+std::filesystem::path RenderingConfigPath() {
+    return ResourcePath::ResourcesRootPath() / "rendering.config";
+}
 
 void ReadJsonFile(const std::string &path, rapidjson::Document &out_document) {
     FILE *file_pointer = nullptr;
@@ -21,6 +27,10 @@ void ReadJsonFile(const std::string &path, rapidjson::Document &out_document) {
 #else
     file_pointer = fopen(path.c_str(), "rb");
 #endif
+    if (file_pointer == nullptr) {
+        out_document.SetObject();
+        return;
+    }
     char buffer[65536];
     rapidjson::FileReadStream stream(file_pointer, buffer, sizeof(buffer));
     out_document.ParseStream(stream);
@@ -125,17 +135,27 @@ GameConfigData GameConfig::Read() {
     // Shared startup config is intentionally simple: the runtime and editor
     // both consume the same read-only values, then diverge into their own
     // session state once bootstrapping is complete.
-    if (!std::filesystem::exists("resources")) {
-        std::cout << "error: resources/ missing";
-        std::exit(0);
+    const std::filesystem::path resources_root =
+        ResourcePath::ResourcesRootPath();
+    const std::filesystem::path game_config_path = GameConfigPath();
+    const std::filesystem::path rendering_config_path = RenderingConfigPath();
+
+    if (!std::filesystem::exists(resources_root) ||
+        !std::filesystem::is_directory(resources_root)) {
+        std::cout << "warning: project resources folder missing ["
+                  << resources_root.string() << "]; using default config"
+                  << std::endl;
+        return config;
     }
-    if (!std::filesystem::exists(kGameConfigPath)) {
-        std::cout << "error: resources/game.config missing";
-        std::exit(0);
+    if (!std::filesystem::exists(game_config_path)) {
+        std::cout << "warning: project game.config missing ["
+                  << game_config_path.string() << "]; using default config"
+                  << std::endl;
+        return config;
     }
 
     rapidjson::Document game_config;
-    ReadJsonFile(kGameConfigPath, game_config);
+    ReadJsonFile(game_config_path.string(), game_config);
 
     if (game_config.HasMember("game_title") &&
         game_config["game_title"].IsString()) {
@@ -147,9 +167,9 @@ GameConfigData GameConfig::Read() {
         config.initial_scene_name = game_config["initial_scene"].GetString();
     }
 
-    if (std::filesystem::exists(kRenderingConfigPath)) {
+    if (std::filesystem::exists(rendering_config_path)) {
         rapidjson::Document rendering_config;
-        ReadJsonFile(kRenderingConfigPath, rendering_config);
+        ReadJsonFile(rendering_config_path.string(), rendering_config);
 
         if (rendering_config.HasMember("x_resolution") &&
             rendering_config["x_resolution"].IsInt()) {
@@ -185,9 +205,12 @@ GameConfigData GameConfig::Read() {
 }
 
 bool GameConfig::Write(const GameConfigData &config) {
+    const std::filesystem::path game_config_path = GameConfigPath();
+    const std::filesystem::path rendering_config_path = RenderingConfigPath();
+
     rapidjson::Document game_config;
-    if (!TryReadJsonObjectFile(kGameConfigPath, game_config)) {
-        std::cout << "error: unable to read [" << kGameConfigPath << "]"
+    if (!TryReadJsonObjectFile(game_config_path, game_config)) {
+        std::cout << "error: unable to read [" << game_config_path << "]"
                   << std::endl;
         return false;
     }
@@ -196,8 +219,8 @@ bool GameConfig::Write(const GameConfigData &config) {
     }
 
     rapidjson::Document rendering_config;
-    if (!TryReadJsonObjectFile(kRenderingConfigPath, rendering_config)) {
-        std::cout << "error: unable to read [" << kRenderingConfigPath << "]"
+    if (!TryReadJsonObjectFile(rendering_config_path, rendering_config)) {
+        std::cout << "error: unable to read [" << rendering_config_path << "]"
                   << std::endl;
         return false;
     }
@@ -221,13 +244,13 @@ bool GameConfig::Write(const GameConfigData &config) {
     UpsertFloatMember(rendering_config, "zoom_factor",
                       config.zoom_factor > 0.0f ? config.zoom_factor : 1.0f);
 
-    if (!WriteJsonFile(kGameConfigPath, game_config)) {
-        std::cout << "error: unable to write [" << kGameConfigPath << "]"
+    if (!WriteJsonFile(game_config_path, game_config)) {
+        std::cout << "error: unable to write [" << game_config_path << "]"
                   << std::endl;
         return false;
     }
-    if (!WriteJsonFile(kRenderingConfigPath, rendering_config)) {
-        std::cout << "error: unable to write [" << kRenderingConfigPath << "]"
+    if (!WriteJsonFile(rendering_config_path, rendering_config)) {
+        std::cout << "error: unable to write [" << rendering_config_path << "]"
                   << std::endl;
         return false;
     }

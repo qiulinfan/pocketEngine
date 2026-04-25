@@ -9,10 +9,14 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <utility>
+#include <vector>
 
 namespace {
 
 const std::filesystem::path kEditorConfigPath = ResourcePath::EditorConfigPath();
+const std::filesystem::path kEditorProjectsConfigPath =
+    ResourcePath::EditorProjectsConfigPath();
 const std::filesystem::path kLegacyEditorConfigPath = "resources/editor.config";
 
 void ReadJsonFile(const std::string &path, rapidjson::Document &out_document) {
@@ -135,6 +139,114 @@ const char *GetExternalEditorConfigKey(EditorExternalFileType type) {
     }
 }
 
+std::filesystem::path ComparableProjectRoot(
+    const std::filesystem::path &resources_root) {
+    const std::filesystem::path normalized =
+        ResourcePath::NormalizeProjectRoot(resources_root);
+    std::error_code absolute_error;
+    const std::filesystem::path absolute_path =
+        std::filesystem::absolute(normalized, absolute_error);
+    return (absolute_error ? normalized : absolute_path).lexically_normal();
+}
+
+bool AreSameProjectRoot(const std::filesystem::path &lhs,
+                        const std::filesystem::path &rhs) {
+    return ComparableProjectRoot(lhs) == ComparableProjectRoot(rhs);
+}
+
+void ReadProjectHistoryDocument(const rapidjson::Document &project_config,
+                                EditorConfigData &config) {
+    if (project_config.HasMember("current_project_resources_root") &&
+        project_config["current_project_resources_root"].IsString()) {
+        config.current_project_resources_root =
+            ResourcePath::NormalizeProjectRoot(
+                project_config["current_project_resources_root"].GetString());
+    }
+
+    if (!project_config.HasMember("recent_project_resources_roots") ||
+        !project_config["recent_project_resources_roots"].IsArray()) {
+        EditorConfig::RememberProject(config,
+                                      config.current_project_resources_root);
+        return;
+    }
+
+    config.recent_project_resources_roots.clear();
+    const rapidjson::Value &recent_projects =
+        project_config["recent_project_resources_roots"];
+    for (rapidjson::SizeType index = 0; index < recent_projects.Size();
+         ++index) {
+        if (!recent_projects[index].IsString()) continue;
+        const std::filesystem::path project_root =
+            ResourcePath::NormalizeProjectRoot(
+                recent_projects[index].GetString());
+        bool duplicate = false;
+        for (const std::filesystem::path &existing :
+             config.recent_project_resources_roots) {
+            if (AreSameProjectRoot(existing, project_root)) {
+                duplicate = true;
+                break;
+            }
+        }
+        if (!duplicate) {
+            config.recent_project_resources_roots.emplace_back(project_root);
+        }
+    }
+
+    EditorConfig::RememberProject(config, config.current_project_resources_root);
+}
+
+void ReadProjectHistoryConfig(EditorConfigData &config,
+                              const rapidjson::Document *legacy_editor_config) {
+    if (std::filesystem::exists(kEditorProjectsConfigPath)) {
+        rapidjson::Document project_config;
+        ReadJsonFile(kEditorProjectsConfigPath.string(), project_config);
+        ReadProjectHistoryDocument(project_config, config);
+        return;
+    }
+
+    // Backward compatibility: early builds stored project MRU data directly in
+    // editor.config. Read it once, then future writes go to projects.config.
+    if (legacy_editor_config != nullptr) {
+        ReadProjectHistoryDocument(*legacy_editor_config, config);
+        return;
+    }
+
+    EditorConfig::RememberProject(config, config.current_project_resources_root);
+}
+
+void WriteProjectHistoryConfig(
+    rapidjson::PrettyWriter<rapidjson::StringBuffer> &writer,
+    const EditorConfigData &config) {
+    writer.Key("current_project_resources_root");
+    writer.String(config.current_project_resources_root.generic_string().c_str());
+    writer.Key("recent_project_resources_roots");
+    writer.StartArray();
+    for (const std::filesystem::path &project_root :
+         config.recent_project_resources_roots) {
+        writer.String(project_root.generic_string().c_str());
+    }
+    writer.EndArray();
+}
+
+void WriteProjectHistoryFile(const EditorConfigData &config) {
+    ResourcePath::EnsureDirectoryExists(kEditorProjectsConfigPath.parent_path());
+
+    rapidjson::StringBuffer buffer;
+    rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
+    writer.StartObject();
+    WriteProjectHistoryConfig(writer, config);
+    writer.EndObject();
+
+    std::ofstream output_file(kEditorProjectsConfigPath,
+                              std::ios::out | std::ios::trunc);
+    if (!output_file.is_open()) {
+        std::cout << "error: unable to write [" << kEditorProjectsConfigPath
+                  << "]" << std::endl;
+        exit(0);
+    }
+    output_file << buffer.GetString() << std::endl;
+}
+
 void ReadExternalEditorConfig(const rapidjson::Document &editor_config,
                               EditorConfigData &config) {
     if (!editor_config.HasMember("external_editors") ||
@@ -177,6 +289,7 @@ EditorConfigData EditorConfig::Read() {
 
     // Missing editor.config is fine; the editor falls back to sensible defaults.
     if (!std::filesystem::exists(config_path)) {
+        ReadProjectHistoryConfig(config, nullptr);
         return config;
     }
 
@@ -250,6 +363,7 @@ EditorConfigData EditorConfig::Read() {
     }
 
     ReadExternalEditorConfig(editor_config, config);
+    ReadProjectHistoryConfig(config, &editor_config);
 
     return config;
 }
@@ -302,6 +416,10 @@ void EditorConfig::Write(const EditorConfigData &config) {
     output_file << buffer.GetString() << std::endl;
 }
 
+void EditorConfig::WriteProjectHistory(const EditorConfigData &config) {
+    WriteProjectHistoryFile(config);
+}
+
 // Return all built-in file types that support external editor mapping.
 const std::array<EditorExternalFileType, 8> &
 EditorConfig::ExternalEditorFileTypes() {
@@ -327,4 +445,31 @@ std::string &EditorConfig::ExternalEditorCommand(EditorConfigData &config,
 // Mutable / immutable accessors to command string for one file type.
 const std::string &EditorConfig::ExternalEditorCommand( const EditorConfigData &config, EditorExternalFileType type) {
     return *GetExternalEditorCommandPtr(config, type);
+}
+
+void EditorConfig::RememberProject(
+    EditorConfigData &config, const std::filesystem::path &resources_root) {
+    constexpr std::size_t kMaxRecentProjects = 12;
+    const std::filesystem::path normalized_root =
+        ResourcePath::NormalizeProjectRoot(resources_root);
+    config.current_project_resources_root = normalized_root;
+
+    std::vector<std::filesystem::path> next_recent_projects;
+    next_recent_projects.emplace_back(normalized_root);
+    for (const std::filesystem::path &existing_root :
+         config.recent_project_resources_roots) {
+        if (AreSameProjectRoot(existing_root, normalized_root)) continue;
+        bool duplicate = false;
+        for (const std::filesystem::path &kept_root : next_recent_projects) {
+            if (AreSameProjectRoot(kept_root, existing_root)) {
+                duplicate = true;
+                break;
+            }
+        }
+        if (duplicate) continue;
+        next_recent_projects.emplace_back(
+            ResourcePath::NormalizeProjectRoot(existing_root));
+        if (next_recent_projects.size() >= kMaxRecentProjects) break;
+    }
+    config.recent_project_resources_roots = std::move(next_recent_projects);
 }
