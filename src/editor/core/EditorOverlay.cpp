@@ -889,6 +889,60 @@ bool EditorOverlay::ProcessEvent(const SDL_Event &event) {
     return false;
 }
 
+SDL_Event EditorOverlay::BuildRuntimeEvent(const SDL_Event &event,
+                                           const Engine &engine) const {
+    SDL_Event runtime_event = event;
+    if (!play_mode_active_for_input_ || !viewport_runtime_image_valid_) {
+        return runtime_event;
+    }
+    if (!ShouldCaptureMouseEvent(event.type)) {
+        return runtime_event;
+    }
+
+    int mouse_x = 0;
+    int mouse_y = 0;
+    if (!TryGetMousePositionFromEvent(event, mouse_x, mouse_y)) {
+        return runtime_event;
+    }
+    if (!IsPointInsideRect(mouse_x, mouse_y, viewport_runtime_image_min_x_,
+                           viewport_runtime_image_min_y_,
+                           viewport_runtime_image_max_x_,
+                           viewport_runtime_image_max_y_)) {
+        return runtime_event;
+    }
+
+    const float viewport_width =
+        std::max(1.0f, viewport_runtime_image_max_x_ -
+                           viewport_runtime_image_min_x_);
+    const float viewport_height =
+        std::max(1.0f, viewport_runtime_image_max_y_ -
+                           viewport_runtime_image_min_y_);
+    const int runtime_width =
+        std::max(1, engine.GetRuntimeRenderTargetWidth());
+    const int runtime_height =
+        std::max(1, engine.GetRuntimeRenderTargetHeight());
+    const int runtime_x = std::clamp(
+        static_cast<int>(std::lround(
+            (static_cast<float>(mouse_x) - viewport_runtime_image_min_x_) /
+            viewport_width * static_cast<float>(runtime_width))),
+        0, runtime_width - 1);
+    const int runtime_y = std::clamp(
+        static_cast<int>(std::lround(
+            (static_cast<float>(mouse_y) - viewport_runtime_image_min_y_) /
+            viewport_height * static_cast<float>(runtime_height))),
+        0, runtime_height - 1);
+
+    if (runtime_event.type == SDL_MOUSEMOTION) {
+        runtime_event.motion.x = runtime_x;
+        runtime_event.motion.y = runtime_y;
+    } else if (runtime_event.type == SDL_MOUSEBUTTONDOWN ||
+               runtime_event.type == SDL_MOUSEBUTTONUP) {
+        runtime_event.button.x = runtime_x;
+        runtime_event.button.y = runtime_y;
+    }
+    return runtime_event;
+}
+
 // Draw the editor UI for the current scene cache and runtime frame
 EditorOverlayResult EditorOverlay::Render(Engine &engine,
                                           SceneDocument &scene_document,

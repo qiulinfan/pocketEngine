@@ -554,7 +554,9 @@ void EditorApp::Run() {
             */
             const bool always_forward_to_runtime = event.type == SDL_QUIT || event.type == SDL_WINDOWEVENT;
             if (!captured_by_editor || always_forward_to_runtime) {
-                engine_->ProcessSDLEvent(event, quit_requested_this_frame);
+                const SDL_Event runtime_event =
+                    overlay_.BuildRuntimeEvent(event, *engine_);
+                engine_->ProcessSDLEvent(runtime_event, quit_requested_this_frame);
             }
         }
 

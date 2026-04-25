@@ -65,6 +65,9 @@ public:
     // Forward one SDL event to ImGui and report whether the editor captured it.
     // 将一个 SDL 事件转发给 ImGui, 并报告编辑器是否捕获了它.
     bool ProcessEvent(const SDL_Event &event);
+    // Convert editor-window mouse coordinates into runtime viewport coordinates.
+    SDL_Event BuildRuntimeEvent(const SDL_Event &event,
+                                const Engine &engine) const;
     // Draw the editor UI for the current scene cache and runtime frame.
     // 绘制当前场景缓存和运行时帧对应的编辑器 UI.
     EditorOverlayResult Render(Engine &engine, SceneDocument &scene_document,

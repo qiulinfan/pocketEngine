@@ -219,6 +219,8 @@ void Input::ProcessEvent(const SDL_Event &event) {
     } 
     else if (event.type == SDL_MOUSEBUTTONDOWN) {
         const int button = static_cast<int>(event.button.button);
+        mouse_position_.x = static_cast<float>(event.button.x);
+        mouse_position_.y = static_cast<float>(event.button.y);
         if (IsSupportedMouseButton(button)) {
             if (!mouse_button_held_[button]) {
                 mouse_button_down_[button] = true;
@@ -229,6 +231,8 @@ void Input::ProcessEvent(const SDL_Event &event) {
     } 
     else if (event.type == SDL_MOUSEBUTTONUP) {
         const int button = static_cast<int>(event.button.button);
+        mouse_position_.x = static_cast<float>(event.button.x);
+        mouse_position_.y = static_cast<float>(event.button.y);
         if (IsSupportedMouseButton(button)) {
             if (mouse_button_held_[button]) {
                 mouse_button_up_[button] = true;
