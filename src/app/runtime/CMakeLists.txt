@@ -26,4 +26,14 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" OR WIN32)
             "${PROJECT_SOURCE_DIR}/$<TARGET_FILE_NAME:game_engine>"
         COMMENT "Mirroring game executable to project root"
     )
+    add_custom_target(
+        game_engine_root_mirror ALL
+        COMMAND
+            ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:game_engine>"
+            "${PROJECT_SOURCE_DIR}/$<TARGET_FILE_NAME:game_engine>"
+        DEPENDS game_engine
+        COMMENT "Refreshing root game executable"
+        VERBATIM
+    )
 endif()

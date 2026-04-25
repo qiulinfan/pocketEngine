@@ -29,4 +29,14 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" OR WIN32)
             "${PROJECT_SOURCE_DIR}/$<TARGET_FILE_NAME:game_editor>"
         COMMENT "Mirroring pocket executable to project root"
     )
+    add_custom_target(
+        game_editor_root_mirror ALL
+        COMMAND
+            ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:game_editor>"
+            "${PROJECT_SOURCE_DIR}/$<TARGET_FILE_NAME:game_editor>"
+        DEPENDS game_editor
+        COMMENT "Refreshing root pocket executable"
+        VERBATIM
+    )
 endif()
