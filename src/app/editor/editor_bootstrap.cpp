@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -386,7 +387,49 @@ bool IsExistingDirectory(const std::filesystem::path &path) {
            std::filesystem::is_directory(path);
 }
 
+std::filesystem::path CreateFallbackTemporaryProjectRoot() {
+    const std::filesystem::path projects_root = std::filesystem::path("Projects");
+    ResourcePath::EnsureDirectoryExists(projects_root);
+
+    for (int index = 1; index < 10000; ++index) {
+        const std::filesystem::path candidate =
+            projects_root / ("tmp" + std::to_string(index));
+        if (std::filesystem::exists(candidate)) continue;
+        if (ResourcePath::EnsureDirectoryExists(candidate)) {
+            return candidate;
+        }
+    }
+
+    const std::filesystem::path fallback =
+        projects_root / "tmp";
+    ResourcePath::EnsureDirectoryExists(fallback);
+    return fallback;
+}
+
+void PruneMissingRecentProjectRoots(EditorConfigData &editor_config) {
+    std::vector<std::filesystem::path> existing_roots;
+    for (const std::filesystem::path &project_root :
+         editor_config.recent_project_roots) {
+        const std::filesystem::path normalized_root =
+            ResourcePath::NormalizeProjectRoot(project_root);
+        if (!IsExistingDirectory(normalized_root)) continue;
+        bool duplicate = false;
+        for (const std::filesystem::path &kept_root : existing_roots) {
+            if (kept_root == normalized_root) {
+                duplicate = true;
+                break;
+            }
+        }
+        if (!duplicate) {
+            existing_roots.emplace_back(normalized_root);
+        }
+    }
+    editor_config.recent_project_roots = std::move(existing_roots);
+}
+
 std::filesystem::path ChooseStartupProjectRoot(EditorConfigData &editor_config) {
+    PruneMissingRecentProjectRoots(editor_config);
+
     const std::filesystem::path configured_root =
         ResourcePath::NormalizeProjectRoot(
             editor_config.current_project_root);
@@ -411,16 +454,10 @@ std::filesystem::path ChooseStartupProjectRoot(EditorConfigData &editor_config) 
         return default_root;
     }
 
-    const std::filesystem::path legacy_root =
-        ResourcePath::LegacyResourcesRoot();
-    if (IsExistingDirectory(legacy_root)) {
-        EditorConfig::RememberProject(editor_config, legacy_root);
-        return legacy_root;
-    }
-
-    ResourcePath::EnsureDirectoryExists(default_root);
-    EditorConfig::RememberProject(editor_config, default_root);
-    return default_root;
+    const std::filesystem::path temporary_root =
+        CreateFallbackTemporaryProjectRoot();
+    EditorConfig::RememberProject(editor_config, temporary_root);
+    return temporary_root;
 }
 
 } // namespace
