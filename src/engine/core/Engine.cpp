@@ -417,6 +417,7 @@ void Engine::RunSingleFrame(bool quit_requested_this_frame) {
     if (!IsRunning()) return;
     /* Run one full gameplay frame: scene load, starts, update, render, input late update. */
     processPendingSceneLoad();
+    ::Input::BeginFrame();
     ComponentManager::ApplyEffectiveRigidbodyBodyTypes();
     ComponentManager::ProcessPendingOnStart();
     update();
@@ -798,6 +799,8 @@ void Engine::initialize() {
         SDL_Quit();
         exit(0);
     }
+    SDL_RaiseWindow(window);
+    SDL_SetWindowInputFocus(window);
 
     renderer = CreateRendererWithPlatformFallback(window);
     if (renderer == nullptr) {

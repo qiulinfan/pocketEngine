@@ -18,6 +18,10 @@ public:
     // 将一个 SDL 事件写入输入状态机
     static void ProcessEvent(const SDL_Event &event);
 
+    // sample held keyboard state once for this gameplay frame
+    // 每个 gameplay frame 统一采样一次键盘按住状态
+    static void BeginFrame();
+
     // advance transient just-down / just-up states at frame end
     // 在帧末推进 just-down / just-up 这类瞬时状态
     static void LateUpdate();
@@ -76,6 +80,10 @@ private:
     // current implementation only supports left, middle, right
     // 当前只支持左键, 中键, 右键
     static bool IsSupportedMouseButton(int button_num);
+    static void EnsureKeyboardSnapshotForCurrentFrame();
+    static bool IsScancodeHeldInSnapshot(SDL_Scancode key);
+    static bool IsKeycodeHeldInSnapshot(SDL_Keycode keycode);
+    static void ResetKeyboardStates();
 
     // keyboard state cache and per-frame transition lists
     // 键盘状态缓存和本帧状态变更列表
@@ -85,6 +93,9 @@ private:
     static std::unordered_map<SDL_Keycode, INPUT_STATE, SDLKeycodeHash> keycode_states_;
     static std::vector<SDL_Keycode> just_became_down_keycodes_;
     static std::vector<SDL_Keycode> just_became_up_keycodes_;
+    static std::array<bool, SDL_NUM_SCANCODES> keyboard_held_snapshot_;
+    static bool keyboard_held_snapshot_valid_;
+    static int keyboard_held_snapshot_frame_;
 
     // mouse button held / down / up caches
     // 鼠标按住 / 本帧按下 / 本帧松开缓存
