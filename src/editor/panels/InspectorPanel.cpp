@@ -281,13 +281,13 @@ bool AcceptPropertyAssetDrop(PropertyAssetDrop &out_drop) {
     if (!ImGui::BeginDragDropTarget()) return false;
 
     bool accepted = false;
-    if (const ImGuiPayload *payload =
+    if (const ImGuiPayload *sprite_payload_raw =
             ImGui::AcceptDragDropPayload(EditorDragDrop::kSpriteAssetPayload)) {
-        if (payload->Data != nullptr &&
-            payload->DataSize == sizeof(EditorDragDrop::SpriteAssetPayload)) {
+        if (sprite_payload_raw->Data != nullptr &&
+            sprite_payload_raw->DataSize == sizeof(EditorDragDrop::SpriteAssetPayload)) {
             const auto *sprite_payload =
                 static_cast<const EditorDragDrop::SpriteAssetPayload *>(
-                    payload->Data);
+                    sprite_payload_raw->Data);
             if (sprite_payload->image_resource_name[0] != '\0') {
                 out_drop.resource_name = sprite_payload->image_resource_name;
                 out_drop.has_sprite_cell = true;
@@ -296,18 +296,18 @@ bool AcceptPropertyAssetDrop(PropertyAssetDrop &out_drop) {
                 accepted = true;
             }
         }
-    } else if (const ImGuiPayload *payload =
+    } else if (const ImGuiPayload *image_payload =
                    ImGui::AcceptDragDropPayload(
                        EditorDragDrop::kImageAssetPayload)) {
-        const char *resource_name = static_cast<const char *>(payload->Data);
+        const char *resource_name = static_cast<const char *>(image_payload->Data);
         if (resource_name != nullptr && resource_name[0] != '\0') {
             out_drop.resource_name = resource_name;
             accepted = true;
         }
-    } else if (const ImGuiPayload *payload =
+    } else if (const ImGuiPayload *audio_payload =
                    ImGui::AcceptDragDropPayload(
                        EditorDragDrop::kAudioAssetPayload)) {
-        const char *resource_name = static_cast<const char *>(payload->Data);
+        const char *resource_name = static_cast<const char *>(audio_payload->Data);
         if (resource_name != nullptr && resource_name[0] != '\0') {
             out_drop.resource_name = resource_name;
             accepted = true;

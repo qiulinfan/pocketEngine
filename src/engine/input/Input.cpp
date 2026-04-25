@@ -1,4 +1,5 @@
 #include "input/Input.h"
+#include "core/FrameClock.h"
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
@@ -34,6 +35,14 @@ bool IsValidKeycode(SDL_Keycode key) {
     return key != SDLK_UNKNOWN;
 }
 
+void PumpKeyboardStateForCurrentFrame() {
+    static int last_pumped_frame = -1;
+    const int frame_number = FrameClock::GetFrameNumber();
+    if (last_pumped_frame == frame_number) return;
+    SDL_PumpEvents();
+    last_pumped_frame = frame_number;
+}
+
 SDL_Scancode ResolveKeyboardEventScancode(const SDL_KeyboardEvent &event) {
     if (IsValidScancode(event.keysym.scancode)) {
         return event.keysym.scancode;
@@ -46,12 +55,42 @@ SDL_Scancode ResolveKeyboardEventScancode(const SDL_KeyboardEvent &event) {
 bool IsHardwareKeyDown(SDL_Scancode key) {
     if (!IsValidScancode(key)) return false;
 
+    PumpKeyboardStateForCurrentFrame();
     int key_count = 0;
     const Uint8 *keyboard_state = SDL_GetKeyboardState(&key_count);
     if (keyboard_state == nullptr || static_cast<int>(key) >= key_count) {
         return false;
     }
     return keyboard_state[key] != 0;
+}
+
+bool IsHardwareKeycodeDown(SDL_Keycode keycode) {
+    if (!IsValidKeycode(keycode)) return false;
+
+    PumpKeyboardStateForCurrentFrame();
+    int key_count = 0;
+    const Uint8 *keyboard_state = SDL_GetKeyboardState(&key_count);
+    if (keyboard_state == nullptr) return false;
+
+    for (int code = 0; code < key_count; ++code) {
+        if (keyboard_state[code] == 0) continue;
+        const SDL_Scancode scancode = static_cast<SDL_Scancode>(code);
+        if (SDL_GetKeyFromScancode(scancode) == keycode) {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::string ToSDLNameCandidate(const std::string &value) {
+    if (value.empty()) return value;
+    if (value.size() == 1) {
+        std::string candidate = value;
+        candidate[0] = static_cast<char>(
+            std::toupper(static_cast<unsigned char>(candidate[0])));
+        return candidate;
+    }
+    return value;
 }
 
 bool ShouldLogInputDiagnostics() {
@@ -292,8 +331,26 @@ Input::KeyBinding Input::ParseKeyBinding(const std::string &keycode) {
 
     const std::string normalized = ToLowerASCII(keycode);
     auto it = kKeyMap.find(normalized);
-    if (it == kKeyMap.end()) return {};
-    return it->second;
+    if (it != kKeyMap.end()) return it->second;
+
+    KeyBinding binding;
+    const std::string sdl_name = ToSDLNameCandidate(normalized);
+    binding.scancode = SDL_GetScancodeFromName(sdl_name.c_str());
+    binding.keycode = SDL_GetKeyFromName(sdl_name.c_str());
+
+    /*
+    SDL names cover most special keys. Single-character names also have stable
+    ASCII keycodes, which is useful on Windows keyboard layouts where the
+    keycode path can differ from the physical scancode path.
+    */
+    if (!IsValidKeycode(binding.keycode) && normalized.size() == 1) {
+        binding.keycode = static_cast<SDL_Keycode>(normalized[0]);
+    }
+    if (!IsValidScancode(binding.scancode) &&
+        IsValidKeycode(binding.keycode)) {
+        binding.scancode = SDL_GetScancodeFromKey(binding.keycode);
+    }
+    return binding;
 }
 
 // string keycode overloads
@@ -302,9 +359,12 @@ bool Input::GetKey(const std::string &keycode) {
     if (GetKey(binding.scancode)) return true;
     if (!IsValidKeycode(binding.keycode)) return false;
     const auto found = keycode_states_.find(binding.keycode);
-    if (found == keycode_states_.end()) return false;
-    return found->second == INPUT_STATE_DOWN ||
-           found->second == INPUT_STATE_JUST_BECAME_DOWN;
+    if (found != keycode_states_.end() &&
+        (found->second == INPUT_STATE_DOWN ||
+         found->second == INPUT_STATE_JUST_BECAME_DOWN)) {
+        return true;
+    }
+    return IsHardwareKeycodeDown(binding.keycode);
 }
 
 // string keycode overloads

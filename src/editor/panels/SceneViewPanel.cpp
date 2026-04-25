@@ -846,9 +846,9 @@ bool HandleSceneAssetDrop(
     if (!ImGui::BeginDragDropTarget()) return false;
 
     bool scene_changed = false;
-    if (const ImGuiPayload *payload =
+    if (const ImGuiPayload *template_payload =
             ImGui::AcceptDragDropPayload(EditorDragDrop::kActorTemplatePayload)) {
-        const char *template_name = static_cast<const char *>(payload->Data);
+        const char *template_name = static_cast<const char *>(template_payload->Data);
         if (template_name != nullptr && template_name[0] != '\0') {
             const ImVec2 drop_world_position = SceneViewPanelPixelsToWorldPosition(
                 engine, scene_camera, image_min, image_size,
@@ -898,14 +898,14 @@ bool HandleSceneAssetDrop(
                 selected_runtime_actor_uid = Actor::kInvalidUID;
             }
         }
-    } else if (const ImGuiPayload *payload =
+    } else if (const ImGuiPayload *sprite_payload_raw =
                    ImGui::AcceptDragDropPayload(
                        EditorDragDrop::kSpriteAssetPayload)) {
-        if (payload->Data != nullptr &&
-            payload->DataSize == sizeof(EditorDragDrop::SpriteAssetPayload)) {
+        if (sprite_payload_raw->Data != nullptr &&
+            sprite_payload_raw->DataSize == sizeof(EditorDragDrop::SpriteAssetPayload)) {
             const auto *sprite_payload =
                 static_cast<const EditorDragDrop::SpriteAssetPayload *>(
-                    payload->Data);
+                    sprite_payload_raw->Data);
             if (sprite_payload->image_resource_name[0] != '\0') {
                 const ImVec2 drop_world_position =
                     SceneViewPanelPixelsToWorldPosition(
@@ -918,11 +918,11 @@ bool HandleSceneAssetDrop(
                     selected_runtime_actor_uid, out_edit_commands);
             }
         }
-    } else if (const ImGuiPayload *payload =
+    } else if (const ImGuiPayload *image_payload =
                    ImGui::AcceptDragDropPayload(
                        EditorDragDrop::kImageAssetPayload)) {
         const char *image_resource_name =
-            static_cast<const char *>(payload->Data);
+            static_cast<const char *>(image_payload->Data);
         if (image_resource_name != nullptr && image_resource_name[0] != '\0') {
             const ImVec2 drop_world_position = SceneViewPanelPixelsToWorldPosition(
                 engine, scene_camera, image_min, image_size,

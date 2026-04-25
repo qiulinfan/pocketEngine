@@ -712,9 +712,10 @@ bool EditorOverlay::Initialize(SDL_Window *window, SDL_Renderer *renderer) {
     // create the global context for imgui
     ImGui::CreateContext();
 
-    // config IO style: enable keyboard navigation, docking, and set up font and theme
+    // config IO style: enable docking and set up font/theme.
+    // Keyboard navigation fights gameplay controls in play mode: arrow keys
+    // should remain runtime input instead of moving focus across toolbar buttons.
     ImGuiIO &io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.IniFilename = "imgui.ini";
     LoadEditorDefaultFont(io);

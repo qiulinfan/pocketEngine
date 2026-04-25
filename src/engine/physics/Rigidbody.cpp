@@ -3,8 +3,15 @@
 #include "scripting/ComponentManager.h"
 #include "physics/RayCast.h"
 #include "glm/glm.hpp"
+#include <cmath>
 
 namespace {
+
+constexpr float kPhysicsSyncEpsilon = 0.0001f;
+
+bool NearlyEqual(float a, float b) {
+    return std::fabs(a - b) <= kPhysicsSyncEpsilon;
+}
 
 class RigidbodyContactListener : public b2ContactListener {
 public:
@@ -250,18 +257,23 @@ void Rigidbody::SetVelocity(const b2Vec2 &velocity) {
 
 // runtime physics controls
 void Rigidbody::SetPosition(const b2Vec2 &position) {
+    const bool same_position = NearlyEqual(x, position.x) &&
+                               NearlyEqual(y, position.y);
     x = position.x;
     y = position.y;
 
     if (body == nullptr) return;
+    if (same_position) return;
     body->SetTransform(position, body->GetAngle());
 }
 
 // runtime physics controls
 void Rigidbody::SetRotation(float degrees_clockwise) {
+    const bool same_rotation = NearlyEqual(rotation, degrees_clockwise);
     rotation = degrees_clockwise;
 
     if (body == nullptr) return;
+    if (same_rotation) return;
     body->SetTransform(body->GetPosition(),
                        ClockwiseDegreesToBox2DRadians(degrees_clockwise));
 }
@@ -270,7 +282,9 @@ void Rigidbody::SetEffectiveBodyType(const std::string &type_name) {
     effective_body_type = type_name;
     if (body == nullptr) return;
     if (effective_body_type.empty() || effective_body_type == "none") return;
-    body->SetType(ParseBodyType(GetEffectiveBodyType()));
+    const b2BodyType requested_type = ParseBodyType(GetEffectiveBodyType());
+    if (body->GetType() == requested_type) return;
+    body->SetType(requested_type);
 }
 
 // runtime physics controls

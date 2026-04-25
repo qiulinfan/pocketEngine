@@ -57,6 +57,10 @@ int ClampByte(int value) {
     return std::clamp(value, 0, 255);
 }
 
+Uint8 ClampByteU8(int value) {
+    return static_cast<Uint8>(ClampByte(value));
+}
+
 bool CompareImageRequests(const ImageDrawRequest &a,
                           const ImageDrawRequest &b) {
     return a.sorting_order < b.sorting_order;
@@ -594,8 +598,9 @@ void Renderer::RenderAndClearAllPixels(SDL_Renderer *renderer) {
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
     for (const PixelDrawRequest &request : pixel_draw_requests) {
-        SDL_SetRenderDrawColor(renderer, ClampByte(request.r), ClampByte(request.g),
-                               ClampByte(request.b), ClampByte(request.a));
+        SDL_SetRenderDrawColor(renderer, ClampByteU8(request.r),
+                               ClampByteU8(request.g), ClampByteU8(request.b),
+                               ClampByteU8(request.a));
         SDL_RenderDrawPoint(renderer, request.x, request.y);
     }
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
@@ -656,8 +661,9 @@ void Engine::render() {
 }
 
 void Engine::clearFrame() {
-    SDL_SetRenderDrawColor(renderer, config_.clear_color_r, config_.clear_color_g,
-                           config_.clear_color_b, 255);
+    SDL_SetRenderDrawColor(renderer, ClampByteU8(config_.clear_color_r),
+                           ClampByteU8(config_.clear_color_g),
+                           ClampByteU8(config_.clear_color_b), 255);
     SDL_RenderClear(renderer);
 }
 
