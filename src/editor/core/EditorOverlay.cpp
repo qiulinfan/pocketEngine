@@ -805,6 +805,15 @@ bool EditorOverlay::ProcessEvent(const SDL_Event &event) {
     const ImGuiIO &io = ImGui::GetIO();
     if (IsEditorPlaybackHotkeyEvent(event)) return true;
     if (!play_mode_active_for_input_) runtime_input_focus_ = false;
+    /*
+    Gameplay keyboard should feel immediate after pressing Play.  ImGui can
+    still capture text-entry fields, but normal key events go to runtime while
+    play mode is active so WASD/arrow controls are not eaten by docked panels.
+    */
+    if (play_mode_active_for_input_ && ShouldCaptureKeyboardEvent(event.type) &&
+        !io.WantTextInput) {
+        return false;
+    }
 
     // check if the the event's position is inside the runtime viewport
     int mouse_x = 0;

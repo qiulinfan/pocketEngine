@@ -23,7 +23,7 @@ KeyboardControls = {
 		-- Check on ground
 		local on_ground = false
 		ground_object = Physics.Raycast(self.rb:GetPosition(), Vector2(0, 1), 1)
-		if Input.GetKeyDown("up") or Input.GetKeyDown("space") then
+		if Input.GetKeyDown("up") or Input.GetKeyDown("w") or Input.GetKeyDown("space") then
 			if ground_object ~= nil then
 				vertical_input = -self.jump_power
 			end
@@ -32,4 +32,3 @@ KeyboardControls = {
 		self.rb:AddForce(Vector2(horizontal_input, vertical_input))
 	end
 }
-

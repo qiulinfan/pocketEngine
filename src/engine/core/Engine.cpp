@@ -122,6 +122,79 @@ bool ShouldLogPerformanceDiagnostics() {
     return std::getenv("ENGINE_LOG_PERF") != nullptr;
 }
 
+bool ShouldLogRendererDiagnostics() {
+    return std::getenv("ENGINE_LOG_RENDERER") != nullptr;
+}
+
+#if defined(_WIN32)
+std::string ReadEnvironmentString(const char *name) {
+    const char *value = std::getenv(name);
+    return value == nullptr ? "" : value;
+}
+#endif
+
+void LogRendererInfo(SDL_Renderer *renderer) {
+    if (!ShouldLogRendererDiagnostics() || renderer == nullptr) return;
+
+    SDL_RendererInfo info;
+    if (SDL_GetRendererInfo(renderer, &info) != 0) {
+        std::cout << "renderer: unable to query SDL renderer info: "
+                  << SDL_GetError() << std::endl;
+        return;
+    }
+
+    std::cout << "renderer: driver=" << (info.name == nullptr ? "unknown" : info.name)
+              << " accelerated="
+              << ((info.flags & SDL_RENDERER_ACCELERATED) != 0 ? "yes" : "no")
+              << " vsync="
+              << ((info.flags & SDL_RENDERER_PRESENTVSYNC) != 0 ? "yes" : "no")
+              << " target_texture="
+              << ((info.flags & SDL_RENDERER_TARGETTEXTURE) != 0 ? "yes" : "no")
+              << std::endl;
+}
+
+SDL_Renderer *CreateRendererWithPlatformFallback(SDL_Window *window) {
+    const Uint32 accelerated_flags =
+        SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC |
+        SDL_RENDERER_TARGETTEXTURE;
+
+#if defined(_WIN32)
+    std::vector<std::string> candidate_drivers;
+    const std::string requested_driver =
+        ReadEnvironmentString("POCKET_RENDER_DRIVER");
+    if (!requested_driver.empty()) {
+        candidate_drivers.emplace_back(requested_driver);
+    }
+    candidate_drivers.emplace_back("direct3d11");
+    candidate_drivers.emplace_back("direct3d");
+    candidate_drivers.emplace_back("opengl");
+
+    std::unordered_set<std::string> attempted_drivers;
+    for (const std::string &driver : candidate_drivers) {
+        if (driver.empty() || attempted_drivers.find(driver) != attempted_drivers.end()) {
+            continue;
+        }
+        attempted_drivers.insert(driver);
+        SDL_SetHint(SDL_HINT_RENDER_DRIVER, driver.c_str());
+        SDL_Renderer *renderer = ::SDL_CreateRenderer(window, -1, accelerated_flags);
+        if (renderer != nullptr) {
+            LogRendererInfo(renderer);
+            return renderer;
+        }
+        if (ShouldLogRendererDiagnostics()) {
+            std::cout << "renderer: failed to create " << driver
+                      << " renderer: " << SDL_GetError() << std::endl;
+        }
+    }
+    SDL_ResetHint(SDL_HINT_RENDER_DRIVER);
+#endif
+
+    SDL_Renderer *renderer =
+        SDLRenderHelper::SDL_CreateRenderer(window, -1, accelerated_flags);
+    LogRendererInfo(renderer);
+    return renderer;
+}
+
 void RotateClockwise(float x, float y, float rotation_degrees, float &out_x,
                      float &out_y) {
     const float radians =
@@ -710,7 +783,7 @@ void Engine::initialize() {
         exit(0);
     }
 
-    renderer = SDLRenderHelper::SDL_CreateRenderer( window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    renderer = CreateRendererWithPlatformFallback(window);
     if (renderer == nullptr) {
         SDL_DestroyWindow(window);
         window = nullptr;
