@@ -37,6 +37,7 @@ private:
     // 延迟到下一帧开头执行的场景切换请求
     bool has_pending_scene_load = false;
     std::string pending_scene_name = "";
+    std::string last_scene_load_error_;
 
     // runtime camera state
     float runtime_zoom_factor = 1.0f;
@@ -144,6 +145,7 @@ public:
     int GetWindowHeight() const;
     // Return the loaded game configuration data.
     const GameConfigData &GetConfig() const;
+    const std::string &GetLastSceneLoadError() const;
     std::size_t GetActorCount() const;
     // Return read-only access to the current live runtime actor container.
     // Editors can inspect this during play mode without owning runtime state.
@@ -162,7 +164,7 @@ public:
     Actor::UID AllocateRuntimeGeneratedActorUID();
     // Reload the runtime from a shared scene asset snapshot.
     // 使用共享场景资源快照重新装载运行时.
-    void LoadSceneAsset(const SceneFormat::SceneAsset &scene_asset);
+    bool LoadSceneAsset(const SceneFormat::SceneAsset &scene_asset);
     bool ApplySceneEditCommand(const SceneFormat::SceneEditCommand &command);
     // Toggle offscreen runtime rendering for the docked editor viewport.
     // 切换用于编辑器嵌入视口的离屏运行时渲染.

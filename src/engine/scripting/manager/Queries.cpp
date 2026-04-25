@@ -574,6 +574,12 @@ std::vector<std::string> ComponentManager::GetRegisteredComponentTypes() {
     return type_names;
 }
 
+bool ComponentManager::IsRegisteredComponentType(const std::string &type_name) {
+    if (IsBuiltinComponentType(type_name)) return true;
+    return g_runtime.component_type_tables.find(type_name) !=
+           g_runtime.component_type_tables.end();
+}
+
 // editor-facing metadata queries for available component types/defaults
 std::vector<Actor::ComponentProperty>
 ComponentManager::GetComponentTypeDefaultProperties( const std::string &type_name) {

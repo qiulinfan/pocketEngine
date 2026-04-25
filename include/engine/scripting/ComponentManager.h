@@ -84,6 +84,7 @@ public:
     // editor-facing metadata queries for available component types/defaults
     // 给编辑器使用的组件元数据查询接口
     static std::vector<std::string> GetRegisteredComponentTypes();
+    static bool IsRegisteredComponentType(const std::string &type_name);
     static std::vector<Actor::ComponentProperty>
     GetComponentTypeDefaultProperties(const std::string &type_name);
     static std::vector<Actor::ComponentSpec>

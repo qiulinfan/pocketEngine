@@ -53,6 +53,9 @@ std::string ResolveTemplatePath(const std::string &template_name, const std::fil
 
 // Load one actor template file into a parsed asset representation
 ActorTemplateAsset LoadActorTemplateAsset(const std::string &template_name, const std::filesystem::path &preferred_subdirectory = {});
+// Validate that runtime-strict scene loading can resolve all required assets.
+bool ValidateSceneAssetForRuntime(const SceneAsset &scene_asset,
+                                  std::string *out_error = nullptr);
 
 // Shared component-spec helpers used by both runtime and editor code paths
 void SortComponentSpecs(std::vector<Actor::ComponentSpec> &component_specs);
@@ -73,6 +76,10 @@ Actor ApplyActorRecordToActor(Actor actor, const ActorRecord &actor_record);
 // Build one fully merged actor exactly as runtime would see it.
 Actor BuildEffectiveActor(const ActorRecord &actor_record,
                           const std::filesystem::path &scene_subdirectory);
+// Build an editor-facing actor view without aborting when inherited assets are missing.
+Actor BuildEditableActor(const ActorRecord &actor_record,
+                         const std::filesystem::path &scene_subdirectory,
+                         std::string *out_warning = nullptr);
 // Build merged runtime actors from a raw scene asset.
 std::vector<Actor> BuildRuntimeActors(const SceneAsset &scene_asset);
 

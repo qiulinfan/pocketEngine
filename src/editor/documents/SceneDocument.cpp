@@ -366,8 +366,8 @@ Actor SceneDocument::BuildEffectiveActor(std::size_t actor_index) const {
     if (actor_record == nullptr) {
         return Actor();
     }
-    return SceneFormat::BuildEffectiveActor(*actor_record,
-                                            scene_asset_.scene_subdirectory);
+    return SceneFormat::BuildEditableActor(*actor_record,
+                                           scene_asset_.scene_subdirectory);
 }
 
 /* Return the display name shown in the hierarchy. */

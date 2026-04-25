@@ -18,6 +18,7 @@
 #include <iostream>
 #include <unordered_set>
 #include <type_traits>
+#include <vector>
 
 namespace {
 
@@ -32,6 +33,38 @@ bool IsBuiltinRuntimeComponentType(const std::string &type_name) {
 
 bool CanBuiltinRuntimeComponentPatchInPlace(const std::string &type_name) {
     return type_name == "Transform" || type_name == "SpriteRenderer";
+}
+
+bool ValidateRuntimeActorComponents(const std::vector<Actor> &runtime_actors,
+                                    const std::string &scene_name,
+                                    std::string &out_error) {
+    for (std::size_t actor_index = 0; actor_index < runtime_actors.size();
+         ++actor_index) {
+        const Actor &actor = runtime_actors[actor_index];
+        const std::string actor_label =
+            actor.actor_name.empty()
+                ? ("#" + std::to_string(actor_index + 1))
+                : ("\"" + actor.actor_name + "\"");
+        for (const Actor::ComponentSpec &component_spec :
+             actor.component_specs) {
+            if (component_spec.type.empty()) {
+                out_error = "scene " + scene_name + " actor " + actor_label +
+                            " has component \"" + component_spec.key +
+                            "\" with no type";
+                return false;
+            }
+            if (ComponentManager::IsRegisteredComponentType(
+                    component_spec.type)) {
+                continue;
+            }
+
+            out_error = "scene " + scene_name + " actor " + actor_label +
+                        " references missing component type \"" +
+                        component_spec.type + "\"";
+            return false;
+        }
+    }
+    return true;
 }
 
 bool ShouldLogSceneDiagnostics() {
@@ -346,6 +379,9 @@ int Engine::GetWindowHeight() const {
 }
 
 const GameConfigData &Engine::GetConfig() const {return config_;}
+const std::string &Engine::GetLastSceneLoadError() const {
+    return last_scene_load_error_;
+}
 std::size_t Engine::CountLiveActors() const {
     return static_cast<std::size_t>(
         std::count_if(actors.begin(), actors.end(),
@@ -478,7 +514,26 @@ Reload the runtime from a shared scene asset snapshot. (instead of re-reading fr
 Notice: Play/Stop transitions can leave transient input/audio state from the
 previous runtime snapshot, so clear those caches before rebind.
 */
-void Engine::LoadSceneAsset(const SceneFormat::SceneAsset &scene_asset) {
+bool Engine::LoadSceneAsset(const SceneFormat::SceneAsset &scene_asset) {
+    std::string validation_error;
+    if (!SceneFormat::ValidateSceneAssetForRuntime(scene_asset,
+                                                   &validation_error)) {
+        last_scene_load_error_ = validation_error;
+        std::cout << "error: " << validation_error << std::endl;
+        return false;
+    }
+
+    Scene::SetActiveSceneSubdirectory(scene_asset.scene_subdirectory);
+    ComponentManager::ReloadComponentTypes();
+
+    std::vector<Actor> runtime_actors =
+        SceneFormat::BuildRuntimeActors(scene_asset);
+    if (!ValidateRuntimeActorComponents(runtime_actors, scene_asset.scene_name,
+                                        validation_error)) {
+        last_scene_load_error_ = validation_error;
+        std::cout << "error: " << validation_error << std::endl;
+        return false;
+    }
 
     ::Input::Init();
     AudioManager::StopAllPlayback();
@@ -493,11 +548,6 @@ void Engine::LoadSceneAsset(const SceneFormat::SceneAsset &scene_asset) {
 
     ComponentManager::ClearActorComponents();
     actors.clear();
-
-    Scene::SetActiveSceneSubdirectory(scene_asset.scene_subdirectory);
-    ComponentManager::ReloadComponentTypes();
-
-    std::vector<Actor> runtime_actors = SceneFormat::BuildRuntimeActors(scene_asset);
     for (Actor &actor : runtime_actors) {
         actors.emplace_back(std::move(actor));
     }
@@ -519,6 +569,8 @@ void Engine::LoadSceneAsset(const SceneFormat::SceneAsset &scene_asset) {
     current_scene_name = scene_asset.scene_name;
     has_pending_scene_load = false;
     pending_scene_name.clear();
+    last_scene_load_error_.clear();
+    return true;
 }
 
 /*

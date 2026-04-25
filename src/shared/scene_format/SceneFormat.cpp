@@ -12,6 +12,7 @@
 #include <fstream>
 #include <iostream>
 #include <limits>
+#include <sstream>
 #include <type_traits>
 #include <unordered_set>
 #include <utility>
@@ -508,6 +509,42 @@ ActorTemplateAsset LoadActorTemplateAsset(
     return template_asset;
 }
 
+bool ValidateSceneAssetForRuntime(const SceneAsset &scene_asset,
+                                  std::string *out_error) {
+    if (scene_asset.scene_path.empty()) {
+        if (out_error != nullptr) {
+            *out_error = "scene " + scene_asset.scene_name + " is missing";
+        }
+        return false;
+    }
+
+    for (std::size_t actor_index = 0; actor_index < scene_asset.actors.size();
+         ++actor_index) {
+        const ActorRecord &actor_record = scene_asset.actors[actor_index];
+        if (actor_record.template_name.empty()) continue;
+        if (!ResolveTemplatePath(actor_record.template_name,
+                                 scene_asset.scene_subdirectory).empty()) {
+            continue;
+        }
+
+        if (out_error != nullptr) {
+            std::ostringstream message;
+            message << "scene " << scene_asset.scene_name << " actor ";
+            if (!actor_record.name.empty()) {
+                message << "\"" << actor_record.name << "\"";
+            } else {
+                message << "#" << (actor_index + 1);
+            }
+            message << " references missing template \""
+                    << actor_record.template_name << "\"";
+            *out_error = message.str();
+        }
+        return false;
+    }
+
+    return true;
+}
+
 // -----------------------------------------------------------------------------
 // Shared actor/component merge helpers
 // -----------------------------------------------------------------------------
@@ -643,6 +680,31 @@ Actor BuildEffectiveActor(const ActorRecord &actor_record,
     Actor actor;
     if (!actor_record.template_name.empty()) {
         actor = Actor::LoadTemplate(actor_record.template_name);
+    }
+
+    actor = ApplyActorRecordToActor(std::move(actor), actor_record);
+    actor.runtime_destroyed = false;
+    actor.dont_destroy_on_scene_load = false;
+    return actor;
+}
+
+Actor BuildEditableActor(const ActorRecord &actor_record,
+                         const std::filesystem::path &scene_subdirectory,
+                         std::string *out_warning) {
+    Scene::SetActiveSceneSubdirectory(scene_subdirectory);
+
+    Actor actor;
+    if (!actor_record.template_name.empty()) {
+        const ActorTemplateAsset template_asset =
+            LoadActorTemplateAsset(actor_record.template_name,
+                                   scene_subdirectory);
+        if (template_asset.template_path.empty()) {
+            if (out_warning != nullptr) {
+                *out_warning = "missing template " + actor_record.template_name;
+            }
+        } else {
+            actor = template_asset.actor;
+        }
     }
 
     actor = ApplyActorRecordToActor(std::move(actor), actor_record);

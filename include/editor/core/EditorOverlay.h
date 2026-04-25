@@ -52,6 +52,8 @@ public:
     // Apply cached editor settings to the live ImGui style and font scale.
     void ApplyConfig(const EditorConfigData &config, int window_width,
                      int window_height);
+    // Queue a short-lived top-right notice for host-level actions.
+    void ShowNotice(const std::string &text, double duration_seconds = 4.0);
     // Update routing context used to decide whether input goes to editor or
     // runtime while the viewport is embedded.
     void SetRuntimeInputRoutingState(bool play_mode_active,

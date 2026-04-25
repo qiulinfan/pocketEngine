@@ -101,7 +101,10 @@ void EditorSceneSession::SyncRuntimeMirrorIfDirty(Engine &engine) {
     if (!authoring_scene_document_loaded_) return;
     if (play_mode_active_) return;
     if (!runtime_scene_dirty_) return;
-    engine.LoadSceneAsset(authoring_scene_document_.GetSceneAsset());
+    if (!engine.LoadSceneAsset(authoring_scene_document_.GetSceneAsset())) {
+        runtime_scene_dirty_ = false;
+        return;
+    }
     runtime_scene_dirty_ = false;
 }
 
@@ -115,7 +118,11 @@ bool EditorSceneSession::EnterPlayMode(Engine &engine) {
 
     play_scene_document_ = authoring_scene_document_;
     play_scene_document_loaded_ = true;
-    engine.LoadSceneAsset(play_scene_document_.GetSceneAsset());
+    if (!engine.LoadSceneAsset(play_scene_document_.GetSceneAsset())) {
+        play_scene_document_ = SceneDocument();
+        play_scene_document_loaded_ = false;
+        return false;
+    }
     play_mode_active_ = true;
     play_mode_paused_ = false;
     runtime_scene_dirty_ = false;

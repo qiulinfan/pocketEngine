@@ -594,7 +594,14 @@ void EditorApp::Run() {
                 scene_session_.HandleSceneEditCommand( overlay_result.scene_edit_commands[command_index], *engine_);
             }
             if (overlay_result.play_mode_start_requested) {
-                scene_session_.EnterPlayMode(*engine_);
+                if (!scene_session_.EnterPlayMode(*engine_)) {
+                    const std::string &load_error =
+                        engine_->GetLastSceneLoadError();
+                    overlay_.ShowNotice(
+                        load_error.empty()
+                            ? "Cannot enter play mode."
+                            : "Cannot enter play mode: " + load_error);
+                }
             }
             if (overlay_result.play_mode_pause_toggle_requested) {
                 scene_session_.TogglePlayPause();

@@ -635,6 +635,11 @@ void EditorOverlay::ShowTransientNotice(const std::string &text,
     transient_notice_expire_time_ = ImGui::GetTime() + duration_seconds;
 }
 
+void EditorOverlay::ShowNotice(const std::string &text,
+                               double duration_seconds) {
+    ShowTransientNotice(text, duration_seconds);
+}
+
 // Create the ImGui context and bind it to the shared SDL window and renderer3
 bool EditorOverlay::Initialize(SDL_Window *window, SDL_Renderer *renderer) {
     if (initialized_) return true;
