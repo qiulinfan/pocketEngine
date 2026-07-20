@@ -809,7 +809,8 @@ void Engine::initialize() {
     /* Create the SDL renderer lazily on demand. */
     window = SDLRenderHelper::SDL_CreateWindow(
         config_.game_title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        config_.window_width, config_.window_height, SDL_WINDOW_SHOWN);
+        config_.window_width, config_.window_height,
+        SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI);
     if (window == nullptr) {
         SDL_Quit();
         exit(0);

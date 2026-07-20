@@ -918,9 +918,9 @@ SDL_Event EditorOverlay::BuildRuntimeEvent(const SDL_Event &event,
         std::max(1.0f, viewport_runtime_image_max_y_ -
                            viewport_runtime_image_min_y_);
     const int runtime_width =
-        std::max(1, engine.GetRuntimeRenderTargetWidth());
+        std::max(1, engine.GetConfig().window_width);
     const int runtime_height =
-        std::max(1, engine.GetRuntimeRenderTargetHeight());
+        std::max(1, engine.GetConfig().window_height);
     const int runtime_x = std::clamp(
         static_cast<int>(std::lround(
             (static_cast<float>(mouse_x) - viewport_runtime_image_min_x_) /
@@ -1121,7 +1121,11 @@ EditorOverlayResult EditorOverlay::Render(Engine &engine,
     RenderTransientNotifications();
 
     ImGui::Render();
+    SDL_RenderSetScale(renderer,
+                       std::max(0.01f, io.DisplayFramebufferScale.x),
+                       std::max(0.01f, io.DisplayFramebufferScale.y));
     ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
+    SDL_RenderSetScale(renderer, 1.0f, 1.0f);
     return result;
 }
 

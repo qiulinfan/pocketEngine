@@ -119,6 +119,15 @@ function(game_engine_ensure_sdl)
                 "${PROJECT_SOURCE_DIR}/thirdparty/SDL2_ttf/lib/SDL2_ttf.framework"
             )
 
+            target_include_directories(
+                game_engine_sdl
+                SYSTEM
+                INTERFACE
+                    "${PROJECT_SOURCE_DIR}/thirdparty/SDL2/lib/SDL2.framework/Headers"
+                    "${PROJECT_SOURCE_DIR}/thirdparty/SDL2_image/lib/SDL2_image.framework/Headers"
+                    "${PROJECT_SOURCE_DIR}/thirdparty/SDL2_mixer/lib/SDL2_mixer.framework/Headers"
+                    "${PROJECT_SOURCE_DIR}/thirdparty/SDL2_ttf/lib/SDL2_ttf.framework/Headers"
+            )
             target_link_libraries(game_engine_sdl INTERFACE ${_game_engine_frameworks})
         else()
             find_package(PkgConfig REQUIRED)

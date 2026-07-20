@@ -177,7 +177,7 @@ public:
     // Return the latest runtime render target for ImGui::Image().
     // 返回给 ImGui::Image() 使用的最新运行时渲染目标.
     SDL_Texture *GetRuntimeRenderTarget() const;
-    // Return the logical size of the embedded runtime render target.
+    // Return the physical pixel size of the embedded runtime render target.
     int GetRuntimeRenderTargetWidth() const;
     int GetRuntimeRenderTargetHeight() const;
     // Render one editor-only scene preview using an independent camera.

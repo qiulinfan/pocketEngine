@@ -19,6 +19,10 @@ constexpr float kPixelsPerUnit = 100.0f;
 constexpr Uint32 kTextCacheUnusedLifetimeMs = 3000;
 constexpr std::size_t kMaxTextCacheEntries = 512;
 
+float SafeOutputScale(float scale) {
+    return scale > 0.0f ? scale : 1.0f;
+}
+
 std::unordered_set<std::string> g_renderer_warning_keys;
 int g_renderer_warning_count = 0;
 std::string g_renderer_last_warning;
@@ -414,18 +418,26 @@ void Renderer::DrawText(const std::string &text_content,
 // Render one frame by flushing queued scene images, particles, text, and pixels.
 void Renderer::RenderFrame(SDL_Renderer *renderer, float camera_x,
                            float camera_y, float zoom_factor,
-                           int camera_width, int camera_height) {
+                           int camera_width, int camera_height,
+                           float output_scale_x, float output_scale_y) {
+    const float safe_output_scale_x = SafeOutputScale(output_scale_x);
+    const float safe_output_scale_y = SafeOutputScale(output_scale_y);
     RenderAndClearAllImages(renderer, camera_x, camera_y, zoom_factor,
-                            camera_width, camera_height);
-    RenderAndClearAllText(renderer);
+                            camera_width, camera_height, safe_output_scale_x,
+                            safe_output_scale_y);
+    RenderAndClearAllText(renderer, safe_output_scale_x,
+                          safe_output_scale_y);
     RenderAndClearAllPixels(renderer);
+    SDL_RenderSetScale(renderer, 1.0f, 1.0f);
     PruneTextCache();
 }
 
 // Flush queued world-space image and particle draw requests for this frame.
 void Renderer::RenderAndClearAllImages(SDL_Renderer *renderer, float camera_x,
                                        float camera_y, float zoom_factor,
-                                       int camera_width, int camera_height) {
+                                       int camera_width, int camera_height,
+                                       float output_scale_x,
+                                       float output_scale_y) {
     if (renderer == nullptr) {
         scene_draw_requests.clear();
         scene_particle_batches.clear();
@@ -523,7 +535,8 @@ void Renderer::RenderAndClearAllImages(SDL_Renderer *renderer, float camera_x,
         SDL_SetTextureAlphaMod(texture, 255);
     };
 
-    SDL_RenderSetScale(renderer, safe_zoom, safe_zoom);
+    SDL_RenderSetScale(renderer, safe_zoom * output_scale_x,
+                      safe_zoom * output_scale_y);
     size_t scene_request_index = 0;
     size_t particle_batch_index = 0;
     while (scene_request_index < scene_draw_requests.size() ||
@@ -545,7 +558,7 @@ void Renderer::RenderAndClearAllImages(SDL_Renderer *renderer, float camera_x,
             camera_x, camera_y, zoom_factor, camera_width, camera_height);
         ++particle_batch_index;
     }
-    SDL_RenderSetScale(renderer, 1.0f, 1.0f);
+    SDL_RenderSetScale(renderer, output_scale_x, output_scale_y);
 
     for (const ImageDrawRequest &request : ui_draw_requests) {
         float texture_w = 0.0f;
@@ -585,11 +598,25 @@ void Renderer::RenderAndClearAllImages(SDL_Renderer *renderer, float camera_x,
 }
 
 // Flush queued text draw requests and reuse cached text textures when possible.
-void Renderer::RenderAndClearAllText(SDL_Renderer *renderer) {
+void Renderer::RenderAndClearAllText(SDL_Renderer *renderer,
+                                     float output_scale_x,
+                                     float output_scale_y) {
+    const float safe_output_scale_x = SafeOutputScale(output_scale_x);
+    const float safe_output_scale_y = SafeOutputScale(output_scale_y);
+    const float raster_scale =
+        std::max(safe_output_scale_x, safe_output_scale_y);
+    SDL_RenderSetScale(renderer, safe_output_scale_x, safe_output_scale_y);
+
     for (const TextDrawRequest &req : text_draw_requests) {
+        if (req.font_size <= 0 || req.text.empty()) continue;
+
+        const int raster_font_size =
+            std::max(1, static_cast<int>(std::lround(
+                            static_cast<float>(req.font_size) *
+                            raster_scale)));
         std::ostringstream key_stream;
         key_stream << req.font_name << '|'
-                   << req.font_size << '|'
+                   << raster_font_size << '|'
                    << static_cast<int>(req.color.r) << ','
                    << static_cast<int>(req.color.g) << ','
                    << static_cast<int>(req.color.b) << ','
@@ -599,14 +626,16 @@ void Renderer::RenderAndClearAllText(SDL_Renderer *renderer) {
 
         auto cache_it = text_cache.find(cache_key);
         if (cache_it == text_cache.end()) {
-            TTF_Font *font = GetFont(req.font_name, req.font_size);
+            TTF_Font *font = GetFont(req.font_name, raster_font_size);
             if (font == nullptr) continue;
 
-            SDL_Surface *surface = TTF_RenderText_Solid(font, req.text.c_str(), req.color);
+            SDL_Surface *surface =
+                TTF_RenderUTF8_Blended(font, req.text.c_str(), req.color);
             if (surface == nullptr) continue;
 
             SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
             if (texture != nullptr) {
+                SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
                 CachedTextTexture cached;
                 cached.texture = texture;
                 cached.width = surface->w;
@@ -622,11 +651,12 @@ void Renderer::RenderAndClearAllText(SDL_Renderer *renderer) {
         cache_it->second.last_used_timestamp = SDL_GetTicks();
 
         SDL_FRect dest = {static_cast<float>(req.x), static_cast<float>(req.y),
-                          static_cast<float>(cache_it->second.width),
-                          static_cast<float>(cache_it->second.height)};
-        SDLRenderHelper::SDL_RenderCopyEx(Actor::kInvalidUID, "", renderer,
-                                          cache_it->second.texture, nullptr,
-                                          &dest, 0.0f, nullptr, SDL_FLIP_NONE);
+                          static_cast<float>(cache_it->second.width) /
+                              safe_output_scale_x,
+                          static_cast<float>(cache_it->second.height) /
+                              safe_output_scale_y};
+        SDL_RenderCopyExF(renderer, cache_it->second.texture, nullptr, &dest,
+                          0.0, nullptr, SDL_FLIP_NONE);
     }
 
     text_draw_requests.clear();
@@ -699,16 +729,24 @@ void Engine::render() {
     ParticleManager::QueueRenderBatches();
 
     const float zoom_factor = std::clamp(runtime_zoom_factor, kMinZoomFactor, kMaxZoomFactor);
-    const int render_width =
-        (render_runtime_to_texture_ && runtime_render_target_ != nullptr)
-            ? runtime_render_target_width_
-            : config_.window_width;
-    const int render_height =
-        (render_runtime_to_texture_ && runtime_render_target_ != nullptr)
-            ? runtime_render_target_height_
-            : config_.window_height;
+    const int render_width = std::max(1, config_.window_width);
+    const int render_height = std::max(1, config_.window_height);
+    int output_width = runtime_render_target_width_;
+    int output_height = runtime_render_target_height_;
+    if (!render_runtime_to_texture_ || runtime_render_target_ == nullptr) {
+        output_width = render_width;
+        output_height = render_height;
+        SDL_GetRendererOutputSize(renderer, &output_width, &output_height);
+    }
+    const float output_scale_x =
+        static_cast<float>(std::max(1, output_width)) /
+        static_cast<float>(render_width);
+    const float output_scale_y =
+        static_cast<float>(std::max(1, output_height)) /
+        static_cast<float>(render_height);
     Renderer::RenderFrame(renderer, camera_position.x, camera_position.y,
-                          zoom_factor, render_width, render_height);
+                          zoom_factor, render_width, render_height,
+                          output_scale_x, output_scale_y);
     RecordRuntimeRenderFrame();
 
     if (render_runtime_to_texture_) {

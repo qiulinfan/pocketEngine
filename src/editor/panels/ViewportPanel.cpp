@@ -30,8 +30,9 @@ ImVec2 FitRuntimeImage(const ImVec2 &available_size, int texture_width, int text
     return ImVec2(safe_texture_width * image_scale, safe_texture_height * image_scale);
 }
 
-int TextureDimensionFromPanelSpace(float value) {
-    return std::max(1, static_cast<int>(std::floor(value)));
+int TextureDimensionFromPanelSpace(float value, float framebuffer_scale) {
+    return std::max(1, static_cast<int>(std::lround(
+                           value * std::max(0.01f, framebuffer_scale))));
 }
 
 void DrawTransportIcon(ImDrawList *draw_list, const ImVec2 &min, const ImVec2 &max, TransportIcon icon, ImU32 icon_color) {
@@ -180,10 +181,15 @@ ViewportControlsResult RenderViewportPanel(const Engine &engine,
 
     controls_result.panel_visible = true;
     const ImVec2 available_size = ImGui::GetContentRegionAvail();
+    const GameConfigData &runtime_config = engine.GetConfig();
+    const ImVec2 image_size =
+        FitRuntimeImage(available_size, runtime_config.window_width,
+                        runtime_config.window_height);
+    const ImVec2 framebuffer_scale = ImGui::GetIO().DisplayFramebufferScale;
     controls_result.requested_texture_width =
-        TextureDimensionFromPanelSpace(available_size.x);
+        TextureDimensionFromPanelSpace(image_size.x, framebuffer_scale.x);
     controls_result.requested_texture_height =
-        TextureDimensionFromPanelSpace(available_size.y);
+        TextureDimensionFromPanelSpace(image_size.y, framebuffer_scale.y);
 
     SDL_Texture *runtime_texture = engine.GetRuntimeRenderTarget();
     if (runtime_texture == nullptr) {
@@ -192,7 +198,6 @@ ViewportControlsResult RenderViewportPanel(const Engine &engine,
         return controls_result;
     }
 
-    const ImVec2 image_size = FitRuntimeImage(available_size, engine.GetRuntimeRenderTargetWidth(), engine.GetRuntimeRenderTargetHeight());
     const ImVec2 cursor_screen_pos = ImGui::GetCursorScreenPos();
     const ImVec2 centered_cursor(
         cursor_screen_pos.x + std::max(0.0f, (available_size.x - image_size.x) * 0.5f),

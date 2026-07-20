@@ -100,7 +100,9 @@ public:
 
     static void RenderFrame(SDL_Renderer *renderer, float camera_x,
                             float camera_y, float zoom_factor,
-                            int camera_width, int camera_height);
+                            int camera_width, int camera_height,
+                            float output_scale_x = 1.0f,
+                            float output_scale_y = 1.0f);
     static void ClearCache();
     static int GetResourceWarningCount();
     static const std::string &GetLastResourceWarning();
@@ -119,8 +121,12 @@ private:
     static void PruneTextCache();
     static void RenderAndClearAllImages(SDL_Renderer *renderer, float camera_x,
                                         float camera_y, float zoom_factor,
-                                        int camera_width, int camera_height);
-    static void RenderAndClearAllText(SDL_Renderer *renderer);
+                                        int camera_width, int camera_height,
+                                        float output_scale_x,
+                                        float output_scale_y);
+    static void RenderAndClearAllText(SDL_Renderer *renderer,
+                                      float output_scale_x,
+                                      float output_scale_y);
     static void RenderAndClearAllPixels(SDL_Renderer *renderer);
 
     // caches and per-frame draw queues
