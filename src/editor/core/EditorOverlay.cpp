@@ -29,6 +29,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
@@ -555,7 +556,75 @@ void ApplyUnityLikeGrayTheme(ImGuiStyle &style, float ui_scale) {
     colors[ImGuiCol_DockingEmptyBg] = ImVec4(0.21f, 0.22f, 0.24f, 1.0f);
 }
 
-// system font: source is inter.ttf
+void AppendCjkFontCandidates(std::vector<std::filesystem::path> &candidates,
+                             const std::filesystem::path &root) {
+    if (root.empty()) {
+        return;
+    }
+
+    // cjk.* is the stable override name for an engine or project-supplied
+    // fallback. The other names cover common redistributable CJK families.
+    static constexpr const char *kCjkFontNames[] = {
+        "cjk.ttf",
+        "cjk.otf",
+        "cjk.ttc",
+        "NotoSansCJK-Regular.ttc",
+        "NotoSansCJKsc-Regular.otf",
+        "NotoSansSC-Regular.otf",
+        "SourceHanSansSC-Regular.otf",
+        "SourceHanSansCN-Regular.otf",
+    };
+    for (const char *name : kCjkFontNames) {
+        candidates.emplace_back(root / name);
+    }
+}
+
+std::string FindEditorCjkFallbackFont() {
+    std::vector<std::filesystem::path> candidates;
+    AppendCjkFontCandidates(candidates, ResourcePath::EngineSystemFontsRoot());
+    AppendCjkFontCandidates(
+        candidates, ResourcePath::ResourceSubdirectory("fonts"));
+
+#if defined(__APPLE__)
+    candidates.emplace_back("/System/Library/Fonts/PingFang.ttc");
+    candidates.emplace_back("/System/Library/Fonts/Hiragino Sans GB.ttc");
+    candidates.emplace_back("/System/Library/Fonts/STHeiti Medium.ttc");
+    candidates.emplace_back("/System/Library/Fonts/STHeiti Light.ttc");
+    candidates.emplace_back("/System/Library/Fonts/Supplemental/Songti.ttc");
+#elif defined(_WIN32)
+    const char *windows_directory = std::getenv("WINDIR");
+    const std::filesystem::path fonts_root =
+        (windows_directory != nullptr && windows_directory[0] != '\0')
+            ? std::filesystem::path(windows_directory) / "Fonts"
+            : std::filesystem::path("C:\\Windows\\Fonts");
+    candidates.emplace_back(fonts_root / "msyh.ttc");
+    candidates.emplace_back(fonts_root / "msyh.ttf");
+    candidates.emplace_back(fonts_root / "simhei.ttf");
+    candidates.emplace_back(fonts_root / "simsun.ttc");
+#else
+    candidates.emplace_back(
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc");
+    candidates.emplace_back(
+        "/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf");
+    candidates.emplace_back(
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc");
+    candidates.emplace_back(
+        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc");
+    candidates.emplace_back(
+        "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc");
+#endif
+
+    for (const std::filesystem::path &candidate : candidates) {
+        std::error_code error;
+        if (std::filesystem::is_regular_file(candidate, error)) {
+            return candidate.string();
+        }
+    }
+    return {};
+}
+
+// Keep Inter as the editor's visual default, then merge a CJK font source so
+// Dear ImGui can resolve UTF-8 Chinese glyphs on demand.
 void LoadEditorDefaultFont(ImGuiIO &io) {
     io.Fonts->Clear();
     std::string font_path = ResourcePath::ResolveResourcePath(
@@ -566,17 +635,41 @@ void LoadEditorDefaultFont(ImGuiIO &io) {
         font_path = ResourcePath::ResolveResourcePath(
             ResourcePath::ResourceSubdirectory("fonts"), "system", {".ttf"});
     }
+    ImFont *default_font = nullptr;
     if (!font_path.empty()) {
-        if (ImFont *font = io.Fonts->AddFontFromFileTTF(font_path.c_str(), kEditorFontPixelSize)) {
-            io.FontDefault = font;
-            return;
-        }
+        default_font =
+            io.Fonts->AddFontFromFileTTF(font_path.c_str(), kEditorFontPixelSize);
     } else {
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
                     "EditorOverlay: editor system font not found, fallback to Dear ImGui default font.");
     }
 
-    io.FontDefault = io.Fonts->AddFontDefault();
+    const std::string cjk_font_path = FindEditorCjkFallbackFont();
+    if (!cjk_font_path.empty()) {
+        ImFontConfig cjk_config;
+        cjk_config.MergeMode = default_font != nullptr;
+        ImFont *cjk_font = io.Fonts->AddFontFromFileTTF(
+            cjk_font_path.c_str(), kEditorFontPixelSize, &cjk_config);
+        if (default_font == nullptr) {
+            default_font = cjk_font;
+        }
+        if (cjk_font != nullptr) {
+            SDL_Log("EditorOverlay: loaded CJK fallback font: %s",
+                    cjk_font_path.c_str());
+        } else {
+            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                        "EditorOverlay: failed to load CJK fallback font: %s",
+                        cjk_font_path.c_str());
+        }
+    } else {
+        SDL_LogWarn(
+            SDL_LOG_CATEGORY_APPLICATION,
+            "EditorOverlay: no CJK fallback font found; Chinese text may render as '?'. "
+            "Add .engine/system/fonts/cjk.ttf (or .otf/.ttc) to bundle one.");
+    }
+
+    io.FontDefault =
+        default_font != nullptr ? default_font : io.Fonts->AddFontDefault();
 }
 
 /*

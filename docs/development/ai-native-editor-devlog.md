@@ -199,6 +199,39 @@
 
 ## 开发记录
 
+### 2026-07-27：编辑器中文字体支持
+
+目标：修复 ImGui 编辑器中 UTF-8 中文文本被显示为 `?` 的问题。
+
+完成：
+
+- 保留 Inter 作为编辑器默认西文字体。
+- 增加 CJK fallback 字体发现与 ImGui 字体源合并。
+- macOS 自动使用 PingFang、Hiragino Sans GB、STHeiti 或 Songti。
+- Windows 自动使用 Microsoft YaHei、SimHei 或 SimSun。
+- Linux 自动使用 Noto Sans CJK 或 WenQuanYi。
+- 支持在 `.engine/system/fonts` 或项目 `fonts` 目录放置 `cjk.ttf`、`cjk.otf`、`cjk.ttc`，以获得可发布且一致的字体结果。
+- 找不到中文字体时输出带修复提示的日志。
+
+验证：
+
+- 命令：`cmake --build build/macos-ninja-debug -j4`
+- 结果：编辑器与测试目标构建成功。
+- 命令：ImGui 动态字体图集 glyph probe
+- 结果：合并字体后 U+4E2D（中）和 U+6587（文）均可解析。
+- 命令：`ctest --test-dir build/macos-ninja-debug --output-on-failure`
+- 结果：3/3 通过。
+
+问题与假设：
+
+- 当前开发机使用 macOS `Hiragino Sans GB.ttc`，不需要新增仓库二进制字体。
+- 为保证不同操作系统和发布包中的字形、字宽完全一致，后续应选定一份允许再分发的 CJK 字体并以 `cjk.*` 命名随引擎发布。
+
+下一步：
+
+1. 在编辑器 AI Assistant、Actor 重命名和其他输入框中进行中文输入法手动验收。
+2. 在发布打包阶段加入固定的 CJK 字体资产。
+
 ### 2026-07-27：Phase 1 只读链路实现完成
 
 目标：让 Codex 与 Claude Code 通过统一的 PocketEngine MCP，只读理解编辑器实时场景，而不获得场景或文件写权限。
