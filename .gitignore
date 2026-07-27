@@ -497,6 +497,10 @@ game_editor_linux
 .engine/project/
 resources/.pocketengine/
 **/.pocketengine/
+/tools/pocket-agent-host/node_modules/
+/tools/pocket-agent-host/dist/
+!/tools/pocket-agent-host/test/
+!/tools/pocket-agent-host/test/**
 /Projects/*
 !/Projects/Default/
 !/Projects/Default/**

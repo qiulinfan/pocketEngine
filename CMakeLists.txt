@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.21)
 
 project(game_engine VERSION 0.1.0 LANGUAGES C CXX)
 
+include(CTest)
+find_package(Threads REQUIRED)
+
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
@@ -77,6 +80,7 @@ function(game_engine_apply_cxx_warnings target)
 endfunction()
 
 add_subdirectory(thirdparty)
+add_subdirectory(tools/pocket-agent-host)
 
 add_library(engine_runtime STATIC)
 target_include_directories(
@@ -110,6 +114,13 @@ target_link_libraries(
         engine_runtime
         imgui_runtime
         imguizmo_runtime
+    PRIVATE
+        Threads::Threads
+)
+target_compile_definitions(
+    editor_core
+    PRIVATE
+        POCKET_ENGINE_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
 )
 game_engine_apply_cxx_warnings(editor_core)
 set_target_properties(editor_core PROPERTIES FOLDER "editor")
@@ -120,6 +131,10 @@ add_subdirectory(src/engine)
 add_subdirectory(src/editor)
 add_subdirectory(src/app/runtime)
 add_subdirectory(src/app/editor)
+
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()
 
 if(MSVC)
     set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT game_engine)

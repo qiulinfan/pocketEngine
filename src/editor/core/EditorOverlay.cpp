@@ -5,8 +5,10 @@
 #endif
 
 #include "editor/core/EditorOverlay.h"
+#include "editor/ai/AIEditorService.h"
 #include "editor/core/EditorConfig.h"
 #include "editor/documents/SceneDocument.h"
+#include "editor/panels/AIAssistantPanel.h"
 #include "editor/panels/HierarchyPanel.h"
 #include "editor/panels/InspectorPanel.h"
 #include "editor/panels/ProjectPanel.h"
@@ -945,6 +947,7 @@ SDL_Event EditorOverlay::BuildRuntimeEvent(const SDL_Event &event,
 
 // Draw the editor UI for the current scene cache and runtime frame
 EditorOverlayResult EditorOverlay::Render(Engine &engine,
+                                          AIEditorService &ai_service,
                                           SceneDocument &scene_document,
                                           EditorConfigData &editor_config,
                                           bool editor_config_confirmation_pending,
@@ -1017,6 +1020,8 @@ EditorOverlayResult EditorOverlay::Render(Engine &engine,
                                     play_mode_active, play_mode_paused,
                                     edit_mode_live_preview_enabled,
                                     applied_ui_scale_);
+
+    EditorPanels::RenderAIAssistantPanel(ai_service);
 
     const EditorPanels::ProjectPanelResult project_panel_result =
         EditorPanels::RenderProjectPanel(ResourcePath::ResourcesRootPath(),

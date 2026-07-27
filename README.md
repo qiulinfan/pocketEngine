@@ -102,6 +102,16 @@ All files under `docs/architecture/` are diagram-only for explaining the archite
 - [Module Dependency](docs/architecture/module-dependency.md)
 - [Editor Workflow](docs/architecture/editor-workflow.md)
 
+AI-native editor development documents:
+- [Implementation Spec](docs/development/ai-native-editor-spec.md)
+- [Devlog](docs/development/ai-native-editor-devlog.md)
+
+### Read-only AI Assistant (Phase 1)
+
+Build the sidecar once with `npm --prefix tools/pocket-agent-host install`, then build and run the editor normally. The AI Assistant probes locally installed Codex and Claude Code CLIs and uses their existing login state.
+
+Phase 1 binds a bearer-protected MCP server only on `127.0.0.1`. Agent sessions can inspect the current editor, scene, actors, component types, and project assets, but receive no PocketEngine write tools. The sidecar injects session-local MCP configuration and does not modify global Codex or Claude settings.
+
 ## Sample Project
 `Projects/Default/` contains the default sample project.
 

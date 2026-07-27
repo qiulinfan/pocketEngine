@@ -1,6 +1,7 @@
 target_sources(
     editor_core
     PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/AIAssistantPanel.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/HierarchyPanel.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/InspectorPanel.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/ProjectPanel.cpp"
@@ -8,6 +9,7 @@ target_sources(
         "${CMAKE_CURRENT_SOURCE_DIR}/StatusPanel.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/ViewportPanel.cpp"
         "${PROJECT_SOURCE_DIR}/include/editor/panels/HierarchyPanel.h"
+        "${PROJECT_SOURCE_DIR}/include/editor/panels/AIAssistantPanel.h"
         "${PROJECT_SOURCE_DIR}/include/editor/panels/InspectorPanel.h"
         "${PROJECT_SOURCE_DIR}/include/editor/panels/ProjectPanel.h"
         "${PROJECT_SOURCE_DIR}/include/editor/panels/SceneViewPanel.h"

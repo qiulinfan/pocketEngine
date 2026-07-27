@@ -16,6 +16,7 @@ struct SDL_Renderer;
 
 class Engine;
 class SceneDocument;
+class AIEditorService;
 struct EditorConfigData;
 
 struct EditorOverlayResult {
@@ -68,9 +69,14 @@ public:
     // Convert editor-window mouse coordinates into runtime viewport coordinates.
     SDL_Event BuildRuntimeEvent(const SDL_Event &event,
                                 const Engine &engine) const;
+    int GetSelectedActorIndex() const { return selected_actor_index_; }
+    Actor::UID GetSelectedRuntimeActorUID() const {
+        return selected_runtime_actor_uid_;
+    }
     // Draw the editor UI for the current scene cache and runtime frame.
     // 绘制当前场景缓存和运行时帧对应的编辑器 UI.
-    EditorOverlayResult Render(Engine &engine, SceneDocument &scene_document,
+    EditorOverlayResult Render(Engine &engine, AIEditorService &ai_service,
+                               SceneDocument &scene_document,
                                EditorConfigData &editor_config,
                                bool editor_config_confirmation_pending,
                                bool play_mode_active, bool play_mode_paused,

@@ -2,6 +2,7 @@
 #define EDITOR_APP_H
 
 #include "editor/core/EditorConfig.h"
+#include "editor/ai/AIEditorService.h"
 #include "editor/core/EditorOverlay.h"
 #include "editor/core/EditorSceneSession.h"
 #include "engine/core/Engine.h"
@@ -42,6 +43,7 @@ private:
     EditorConfigData editor_config_;
     bool editor_config_dirty_ = false;
     std::unique_ptr<Engine> engine_;
+    AIEditorService ai_editor_service_;
     EditorOverlay overlay_;
     EditorSceneSession scene_session_;
     bool runtime_view_visible_last_frame_ = true;

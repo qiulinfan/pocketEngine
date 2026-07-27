@@ -475,6 +475,7 @@ bool EditorApp::BootstrapEngineForCurrentProject() {
     if (!overlay_.Initialize(engine_->GetWindow(), engine_->GetRenderer())) {
         return false;
     }
+    ai_editor_service_.Start(ResourcePath::ResourcesRootPath());
     overlay_.NotifyProjectChanged();
     SyncWindowStateFromLiveWindow();
     return true;
@@ -488,6 +489,7 @@ bool EditorApp::SwitchProject(const std::filesystem::path &project_root) {
     }
 
     scene_session_.PersistDocumentOnEditorShutdown();
+    ai_editor_service_.Stop();
     overlay_.Shutdown();
     if (engine_) {
         engine_->ShutdownRuntime();
@@ -533,6 +535,22 @@ void EditorApp::Run() {
     confirmed_editor_config_persist_dirty_ = false;
 
     while (engine_ && engine_->IsRunning()) {
+        AIEditorContext ai_context;
+        ai_context.scene_document =
+            &scene_session_.GetSceneDocument();
+        ai_context.project_root = ResourcePath::ResourcesRootPath();
+        ai_context.selected_actor_index =
+            overlay_.GetSelectedActorIndex();
+        ai_context.selected_runtime_actor_uid =
+            overlay_.GetSelectedRuntimeActorUID();
+        ai_context.play_mode_active =
+            scene_session_.IsPlayModeActive();
+        ai_context.play_mode_paused =
+            scene_session_.IsPlayModePaused();
+        ai_context.edit_mode_live_preview_enabled =
+            scene_session_.IsEditModeLivePreviewEnabled();
+        ai_editor_service_.SetEditorContext(ai_context);
+        ai_editor_service_.Update();
         /*
         Scene edits are mirrored into runtime at frame boundaries so the UI
         never mutates live runtime state in the middle of a frame.
@@ -584,7 +602,8 @@ void EditorApp::Run() {
         std::filesystem::path pending_project_root;
         {
             const EditorOverlayResult overlay_result =
-                overlay_.Render(*engine_, scene_session_.GetSceneDocument(),
+                overlay_.Render(*engine_, ai_editor_service_,
+                                scene_session_.GetSceneDocument(),
                                 editor_config_,
                                 editor_config_dirty_,
                                 scene_session_.IsPlayModeActive(),
@@ -691,6 +710,7 @@ void EditorApp::Run() {
 
     // On shutdown, persist only editor document cache and discard runtime-only play-state mutations
     scene_session_.PersistDocumentOnEditorShutdown();
+    ai_editor_service_.Stop();
     EditorConfig::Write(confirmed_editor_config_);
     confirmed_editor_config_persist_dirty_ = false;
     overlay_.Shutdown();
