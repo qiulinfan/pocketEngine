@@ -106,6 +106,9 @@ AI-native editor development documents:
 - [Implementation Spec](docs/development/ai-native-editor-spec.md)
 - [Devlog](docs/development/ai-native-editor-devlog.md)
 
+Pocket3D architecture reform:
+- [Development Plan](docs/development/pocket3d-development-plan.md)
+
 ### Read-only AI Assistant (Phase 1)
 
 Build the sidecar once with `npm --prefix tools/pocket-agent-host install`, then build and run the editor normally. The AI Assistant probes locally installed Codex and Claude Code CLIs and uses their existing login state.
