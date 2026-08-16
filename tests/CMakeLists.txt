@@ -59,3 +59,5 @@ target_compile_definitions(
 game_engine_apply_cxx_warnings(ai_read_only_tools_tests)
 set_target_properties(ai_read_only_tools_tests PROPERTIES FOLDER "tests")
 add_test(NAME ai_read_only_tools COMMAND ai_read_only_tools_tests)
+
+add_subdirectory(pocket3d)

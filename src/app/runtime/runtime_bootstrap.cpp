@@ -4,6 +4,7 @@
 #include "rapidjson/document.h"
 #include "rapidjson/filereadstream.h"
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
 
@@ -69,6 +70,16 @@ bool TryReadEditorProjectRoot(std::filesystem::path &out_project_root) {
 }
 
 void ApplyEditorSelectedProjectRootForRuntime() {
+    const char *environment_root = std::getenv("POCKET_PROJECT_ROOT");
+    if (environment_root != nullptr && environment_root[0] != '\0') {
+        const std::filesystem::path project_root =
+            ResourcePath::NormalizeProjectRoot(environment_root);
+        if (std::filesystem::exists(project_root) &&
+            std::filesystem::is_directory(project_root)) {
+            ResourcePath::SetResourcesRootPath(project_root);
+            return;
+        }
+    }
     std::filesystem::path project_root;
     if (!TryReadEditorProjectRoot(project_root)) return;
     ResourcePath::SetResourcesRootPath(project_root);

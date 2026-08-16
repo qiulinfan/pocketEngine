@@ -1,9 +1,12 @@
 #include "Internal.h"
 #include "rendering/SpriteRenderer.h"
+#include "rendering/MeshRenderer.h"
 #include "scripting/ComponentManager.h"
 #include "particles/ParticleSystem.h"
 #include "physics/Rigidbody.h"
 #include "scene/Transform.h"
+#include "scene/Transform3D.h"
+#include "scene/Camera3D.h"
 #include <algorithm>
 #include <unordered_set>
 
@@ -268,6 +271,53 @@ std::vector<Actor::ComponentProperty> GetBuiltinComponentDefaultProperties(const
             {"x", static_cast<double>(defaults.x)},
             {"y", static_cast<double>(defaults.y)},
             {"rotation", static_cast<double>(defaults.rotation)},
+        };
+        return properties;
+    }
+
+    if (type_name == "Transform3D") {
+        const Transform3D defaults;
+        properties = {
+            {"enabled", defaults.enabled},
+            {"position_x", static_cast<double>(defaults.position_x)},
+            {"position_y", static_cast<double>(defaults.position_y)},
+            {"position_z", static_cast<double>(defaults.position_z)},
+            {"rotation_x", static_cast<double>(defaults.rotation_x)},
+            {"rotation_y", static_cast<double>(defaults.rotation_y)},
+            {"rotation_z", static_cast<double>(defaults.rotation_z)},
+            {"rotation_w", static_cast<double>(defaults.rotation_w)},
+            {"scale_x", static_cast<double>(defaults.scale_x)},
+            {"scale_y", static_cast<double>(defaults.scale_y)},
+            {"scale_z", static_cast<double>(defaults.scale_z)},
+        };
+        return properties;
+    }
+
+    if (type_name == "Camera3D") {
+        const Camera3D defaults;
+        properties = {
+            {"enabled", defaults.enabled},
+            {"primary", defaults.primary},
+            {"orthographic", defaults.orthographic},
+            {"vertical_fov_degrees",
+             static_cast<double>(defaults.vertical_fov_degrees)},
+            {"near_clip", static_cast<double>(defaults.near_clip)},
+            {"far_clip", static_cast<double>(defaults.far_clip)},
+            {"orthographic_height",
+             static_cast<double>(defaults.orthographic_height)},
+        };
+        return properties;
+    }
+
+    if (type_name == "MeshRenderer") {
+        const MeshRenderer defaults;
+        properties = {
+            {"enabled", defaults.enabled},
+            {"mesh", defaults.mesh},
+            {"color_r", static_cast<double>(defaults.color_r)},
+            {"color_g", static_cast<double>(defaults.color_g)},
+            {"color_b", static_cast<double>(defaults.color_b)},
+            {"color_a", static_cast<double>(defaults.color_a)},
         };
         return properties;
     }
@@ -558,11 +608,14 @@ luabridge::LuaRef ComponentManager::FindAllActorsByName( const std::string &name
 // editor-facing metadata queries for available component types/defaults
 std::vector<std::string> ComponentManager::GetRegisteredComponentTypes() {
     std::vector<std::string> type_names;
-    type_names.reserve(g_runtime.component_type_tables.size() + 4);
+    type_names.reserve(g_runtime.component_type_tables.size() + 7);
     type_names.emplace_back("SpriteRenderer");
     type_names.emplace_back("ParticleSystem");
     type_names.emplace_back("Rigidbody");
     type_names.emplace_back("Transform");
+    type_names.emplace_back("Transform3D");
+    type_names.emplace_back("Camera3D");
+    type_names.emplace_back("MeshRenderer");
 
     for (const auto &entry : g_runtime.component_type_tables) {
         type_names.emplace_back(entry.first);

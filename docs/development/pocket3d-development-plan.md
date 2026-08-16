@@ -1,13 +1,22 @@
-# Pocket3D 核心架构改革开发计划
+# Pocket3D 长期架构路线图
 
-状态：Proposed  
-版本：0.1  
-创建日期：2026-07-27  
+状态：Proposed
+版本：0.2
+创建日期：2026-07-27
+修订日期：2026-08-16
 目标分支：`pocket3d`
+
+当前实施阶段：[Phase 1：Cross-platform OpenGL 3D Rendering](pocket3d-phase-1-cross-platform-opengl.md)
+
+## 0. 文档边界
+
+本文只描述 Pocket3D 在首个 3D 垂直切片完成后的长期架构改革，包括 Python Runtime、统一 RHI、多平台图形后端、独立渲染线程和后续优化。
+
+当前正在实施的 Phase 1 不依赖这些改革。Phase 1 在保留 Lua、Box2D、主线程执行和现有 SDL2 窗口/输入体系的前提下，先用 OpenGL 4.1 Core 在 Windows、macOS、Linux 建立相同的 3D 行为基线。本文的 Python、RHI、渲染线程与原生 Direct3D 12/Metal 里程碑只有在 Phase 1 验收完成后才开始。
 
 ## 1. 文档目的
 
-本文定义 PocketEngine 在 `pocket3d` 分支上的核心架构改革计划。改革包含三条主线：
+本文定义 PocketEngine 在 `pocket3d` 分支完成首个 3D 垂直切片后的核心架构改革计划。改革包含三条主线：
 
 1. 使用 Python 替代 Lua 作为游戏脚本语言；
 2. 将渲染执行从主线程迁移到独立渲染线程，并为后续原生 Job System 建立边界；
@@ -40,9 +49,11 @@
 - 不在首版设计通用任务图或无锁 Job System。
 - 不在首版支持运行时热切换图形后端。
 
-`pocket3d` 首先完成基础设施和现有 2D 示例的行为、画面等价迁移。3D 功能应建立在稳定的 Python Runtime、RHI 和渲染线程之上。
+Pocket3D 的首个 3D 功能由独立的 Phase 1 先行交付。本文描述的改革随后完成基础设施、现有 2D 示例的行为/画面等价迁移和多平台扩展；Python Runtime、统一 RHI 和渲染线程不再是第一个 3D 画面的前置条件。
 
-## 3. 当前基线与主要耦合
+## 3. 改革前基线与主要耦合
+
+本节记录 Phase 1 启动前的 2D 基线，用来解释长期改革需要解除的耦合。Phase 1 新增的 3D 数据、render extraction 和 OpenGL 实现应在改革开始时一并纳入基线审计。
 
 ### 3.1 脚本系统
 
@@ -400,7 +411,7 @@ Python 生命周期和 Box2D 首版保持主线程串行。任何并行化都必
 - 保存 Default 项目的画面和行为基线；
 - CPU frame、script、physics、render extraction、GPU、Present 指标；
 - 记录 draw call、sprite、particle、resource upload 数；
-- 完成 Python embedding、Shader toolchain、Metal/D3D12/OpenGL window/context Spike；
+- 完成 Python embedding、跨平台 Shader toolchain、Phase 1 OpenGL 实现审计和 Direct3D 12/Metal window/context Spike；
 - 为关键技术决策建立 ADR。
 
 退出条件：
@@ -435,7 +446,7 @@ Python 生命周期和 Box2D 首版保持主线程串行。任何并行化都必
 
 退出条件：
 
-- Null Backend 可以验证 Default 场景生成的 pass 和 draw command；
+- Null Backend 可以验证 Default 2D 场景和 Phase 1 Pocket3D 验收场景生成的 pass 与 draw command；
 - 资源 use-after-free、错误 generation 和非法 pass 顺序能被测试发现。
 
 ### M3：Python Runtime MVP
@@ -453,9 +464,9 @@ Python 生命周期和 Box2D 首版保持主线程串行。任何并行化都必
 - Python 异常不导致引擎退出；
 - 热重载策略已明确并覆盖失败回滚。
 
-### M4：首个真实图形后端
+### M4：首个 RHI 真实后端
 
-默认在当前主开发平台先实现 Metal，同时允许团队根据可用 CI/硬件调整为 OpenGL。首个后端用于验证 RHI，不定义平台特例进入上层。
+优先把 Phase 1 已验证的 OpenGL 实现收敛到 RHI contract 之下。允许重用已经验证的资源创建、draw、离屏目标和编辑器集成行为，但不得按照 OpenGL 全局状态机塑造公共 RHI，也不得把 Phase 1 的平台类型直接提升为公共接口。这个首个后端用于验证 RHI 数据边界；显式资源与命令语义仍以未来 Metal/Direct3D 12 的共同需求为准。
 
 交付：
 
@@ -466,7 +477,7 @@ Python 生命周期和 Box2D 首版保持主线程串行。任何并行化都必
 
 退出条件：
 
-- Default 场景画面与基线等价；
+- Default 2D 场景和 Phase 1 Pocket3D 验收场景画面与各自基线等价；
 - resize、HiDPI、暂停/编辑/播放模式正确；
 - 无持续增长的 GPU 资源。
 
@@ -485,14 +496,15 @@ Python 生命周期和 Box2D 首版保持主线程串行。任何并行化都必
 - 新项目只生成 Python 模板；
 - 编辑器 Inspector 正确显示 Python 暴露属性。
 
-### M6：其余平台后端
+### M6：原生平台后端
 
 交付顺序建议：
 
-1. Linux OpenGL；
-2. Windows D3D12。
+1. Windows Direct3D 12；
+2. macOS Metal；
+3. Linux 继续使用已收敛到 RHI 的 OpenGL。
 
-如果 Windows 是主要发布平台，可在 RHI Contract 稳定后与 OpenGL 并行开发。
+OpenGL 已在 M4 进入 RHI。Direct3D 12 与 Metal 只有在相同 conformance suite 和 Shader binding contract 固定后才能并行开发；Windows/macOS 原生后端通过验收前，Phase 1 OpenGL 路径仍是行为对照基线。
 
 退出条件：
 
@@ -667,9 +679,9 @@ tests/
 
 `lua_compat/` 只存在于迁移期。
 
-## 13. 首个实施切片
+## 13. 长期改革的首个实施切片
 
-第一批代码不应直接引入 Metal、D3D12、OpenGL 或 CPython。建议先完成两个可独立合并的基础切片：
+本节从 Phase 1 验收完成后开始。长期改革的第一批代码不应同时引入 Metal、Direct3D 12 或 CPython；Phase 1 已有的 OpenGL 路径继续作为行为基线。建议先完成两个可独立合并的基础切片：
 
 两个切片共享一个很小的前置提交：新增稳定的 `ComponentHandle` 和 native component query，并将 `SpriteRenderer`、Engine 热更新及后续 Render Extractor 从 `LuaRef` 查询迁出。
 
@@ -685,6 +697,6 @@ tests/
 - 把现有 `ImageDrawRequest` 演化为不可变 `SpriteCommand`；
 - 建立 Runtime、Scene、Editor 三类 pass；
 - Null Backend 记录命令并验证引用；
-- 保持 SDL Renderer 作为临时执行适配器。
+- 保持 Phase 1 的 OpenGL 路径作为工作行为基线，先用 Null Backend 固定 contract；现有 SDL Renderer 只为 2D 回归保留到等价迁移完成。
 
-完成这两个切片后，Python Runtime 和首个真实 GPU 后端可以并行开发，且不会互相修改核心数据边界。
+完成这两个切片后，Python Runtime 与 OpenGL 的 RHI 收敛可以并行开发；Direct3D 12/Metal 在 contract 固定后进入，不需要修改核心场景和 extraction 边界。

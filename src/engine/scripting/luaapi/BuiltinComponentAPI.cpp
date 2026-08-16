@@ -2,7 +2,10 @@
 #include "particles/ParticleSystem.h"
 #include "physics/Rigidbody.h"
 #include "rendering/SpriteRenderer.h"
+#include "rendering/MeshRenderer.h"
 #include "scene/Transform.h"
+#include "scene/Transform3D.h"
+#include "scene/Camera3D.h"
 #include "lua.hpp"
 #include "LuaBridge/LuaBridge.h"
 
@@ -146,12 +149,67 @@ void InjectSpriteRendererAPI() {
         .endClass();
 }
 
+void InjectTransform3DAPI() {
+    luabridge::getGlobalNamespace(g_lua_state)
+        .beginClass<Transform3D>("Transform3D")
+        .addConstructor<void (*)()>()
+        .addProperty("actor", &Transform3D::actor)
+        .addProperty("key", &Transform3D::key)
+        .addProperty("enabled", &Transform3D::enabled)
+        .addProperty("position_x", &Transform3D::position_x)
+        .addProperty("position_y", &Transform3D::position_y)
+        .addProperty("position_z", &Transform3D::position_z)
+        .addProperty("rotation_x", &Transform3D::rotation_x)
+        .addProperty("rotation_y", &Transform3D::rotation_y)
+        .addProperty("rotation_z", &Transform3D::rotation_z)
+        .addProperty("rotation_w", &Transform3D::rotation_w)
+        .addProperty("scale_x", &Transform3D::scale_x)
+        .addProperty("scale_y", &Transform3D::scale_y)
+        .addProperty("scale_z", &Transform3D::scale_z)
+        .addFunction("NormalizeRotation", &Transform3D::NormalizeRotation)
+        .endClass();
+}
+
+void InjectCamera3DAPI() {
+    luabridge::getGlobalNamespace(g_lua_state)
+        .beginClass<Camera3D>("Camera3D")
+        .addConstructor<void (*)()>()
+        .addProperty("actor", &Camera3D::actor)
+        .addProperty("key", &Camera3D::key)
+        .addProperty("enabled", &Camera3D::enabled)
+        .addProperty("primary", &Camera3D::primary)
+        .addProperty("orthographic", &Camera3D::orthographic)
+        .addProperty("vertical_fov_degrees", &Camera3D::vertical_fov_degrees)
+        .addProperty("near_clip", &Camera3D::near_clip)
+        .addProperty("far_clip", &Camera3D::far_clip)
+        .addProperty("orthographic_height", &Camera3D::orthographic_height)
+        .endClass();
+}
+
+void InjectMeshRendererAPI() {
+    luabridge::getGlobalNamespace(g_lua_state)
+        .beginClass<MeshRenderer>("MeshRenderer")
+        .addConstructor<void (*)()>()
+        .addProperty("actor", &MeshRenderer::actor)
+        .addProperty("key", &MeshRenderer::key)
+        .addProperty("enabled", &MeshRenderer::enabled)
+        .addProperty("mesh", &MeshRenderer::mesh)
+        .addProperty("color_r", &MeshRenderer::color_r)
+        .addProperty("color_g", &MeshRenderer::color_g)
+        .addProperty("color_b", &MeshRenderer::color_b)
+        .addProperty("color_a", &MeshRenderer::color_a)
+        .endClass();
+}
+
 } // namespace
 
 namespace APIRegistrationDetail {
 
 void RegisterBuiltinComponentAPI() {
     InjectTransformAPI();
+    InjectTransform3DAPI();
+    InjectCamera3DAPI();
+    InjectMeshRendererAPI();
     InjectSpriteRendererAPI();
     InjectRigidbodyAPI();
     InjectParticleSystemAPI();

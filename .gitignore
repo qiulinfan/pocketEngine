@@ -28,6 +28,9 @@ osx_build_derived_data
 **.dSYM
 # **.png
 **.PNG
+!tests/evidence/**/*.png
+tests/evidence/**/*.ppm
+tests/evidence/pocket3d-opengl/wsl-window.png
 **.jpeg
 **.JPEG
 # **.jpg
@@ -504,6 +507,8 @@ resources/.pocketengine/
 /Projects/*
 !/Projects/Default/
 !/Projects/Default/**
+!/Projects/Pocket3D/
+!/Projects/Pocket3D/**
 /Projects/Default/.pocketengine/
 /Projects/Default/**/*.meta
 /Projects/Default/**/*.mp3

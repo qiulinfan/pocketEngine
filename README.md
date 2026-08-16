@@ -106,8 +106,10 @@ AI-native editor development documents:
 - [Implementation Spec](docs/development/ai-native-editor-spec.md)
 - [Devlog](docs/development/ai-native-editor-devlog.md)
 
-Pocket3D architecture reform:
-- [Development Plan](docs/development/pocket3d-development-plan.md)
+Pocket3D development documents:
+- [Phase 1: Cross-platform OpenGL 3D Rendering](docs/development/pocket3d-phase-1-cross-platform-opengl.md)
+- [Phase 1 Test Spec](docs/development/pocket3d-phase-1-test-spec.md)
+- [Long-term Architecture Roadmap](docs/development/pocket3d-development-plan.md)
 
 ### Read-only AI Assistant (Phase 1)
 

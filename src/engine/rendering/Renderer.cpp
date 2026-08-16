@@ -1,6 +1,8 @@
 #include "rendering/Renderer.h"
 #include "core/Engine.h"
 #include "rendering/SDLRenderHelper.h"
+#include "rendering/OpenGLRenderer3D.h"
+#include "rendering/Render3D.h"
 #include "scripting/ComponentManager.h"
 #include "shared/resources/ResourcePath.h"
 #include "particles/ParticleManager.h"
@@ -713,6 +715,48 @@ void Engine::render() {
     // loop so runtime-only and editor-driven execution share one path.
     // 现在: render 只填充 backbuffer, PresentFrame 负责交换前后缓冲. 
     // 这样 runtime-only 和 editor-driven 执行就共用一套渲染流程了.
+    if (config_.rendering_mode == RenderingMode::ThreeD) {
+        if (window == nullptr || opengl_renderer_3d_ == nullptr) return;
+        int output_width = std::max(1, config_.window_width);
+        int output_height = std::max(1, config_.window_height);
+        SDL_GL_GetDrawableSize(window, &output_width, &output_height);
+        output_width = std::max(1, output_width);
+        output_height = std::max(1, output_height);
+
+        RenderFrame3D frame;
+        std::string render_error;
+        if (!ExtractRenderFrame3D(actors, output_width, output_height, frame,
+                                  &render_error) ||
+            !opengl_renderer_3d_->Render(
+                frame, output_width, output_height,
+                static_cast<float>(config_.clear_color_r) / 255.0f,
+                static_cast<float>(config_.clear_color_g) / 255.0f,
+                static_cast<float>(config_.clear_color_b) / 255.0f,
+                &render_error)) {
+            if (!opengl_render_error_logged_) {
+                std::cout << "error: " << render_error << std::endl;
+                opengl_render_error_logged_ = true;
+            }
+            return;
+        }
+
+        const char *capture_path = std::getenv("POCKET3D_CAPTURE_PATH");
+        if (!opengl_capture_written_ && capture_path != nullptr &&
+            capture_path[0] != '\0') {
+            if (opengl_renderer_3d_->CaptureBackbufferPPM(
+                    std::filesystem::path(capture_path), output_width,
+                    output_height, &render_error)) {
+                std::cout << "pocket3d_capture=" << capture_path << std::endl;
+                opengl_capture_written_ = true;
+            } else {
+                std::cout << "error: " << render_error << std::endl;
+            }
+        }
+        RecordRuntimeRenderFrame();
+        return;
+    }
+
+    if (renderer == nullptr) return;
     if (render_runtime_to_texture_) {
         ensureRuntimeRenderTarget();
         SDL_SetRenderTarget(renderer, runtime_render_target_);

@@ -1,0 +1,129 @@
+{
+  "actors": [
+    {
+      "uid": 1,
+      "name": "Main Camera",
+      "components": {
+        "camera": {
+          "type": "Camera3D",
+          "primary": true,
+          "vertical_fov_degrees": 55.0,
+          "near_clip": 0.1,
+          "far_clip": 100.0
+        },
+        "transform": {
+          "type": "Transform3D",
+          "position_x": 0.0,
+          "position_y": 1.6,
+          "position_z": 7.0,
+          "rotation_x": -0.0871557,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.9961947
+        }
+      }
+    },
+    {
+      "uid": 2,
+      "name": "Hierarchy Root",
+      "components": {
+        "mesh": {
+          "type": "MeshRenderer",
+          "mesh": "builtin:cube",
+          "color_r": 0.15,
+          "color_g": 0.55,
+          "color_b": 1.0,
+          "color_a": 1.0
+        },
+        "transform": {
+          "type": "Transform3D",
+          "position_x": 0.0,
+          "position_y": 0.0,
+          "position_z": 0.0,
+          "rotation_x": 0.0,
+          "rotation_y": 0.2164396,
+          "rotation_z": 0.0,
+          "rotation_w": 0.9762960,
+          "scale_x": 2.2,
+          "scale_y": 0.55,
+          "scale_z": 0.7
+        }
+      }
+    },
+    {
+      "uid": 3,
+      "parent_uid": 2,
+      "name": "Hierarchy Child",
+      "components": {
+        "mesh": {
+          "type": "MeshRenderer",
+          "color_r": 1.0,
+          "color_g": 0.28,
+          "color_b": 0.18,
+          "color_a": 1.0
+        },
+        "transform": {
+          "type": "Transform3D",
+          "position_x": 0.62,
+          "position_y": 1.55,
+          "position_z": 0.0,
+          "rotation_x": 0.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.1305262,
+          "rotation_w": 0.9914449,
+          "scale_x": 0.42,
+          "scale_y": 1.35,
+          "scale_z": 0.85
+        }
+      }
+    },
+    {
+      "uid": 4,
+      "name": "Depth Cube",
+      "components": {
+        "mesh": {
+          "type": "MeshRenderer",
+          "color_r": 0.24,
+          "color_g": 0.9,
+          "color_b": 0.48,
+          "color_a": 1.0
+        },
+        "transform": {
+          "type": "Transform3D",
+          "position_x": -1.75,
+          "position_y": 0.1,
+          "position_z": -1.3,
+          "rotation_x": 0.1677313,
+          "rotation_y": -0.2548870,
+          "rotation_z": 0.0449435,
+          "rotation_w": 0.9512512,
+          "scale_x": 1.0,
+          "scale_y": 1.0,
+          "scale_z": 1.0
+        }
+      }
+    },
+    {
+      "uid": 5,
+      "name": "Ground",
+      "components": {
+        "mesh": {
+          "type": "MeshRenderer",
+          "color_r": 0.36,
+          "color_g": 0.39,
+          "color_b": 0.48,
+          "color_a": 1.0
+        },
+        "transform": {
+          "type": "Transform3D",
+          "position_x": 0.0,
+          "position_y": -0.9,
+          "position_z": 0.0,
+          "scale_x": 6.0,
+          "scale_y": 0.18,
+          "scale_z": 6.0
+        }
+      }
+    }
+  ]
+}

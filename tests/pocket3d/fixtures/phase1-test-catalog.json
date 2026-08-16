@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "phase": "Pocket3D Phase 1",
+  "spec_version": "2.0",
+  "graphics_api": "OpenGL 4.1 Core",
+  "threading": "main-thread",
+  "script_runtime": "Lua",
+  "physics_3d": "none",
+  "coordinate_contract": {
+    "handedness": "right",
+    "up_axis": "+Y",
+    "forward_axis": "-Z",
+    "front_face": "counter-clockwise",
+    "ndc_depth": "zero-to-one",
+    "matrix_layout": "column-major",
+    "transform_order": "projection * view * world * position",
+    "uv_origin": "top-left"
+  },
+  "cases": [
+    {"id":"P1-SPEC-001","milestone":"P1.0","area":"spec","level":"unit","environment":"portable","execution":"active","runner":"pocket3d_phase1_spec","requirement":"主规格、测试规格、catalog 和稳定 case ID 一致。","oracle":"固定架构值、case metadata 与 Markdown 反向引用全部有效。"},
+    {"id":"P1-MATH-001","milestone":"P1.0","area":"math","level":"unit","environment":"portable","execution":"active","runner":"pocket3d_phase1_math_spec","requirement":"世界坐标是右手系，正 Y 旋转遵循右手定则。","oracle":"cross(+X,+Y)=+Z；+90 度绕 Y 将 +X 映射到 -Z。"},
+    {"id":"P1-MATH-002","milestone":"P1.0","area":"math","level":"unit","environment":"portable","execution":"active","runner":"pocket3d_phase1_math_spec","requirement":"local 使用 T*R*S，child world 使用 parent*local。","oracle":"固定父子 TRS 的 child world point 与 golden 相等。"},
+    {"id":"P1-MATH-003","milestone":"P1.0","area":"math","level":"unit","environment":"portable","execution":"active","runner":"pocket3d_phase1_math_spec","requirement":"CPU 透视投影是 right-handed zero-to-one。","oracle":"near/far 分别映射到 NDC z=0/1。"},
+    {"id":"P1-MATH-004","milestone":"P1.0","area":"math","level":"unit","environment":"portable","execution":"active","runner":"pocket3d_phase1_math_spec","requirement":"默认 Camera 中心 ray 指向 -Z。","oracle":"反投影中心 near/far 后方向为 (0,0,-1)。"},
+    {"id":"P1-MATH-005","milestone":"P1.0","area":"math","level":"unit","environment":"portable","execution":"active","runner":"pocket3d_phase1_math_spec","requirement":"Rasterizer front face 固定为 CCW。","oracle":"面向默认 Camera 的三角形投影 signed area 为正。"},
+
+    {"id":"P1-CFG-001","milestone":"P1.0","area":"config","level":"unit","environment":"portable","execution":"active","runner":"pocket3d_rendering_mode_contract","requirement":"旧 rendering.config 缺少 rendering_mode 时保持 2D。","oracle":"Projects/Default 解析为 RenderingMode::TwoD。"},
+    {"id":"P1-CFG-002","milestone":"P1.0","area":"config","level":"unit","environment":"portable","execution":"active","runner":"pocket3d_rendering_mode_contract","requirement":"rendering_mode 只接受 2d 或 3d。","oracle":"2d/3d 显式解析，未知值被拒绝。"},
+    {"id":"P1-CFG-003","milestone":"P1.0","area":"config","level":"integration","environment":"portable","execution":"active","runner":"pocket3d_rendering_mode_contract","requirement":"3d 在 Windows、macOS、Linux 统一选择 OpenGL host。","oracle":"Projects/Pocket3D 解析为 ThreeD 且保留 vsync。"},
+    {"id":"P1-CFG-004","milestone":"P1.0","area":"config","level":"integration","environment":"editor-linux","execution":"planned","runner":"pocket3d_rendering_mode_contract","requirement":"活动项目不热切换 rendering_mode。","oracle":"配置修改要求重开项目，不替换活动 graphics owner。"},
+
+    {"id":"P1-HOST-001","milestone":"P1.1","area":"host","level":"graphics","environment":"linux-software","execution":"active","runner":"pocket3d_opengl_smoke","requirement":"3D 模式创建 OpenGL Core context 并且不依赖 SDL_Renderer。","oracle":"SDL hidden GL window、4.1+ context 和 private function loader 初始化成功。"},
+    {"id":"P1-HOST-002","milestone":"P1.1","area":"host","level":"integration","environment":"portable","execution":"planned","runner":"pocket3d_opengl_host_contract","requirement":"Runtime、Scene、ImGui 和 Swap 使用同一 context。","oracle":"一个 window 只有一个 GL graphics owner，每帧一次 SDL_GL_SwapWindow。"},
+    {"id":"P1-HOST-003","milestone":"P1.1","area":"host","level":"integration","environment":"linux-software","execution":"planned","runner":"pocket3d_opengl_host_contract","requirement":"每个初始化失败点清理已建资源并返回稳定诊断。","oracle":"fault injection 后 context/program/buffer/VAO 全部归零。"},
+    {"id":"P1-HOST-004","milestone":"P1.1","area":"host","level":"graphics","environment":"linux-software","execution":"planned","runner":"pocket3d_opengl_host_contract","requirement":"resize、minimize、restore 同步 drawable viewport。","oracle":"零尺寸不 draw，恢复后 drawable size 与 viewport 一致。"},
+    {"id":"P1-HOST-005","milestone":"P1.1","area":"host","level":"integration","environment":"linux-software","execution":"planned","runner":"pocket3d_opengl_host_contract","requirement":"host 支持重复 initialize/shutdown。","oracle":"循环执行无崩溃、double delete 或资源增长。"},
+    {"id":"P1-HOST-006","milestone":"P1.1","area":"host","level":"graphics","environment":"linux-software","execution":"planned","runner":"pocket3d_opengl_host_contract","requirement":"Debug 构建收集 OpenGL debug callback。","oracle":"验收操作无 HIGH severity 消息，allowlist 明确。"},
+
+    {"id":"P1-TRS-001","milestone":"P1.2","area":"transform","level":"unit","environment":"portable","execution":"active","runner":"pocket3d_component_contract","requirement":"Transform3D 默认 identity，quaternion 可规范化。","oracle":"position=0、rotation identity、scale=1 且 normalized length=1。"},
+    {"id":"P1-TRS-002","milestone":"P1.2","area":"transform","level":"unit","environment":"portable","execution":"active","runner":"pocket3d_component_contract","requirement":"Transform3D 层级符合 P1-MATH-002。","oracle":"parent*local 的固定 world point 在 1e-4 内相等。"},
+    {"id":"P1-TRS-003","milestone":"P1.2","area":"transform","level":"unit","environment":"portable","execution":"planned","runner":"pocket3d_component_contract","requirement":"3D reparent 默认保持 world transform。","oracle":"成功分解时 world 不变，失败时 mutation 原子拒绝。"},
+    {"id":"P1-TRS-004","milestone":"P1.2","area":"transform","level":"integration","environment":"portable","execution":"active","runner":"pocket3d_component_contract","requirement":"Actor 不得同时有 2D/3D Transform 或跨维 parenting。","oracle":"提取返回稳定 transform3d 错误且不产生 draw。"},
+    {"id":"P1-PROP-001","milestone":"P1.2","area":"scene-format","level":"unit","environment":"portable","execution":"planned","runner":"pocket3d_scene3d_format_contract","requirement":"Vec3、Quaternion、Color、AssetReference typed value 无损 round-trip。","oracle":"tag、分量和 project-relative identity 完全相等。"},
+    {"id":"P1-PROP-002","milestone":"P1.2","area":"scene-format","level":"integration","environment":"portable","execution":"planned","runner":"pocket3d_scene3d_format_contract","requirement":"Mutation、runtime mirror 与 bridge 保留 typed value。","oracle":"命令前后 type/value 完全一致。"},
+    {"id":"P1-CAM-001","milestone":"P1.2","area":"camera","level":"unit","environment":"portable","execution":"active","runner":"pocket3d_component_contract","requirement":"Camera3D projection 遵循坐标契约并验证参数。","oracle":"near/far 为 0/1，非法 aspect/FOV/clip 被拒绝。"},
+    {"id":"P1-CAM-002","milestone":"P1.2","area":"camera","level":"integration","environment":"portable","execution":"active","runner":"pocket3d_component_contract","requirement":"primary Camera 选择与错误稳定。","oracle":"唯一 primary 按 scene order 选择，零个/多个返回诊断。"},
+
+    {"id":"P1-EXT-001","milestone":"P1.3","area":"extraction","level":"unit","environment":"portable","execution":"active","runner":"pocket3d_component_contract","requirement":"MeshDrawCommand3D 是 pointer-free value snapshot 且稳定排序。","oracle":"命令只含 UID/key/asset/value，顺序为 actor order 后 component key。"},
+    {"id":"P1-EXT-002","milestone":"P1.3","area":"extraction","level":"integration","environment":"portable","execution":"planned","runner":"pocket3d_render3d_extraction_contract","requirement":"Runtime 与 Scene Camera state 相互独立。","oracle":"改变 editor Camera 不改变 Runtime RenderView3D。"},
+    {"id":"P1-DRAW-001","milestone":"P1.3","area":"rendering","level":"graphics","environment":"linux-software","execution":"active","runner":"pocket3d_opengl_smoke","requirement":"内建 Cube 使用 indexed draw 和 depth test/write。","oracle":"双 Cube readback 有可见几何且近物遮挡远物。"},
+    {"id":"P1-DRAW-002","milestone":"P1.3","area":"rendering","level":"integration","environment":"portable","execution":"active","runner":"pocket3d_component_contract","requirement":"parent rotation/scale 进入 child draw world matrix。","oracle":"固定 hierarchy 的 child translation 与 golden 相等。"},
+    {"id":"P1-DRAW-003","milestone":"P1.3","area":"rendering","level":"graphics","environment":"linux-software","execution":"planned","runner":"pocket3d_opengl_draw_contract","requirement":"缺失 Mesh 使用可识别 placeholder 且 warning 去重。","oracle":"placeholder 可见，warning key 不逐帧增长。"},
+    {"id":"P1-DRAW-004","milestone":"P1.3","area":"rendering","level":"integration","environment":"linux-software","execution":"planned","runner":"pocket3d_opengl_draw_contract","requirement":"resize 同步 color/depth viewport。","oracle":"新 drawable size 用于 viewport、projection 与 readback。"},
+    {"id":"P1-SHADER-001","milestone":"P1.3","area":"shader","level":"graphics","environment":"linux-software","execution":"active","runner":"pocket3d_opengl_smoke","requirement":"GLSL 410 Core 编译链接并固定 attribute/uniform contract。","oracle":"program 建立成功且 required uniforms 均可定位。"},
+    {"id":"P1-RES-001","milestone":"P1.3","area":"resources","level":"unit","environment":"portable","execution":"planned","runner":"pocket3d_opengl_resource_contract","requirement":"资源 handle 使用 slot+generation。","oracle":"stale handle 被拒绝，slot 复用递增 generation。"},
+
+    {"id":"P1-EDIT-001","milestone":"P1.4","area":"editor","level":"unit","environment":"portable","execution":"planned","runner":"pocket3d_editor3d_contract","requirement":"CPU ray/AABB 选择最近命中并稳定处理等距。","oracle":"最近 distance 胜出，等距按 Actor UID。"},
+    {"id":"P1-EDIT-002","milestone":"P1.4","area":"editor","level":"integration","environment":"editor-linux","execution":"planned","runner":"pocket3d_editor3d_contract","requirement":"TRS gizmo 只通过 SceneEditCommand 写入。","oracle":"一次 drag 形成一个命令边界。"},
+    {"id":"P1-EDIT-003","milestone":"P1.4","area":"editor","level":"integration","environment":"editor-linux","execution":"planned","runner":"pocket3d_editor3d_contract","requirement":"gizmo world/local 与 keep-world reparent 正确。","oracle":"固定操作后的 local/world TRS 与 golden mutation 一致。"},
+    {"id":"P1-EDIT-004","milestone":"P1.4","area":"editor","level":"integration","environment":"editor-linux","execution":"planned","runner":"pocket3d_editor3d_contract","requirement":"3D Scene 保存重开后数据与画面一致。","oracle":"properties/UID/parent 相等且截图在容差内。"},
+    {"id":"P1-EDIT-005","milestone":"P1.4","area":"editor","level":"integration","environment":"editor-linux","execution":"planned","runner":"pocket3d_editor3d_contract","requirement":"Play/Stop 不污染 authoring document。","oracle":"Stop 后 authoring snapshot 与 Play 前相同。"},
+    {"id":"P1-EDIT-006","milestone":"P1.4","area":"editor","level":"integration","environment":"editor-linux","execution":"planned","runner":"pocket3d_editor3d_contract","requirement":"Scene Camera 属于 editor private state。","oracle":"orbit/pan/dolly 不产生 scene mutation。"},
+    {"id":"P1-EDIT-007","milestone":"P1.4","area":"editor","level":"integration","environment":"editor-linux","execution":"planned","runner":"pocket3d_editor3d_contract","requirement":"选择与 gizmo 始终使用稳定 Actor UID。","oracle":"reorder/duplicate/play mirror 后 identity 不漂移。"},
+
+    {"id":"P1-GFX-001","milestone":"P1.5","area":"graphics-validation","level":"graphics","environment":"linux-software","execution":"active","runner":"pocket3d_opengl_smoke","requirement":"Linux software OpenGL 执行固定离屏 readback。","oracle":"Mesa/llvmpipe 上 PPM header、byte count 与可见像素区域有效。"},
+    {"id":"P1-GFX-002","milestone":"P1.5","area":"graphics-validation","level":"graphics","environment":"windows-opengl","execution":"planned","runner":"pocket3d_phase1_graphics_acceptance","requirement":"Windows OpenGL hierarchy screenshot 稳定。","oracle":"深度、父子 TRS、透视和 clear color 在容差内。"},
+    {"id":"P1-GFX-003","milestone":"P1.5","area":"graphics-validation","level":"graphics","environment":"macos-opengl","execution":"planned","runner":"pocket3d_phase1_graphics_acceptance","requirement":"macOS OpenGL 4.1 hierarchy screenshot 稳定。","oracle":"Intel/Apple Silicon 的相同 fixture 满足预定义容差。"},
+    {"id":"P1-LIFE-001","milestone":"P1.5","area":"lifetime","level":"integration","environment":"linux-software","execution":"planned","runner":"pocket3d_phase1_lifetime_contract","requirement":"scene reload、resize、project reopen 不持续增长资源。","oracle":"预热后的 GL object counts 回到稳定上限。"},
+    {"id":"P1-COMPAT-001","milestone":"P1.5","area":"compatibility","level":"integration","environment":"editor-linux","execution":"planned","runner":"pocket3d_phase1_compatibility","requirement":"Projects/Default 继续使用现有 2D path。","oracle":"ballgame 加载、Play 与画面基线不变。"},
+    {"id":"P1-COMPAT-002","milestone":"P1.5","area":"compatibility","level":"integration","environment":"editor-linux","execution":"planned","runner":"pocket3d_phase1_compatibility","requirement":"2D/3D 项目切换只留下一个 graphics owner。","oracle":"旧 renderer/context 完整销毁后才创建新 host。"},
+    {"id":"P1-ACCEPT-001","milestone":"P1.5","area":"acceptance","level":"manual","environment":"editor-linux","execution":"manual","runner":"manual-phase1-acceptance","requirement":"用户完成跨平台 Phase 1 3D 创作闭环。","oracle":"三端创建/选择/TRS/保存重开/Play/resize/退出均有证据。"}
+  ]
+}

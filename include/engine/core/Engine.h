@@ -18,6 +18,7 @@ struct SDL_Window;
 struct SDL_Renderer;
 struct SDL_Texture;
 union SDL_Event;
+class OpenGLRenderer3D;
 
 class Engine
 {
@@ -26,6 +27,12 @@ private:
 
     SDL_Window *window = nullptr;
     SDL_Renderer *renderer = nullptr;
+    void *gl_context_ = nullptr;
+    OpenGLRenderer3D *opengl_renderer_3d_ = nullptr;
+    bool opengl_capture_written_ = false;
+    bool opengl_render_error_logged_ = false;
+    int test_frame_limit_ = 0;
+    int rendered_test_frames_ = 0;
 
     // runtime actor container for the current scene
     std::deque<Actor> actors;

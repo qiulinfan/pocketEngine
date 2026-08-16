@@ -2,8 +2,12 @@ target_sources(
     engine_runtime
     PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/Actor.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Camera3D.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/Scene.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Transform3D.cpp"
         "${PROJECT_SOURCE_DIR}/include/engine/scene/Actor.h"
+        "${PROJECT_SOURCE_DIR}/include/engine/scene/Camera3D.h"
         "${PROJECT_SOURCE_DIR}/include/engine/scene/Scene.h"
         "${PROJECT_SOURCE_DIR}/include/engine/scene/Transform.h"
+        "${PROJECT_SOURCE_DIR}/include/engine/scene/Transform3D.h"
 )

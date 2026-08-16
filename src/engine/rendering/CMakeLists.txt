@@ -2,7 +2,13 @@ target_sources(
     engine_runtime
     PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/Renderer.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/MeshRenderer.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/OpenGLRenderer3D.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Render3D.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/SpriteRenderer.cpp"
+        "${PROJECT_SOURCE_DIR}/include/engine/rendering/MeshRenderer.h"
+        "${PROJECT_SOURCE_DIR}/include/engine/rendering/OpenGLRenderer3D.h"
+        "${PROJECT_SOURCE_DIR}/include/engine/rendering/Render3D.h"
         "${PROJECT_SOURCE_DIR}/include/engine/rendering/Renderer.h"
         "${PROJECT_SOURCE_DIR}/include/engine/rendering/SpriteRenderer.h"
 )

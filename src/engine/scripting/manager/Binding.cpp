@@ -1,10 +1,13 @@
 #include "Internal.h"
 #include "core/Engine.h"
 #include "rendering/SpriteRenderer.h"
+#include "rendering/MeshRenderer.h"
 #include "scripting/ComponentManager.h"
 #include "particles/ParticleSystem.h"
 #include "physics/Rigidbody.h"
 #include "scene/Transform.h"
+#include "scene/Transform3D.h"
+#include "scene/Camera3D.h"
 #include "scene/Scene.h"
 #include "../luaapi/RegistrationDetail.h"
 #include "shared/scene_format/SceneFormat.h"
@@ -264,6 +267,12 @@ void ComponentManager::InstantiateComponentForActor(
             instance_table = luabridge::LuaRef(g_runtime.lua_state, Transform());
         } else if (component_spec.type == "SpriteRenderer") {
             instance_table = luabridge::LuaRef(g_runtime.lua_state, SpriteRenderer());
+        } else if (component_spec.type == "Transform3D") {
+            instance_table = luabridge::LuaRef(g_runtime.lua_state, Transform3D());
+        } else if (component_spec.type == "Camera3D") {
+            instance_table = luabridge::LuaRef(g_runtime.lua_state, Camera3D());
+        } else if (component_spec.type == "MeshRenderer") {
+            instance_table = luabridge::LuaRef(g_runtime.lua_state, MeshRenderer());
         }
     } else {
         auto type_it = g_runtime.component_type_tables.find(component_spec.type);

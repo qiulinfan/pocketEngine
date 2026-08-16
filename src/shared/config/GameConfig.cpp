@@ -5,6 +5,7 @@
 #include "rapidjson/prettywriter.h"
 #include "rapidjson/stringbuffer.h"
 #include <cstdio>
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -199,6 +200,19 @@ GameConfigData GameConfig::Read() {
             const float zoom = rendering_config["zoom_factor"].GetFloat();
             if (zoom > 0.0f) config.zoom_factor = zoom;
         }
+        if (rendering_config.HasMember("rendering_mode")) {
+            if (!rendering_config["rendering_mode"].IsString() ||
+                !TryParseRenderingMode(
+                    rendering_config["rendering_mode"].GetString(),
+                    config.rendering_mode)) {
+                config.valid = false;
+                config.error_code = "config.invalid_rendering_mode";
+            }
+        }
+        if (rendering_config.HasMember("vsync") &&
+            rendering_config["vsync"].IsBool()) {
+            config.vsync = rendering_config["vsync"].GetBool();
+        }
     }
 
     return config;
@@ -243,6 +257,15 @@ bool GameConfig::Write(const GameConfigData &config) {
                     std::max(0, std::min(255, config.clear_color_b)));
     UpsertFloatMember(rendering_config, "zoom_factor",
                       config.zoom_factor > 0.0f ? config.zoom_factor : 1.0f);
+    UpsertStringMember(rendering_config, "rendering_mode",
+                       RenderingModeName(config.rendering_mode));
+    if (rendering_config.HasMember("vsync")) {
+        rendering_config["vsync"].SetBool(config.vsync);
+    } else {
+        rapidjson::Value key("vsync", rendering_config.GetAllocator());
+        rendering_config.AddMember(key.Move(), config.vsync,
+                                   rendering_config.GetAllocator());
+    }
 
     if (!WriteJsonFile(game_config_path, game_config)) {
         std::cout << "error: unable to write [" << game_config_path << "]"
@@ -255,4 +278,21 @@ bool GameConfig::Write(const GameConfigData &config) {
         return false;
     }
     return true;
+}
+
+bool GameConfig::TryParseRenderingMode(const std::string &value,
+                                       RenderingMode &out_mode) {
+    if (value == "2d") {
+        out_mode = RenderingMode::TwoD;
+        return true;
+    }
+    if (value == "3d") {
+        out_mode = RenderingMode::ThreeD;
+        return true;
+    }
+    return false;
+}
+
+const char *GameConfig::RenderingModeName(RenderingMode mode) {
+    return mode == RenderingMode::ThreeD ? "3d" : "2d";
 }

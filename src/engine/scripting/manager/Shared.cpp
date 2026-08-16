@@ -1,9 +1,12 @@
 #include "Internal.h"
 #include "rendering/SpriteRenderer.h"
+#include "rendering/MeshRenderer.h"
 #include "particles/ParticleSystem.h"
 #include "scripting/ComponentManager.h"
 #include "scripting/EventBus.h"
 #include "scene/Transform.h"
+#include "scene/Transform3D.h"
+#include "scene/Camera3D.h"
 #include <algorithm>
 #include <cmath>
 #include <functional>
@@ -15,7 +18,9 @@ RuntimeState g_runtime;
 
 bool IsBuiltinComponentType(const std::string &type_name) {
     return type_name == "Rigidbody" || type_name == "ParticleSystem" ||
-           type_name == "Transform" || type_name == "SpriteRenderer";
+           type_name == "Transform" || type_name == "SpriteRenderer" ||
+           type_name == "Transform3D" || type_name == "Camera3D" ||
+           type_name == "MeshRenderer";
 }
 
 ComponentRecord *FindComponentRecord(Actor::UID actor_uid,

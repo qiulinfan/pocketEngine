@@ -4,6 +4,7 @@
 #include "scripting/ComponentManager.h"
 #include "particles/ParticleManager.h"
 #include "rendering/Renderer.h"
+#include "rendering/OpenGLRenderer3D.h"
 #include "rendering/SDLRenderHelper.h"
 #include "scene/Scene.h"
 #include "input/Input.h"
@@ -11,6 +12,7 @@
 #include "lua.hpp"
 #include "LuaBridge/LuaBridge.h"
 #include "SDL2_image/SDL_image.h"
+#include "SDL2/SDL.h"
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -29,11 +31,15 @@ properties change, because they do not use the generic Lua property patch path.
 */
 bool IsBuiltinRuntimeComponentType(const std::string &type_name) {
     return type_name == "Rigidbody" || type_name == "ParticleSystem" ||
-           type_name == "Transform" || type_name == "SpriteRenderer";
+           type_name == "Transform" || type_name == "SpriteRenderer" ||
+           type_name == "Transform3D" || type_name == "Camera3D" ||
+           type_name == "MeshRenderer";
 }
 
 bool CanBuiltinRuntimeComponentPatchInPlace(const std::string &type_name) {
-    return type_name == "Transform" || type_name == "SpriteRenderer";
+    return type_name == "Transform" || type_name == "SpriteRenderer" ||
+           type_name == "Transform3D" || type_name == "Camera3D" ||
+           type_name == "MeshRenderer";
 }
 
 bool ValidateRuntimeActorComponents(const std::vector<Actor> &runtime_actors,
@@ -365,7 +371,7 @@ Editor can call this without entering GameLoop()
 so the host can bootstrap runtime services on demand
 */
 void Engine::InitializeRuntime() {
-    if (window != nullptr || renderer != nullptr) return;
+    if (window != nullptr || renderer != nullptr || gl_context_ != nullptr) return;
     is_game_running = true;
     initialize();
 }
@@ -376,19 +382,30 @@ They need to be cleared once actors and components are destroyed.
 */
 void Engine::ShutdownRuntime() {
     
-    if (window == nullptr && renderer == nullptr) return;
+    if (window == nullptr && renderer == nullptr && gl_context_ == nullptr) return;
 
     destroyRuntimeRenderTarget();
     destroyScenePreviewRenderTarget();
     runtime_actor_by_uid_.clear();
     ComponentManager::Shutdown();
     ParticleManager::Clear();
-    Renderer::Shutdown();
+    if (opengl_renderer_3d_ != nullptr) {
+        opengl_renderer_3d_->Shutdown();
+        delete opengl_renderer_3d_;
+        opengl_renderer_3d_ = nullptr;
+    }
+    if (config_.rendering_mode == RenderingMode::TwoD) {
+        Renderer::Shutdown();
+    }
     AudioManager::Shutdown();
     IMG_Quit();
     if (renderer != nullptr) {
         SDL_DestroyRenderer(renderer);
         renderer = nullptr;
+    }
+    if (gl_context_ != nullptr) {
+        SDL_GL_DeleteContext(gl_context_);
+        gl_context_ = nullptr;
     }
     if (window != nullptr) {
         SDL_DestroyWindow(window);
@@ -424,6 +441,11 @@ void Engine::RunSingleFrame(bool quit_requested_this_frame) {
     render();
     RecordGameplayFrame();
     ::Input::LateUpdate();
+
+    ++rendered_test_frames_;
+    if (test_frame_limit_ > 0 && rendered_test_frames_ >= test_frame_limit_) {
+        is_game_running = false;
+    }
 
     /* Apply deferred quit after the frame finishes. */
     if (quit_requested_this_frame) {
@@ -469,7 +491,7 @@ frame, and only clear the editor host backbuffer so ImGui can compose over it.
 void Engine::RunPresentPausedFrame(bool quit_requested_this_frame) {
     if (!IsRunning()) return;
 
-    if (render_runtime_to_texture_) {
+    if (render_runtime_to_texture_ && renderer != nullptr) {
         SDL_SetRenderTarget(renderer, nullptr);
         SDL_RenderSetViewport(renderer, nullptr);
         clearEditorHostFrame();
@@ -496,8 +518,13 @@ void Engine::ProcessSDLEvent(const SDL_Event &event,
 
 /* Present the current backbuffer to the window once drawing is complete. */
 void Engine::PresentFrame(bool advance_gameplay_frame) {
-    if (renderer == nullptr) return;
-    SDLRenderHelper::SDL_RenderPresent(renderer, advance_gameplay_frame);
+    if (gl_context_ != nullptr && window != nullptr) {
+        SDL_GL_SwapWindow(window);
+    } else if (renderer != nullptr) {
+        SDLRenderHelper::SDL_RenderPresent(renderer, advance_gameplay_frame);
+    } else {
+        return;
+    }
     RefreshPerformanceCounters();
 }
 
@@ -806,11 +833,34 @@ void Engine::initialize() {
     SDL_SetHint(SDL_HINT_TIMER_RESOLUTION, "1");
     if (SDL_Init(SDL_INIT_VIDEO) != 0) exit(0);
 
-    /* Create the SDL renderer lazily on demand. */
+    if (!config_.valid) {
+        std::cout << "error: " << config_.error_code << std::endl;
+        is_game_running = false;
+        SDL_Quit();
+        return;
+    }
+
+    const bool use_opengl_3d =
+        config_.rendering_mode == RenderingMode::ThreeD;
+    Uint32 window_flags = SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI;
+    if (use_opengl_3d) {
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,
+                            SDL_GL_CONTEXT_PROFILE_CORE);
+        SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+        SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+        SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS,
+                            SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
+        window_flags |= SDL_WINDOW_OPENGL;
+    }
+
+    /* Create the selected graphics host lazily on demand. */
     window = SDLRenderHelper::SDL_CreateWindow(
         config_.game_title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         config_.window_width, config_.window_height,
-        SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI);
+        window_flags);
     if (window == nullptr) {
         SDL_Quit();
         exit(0);
@@ -818,24 +868,67 @@ void Engine::initialize() {
     SDL_RaiseWindow(window);
     SDL_SetWindowInputFocus(window);
 
-    renderer = CreateRendererWithPlatformFallback(window);
-    if (renderer == nullptr) {
-        SDL_DestroyWindow(window);
-        window = nullptr;
-        SDL_Quit();
-        exit(0);
+    if (use_opengl_3d) {
+        gl_context_ = SDL_GL_CreateContext(window);
+        if (gl_context_ == nullptr ||
+            SDL_GL_MakeCurrent(window, gl_context_) != 0) {
+            std::cout << "error: opengl.context_creation_failed: "
+                      << SDL_GetError() << std::endl;
+            SDL_DestroyWindow(window);
+            window = nullptr;
+            SDL_Quit();
+            is_game_running = false;
+            return;
+        }
+        SDL_GL_SetSwapInterval(config_.vsync ? 1 : 0);
+        opengl_renderer_3d_ = new OpenGLRenderer3D();
+        std::string opengl_error;
+        if (!opengl_renderer_3d_->Initialize(window, &opengl_error)) {
+            std::cout << "error: " << opengl_error << std::endl;
+            delete opengl_renderer_3d_;
+            opengl_renderer_3d_ = nullptr;
+            SDL_GL_DeleteContext(gl_context_);
+            gl_context_ = nullptr;
+            SDL_DestroyWindow(window);
+            window = nullptr;
+            SDL_Quit();
+            is_game_running = false;
+            return;
+        }
+        std::cout << "pocket3d_opengl="
+                  << opengl_renderer_3d_->VersionString() << std::endl;
+    } else {
+        renderer = CreateRendererWithPlatformFallback(window);
+        if (renderer == nullptr) {
+            SDL_DestroyWindow(window);
+            window = nullptr;
+            SDL_Quit();
+            is_game_running = false;
+            return;
+        }
     }
 
     if ((IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG) == 0) {
-        SDL_DestroyRenderer(renderer);
-        renderer = nullptr;
+        if (renderer != nullptr) {
+            SDL_DestroyRenderer(renderer);
+            renderer = nullptr;
+        }
+        if (opengl_renderer_3d_ != nullptr) {
+            opengl_renderer_3d_->Shutdown();
+            delete opengl_renderer_3d_;
+            opengl_renderer_3d_ = nullptr;
+        }
+        if (gl_context_ != nullptr) {
+            SDL_GL_DeleteContext(gl_context_);
+            gl_context_ = nullptr;
+        }
         SDL_DestroyWindow(window);
         window = nullptr;
         SDL_Quit();
         exit(0);
     }
 
-    Renderer::Init();
+    if (!use_opengl_3d) Renderer::Init();
     ::Input::Init();
 
     runtime_zoom_factor = (config_.zoom_factor > 0.0f)
@@ -843,7 +936,15 @@ void Engine::initialize() {
                                            kMaxZoomFactor)
                               : 1.0f;
 
-    clearFrame();
+    if (!use_opengl_3d) clearFrame();
+    const char *test_frames = std::getenv("POCKET3D_TEST_FRAMES");
+    if (test_frames != nullptr) {
+        const long parsed = std::strtol(test_frames, nullptr, 10);
+        if (parsed > 0 && parsed <= 100000) {
+            test_frame_limit_ = static_cast<int>(parsed);
+        }
+    }
+    rendered_test_frames_ = 0;
     ResetPerformanceCounters();
 }
 
