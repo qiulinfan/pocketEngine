@@ -509,6 +509,7 @@ resources/.pocketengine/
 !/Projects/Default/**
 !/Projects/Pocket3D/
 !/Projects/Pocket3D/**
+/Projects/Pocket3D/.pocketengine/
 /Projects/Default/.pocketengine/
 /Projects/Default/**/*.meta
 /Projects/Default/**/*.mp3
